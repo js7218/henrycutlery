@@ -1,0 +1,114 @@
+'use client';
+
+import Image from 'next/image';
+import Link from 'next/link';
+import { Heart, ShoppingCart, Sparkles, Tag } from 'lucide-react';
+import { Product } from '@/types';
+import { formatPrice, cn } from '@/lib/utils';
+import { useApp } from '@/context/AppContext';
+
+interface ProductCardProps {
+  product: Product;
+}
+
+export default function ProductCard({ product }: ProductCardProps) {
+  const { addToCart, state } = useApp();
+  const isFavorite = state.user?.favorites.includes(product.id) || false;
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addToCart(product);
+  };
+
+  return (
+    <Link href={`/product/${product.id}`} className="group block">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden card-hover">
+        {/* Image Container */}
+        <div className="relative aspect-square overflow-hidden bg-surfaceLight">
+          <Image
+            src={product.images[0]}
+            alt={product.name}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+          
+          {/* Badges */}
+          <div className="absolute top-3 left-3 flex flex-col space-y-2">
+            {product.isNew && (
+              <span className="flex items-center px-2 py-1 bg-gold text-background text-xs font-medium rounded">
+                <Sparkles className="w-3 h-3 mr-1" />
+                新品
+              </span>
+            )}
+            {product.originalPrice && (
+              <span className="flex items-center px-2 py-1 bg-red-500/90 text-white text-xs font-medium rounded">
+                <Tag className="w-3 h-3 mr-1" />
+                促销
+              </span>
+            )}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="absolute top-3 right-3 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              className="p-2 bg-background/80 backdrop-blur-sm rounded-full text-gray-400 hover:text-gold transition-colors"
+            >
+              <Heart className={cn("w-5 h-5", isFavorite && "fill-gold text-gold")} />
+            </button>
+          </div>
+
+          {/* Add to Cart Button */}
+          <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-background/90 to-transparent translate-y-full group-hover:translate-y-0 transition-transform">
+            <button
+              onClick={handleAddToCart}
+              className="w-full py-2 bg-gold text-background text-sm font-medium rounded flex items-center justify-center space-x-2 hover:bg-goldLight transition-colors"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span>加入购物车</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-4">
+          {/* Brand */}
+          <p className="text-xs text-steel uppercase tracking-wider mb-1">
+            {product.brand}
+          </p>
+          
+          {/* Name */}
+          <h3 className="text-foreground font-medium mb-2 line-clamp-1 group-hover:text-gold transition-colors">
+            {product.name}
+          </h3>
+
+          {/* Specs */}
+          <p className="text-xs text-gray-500 mb-3">
+            {product.specs.bladeLength} · {product.specs.bladeMaterial}
+          </p>
+
+          {/* Price */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline space-x-2">
+              <span className="text-lg font-semibold text-gold">
+                {formatPrice(product.price)}
+              </span>
+              {product.originalPrice && (
+                <span className="text-sm text-gray-500 line-through">
+                  {formatPrice(product.originalPrice)}
+                </span>
+              )}
+            </div>
+            {product.stock <= 5 && product.stock > 0 && (
+              <span className="text-xs text-orange-400">仅剩{product.stock}件</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}

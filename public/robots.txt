@@ -1,0 +1,21 @@
+# robots.txt for henrycutlery
+
+User-agent: *
+Allow: /
+
+# Disallow sensitive paths
+Disallow: /api/admin
+Disallow: /api/debug
+Disallow: /admin
+Disallow: /checkout
+Disallow: /profile
+Disallow: /orders
+Disallow: /cart
+
+# Disallow sensitive files
+Disallow: /*.env*
+Disallow: /*.log
+Disallow: /.git/
+
+# Sitemap
+Sitemap: https://henrycutlery.com/sitemap.xml

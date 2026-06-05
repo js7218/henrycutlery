@@ -1,0 +1,104 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+.env*.development
+.env*.production
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Security sensitive files
+/data/
+/logs/
+*.log
+/logs/
+/temp/
+/tmp/
+
+# Database and cache files
+*.sqlite
+*.sqlite3
+*.db
+/cache/
+.fake/
+
+# Uploaded files
+/uploads/
+/public/uploads/
+/user-uploads/
+
+# Backups
+*.bak
+*.backup
+*.old
+*_backup_*
+*_backup/*
+
+# Security and credentials
+*.key
+*.pem
+*.crt
+*.cert
+/secrets/
+/credentials/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*.sublime-*
+
+# OS
+Thumbs.db
+.DS_Store
+*.lnk
+
+# Security documentation (in repo but not needed)
+/SECURITY.md
+
+# Environment examples
+.env.example
+
+# Build artifacts
+*.tgz
+*.tar.gz
+dist/
+build/
+*.zip
+
+# External configs that might contain secrets
+docker-compose.override.yml
+docker-compose.local.yml
