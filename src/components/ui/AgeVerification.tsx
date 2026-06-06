@@ -78,7 +78,7 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
 
             {/* Disclaimer */}
             <p className="text-xs text-gray-500 text-center mt-6">
-              点击"我已年满18周岁"即表示您同意我们的
+              点击&ldquo;我已年满18周岁&rdquo;即表示您同意我们的
               <a href="#" className="text-gold hover:underline ml-1">使用条款</a>
               和
               <a href="#" className="text-gold hover:underline ml-1">购买须知</a>

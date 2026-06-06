@@ -199,9 +199,9 @@ const BLOCKED_UAS = [
   /wfuzz/i, /hydra/i, /burp/i, /metasploit/i, /masscan/i,
   /zmap/i, /wpscan/i, /acunetix/i, /netsparker/i, /appscan/i,
   /havij/i, /pangolin/i, /bgpstream/i, /netcraft/i,
-  /+python-requests/i, /go-http-client/i, /axios/i,
-  /+curl/i, /+wget/i, /scrapy/i, /masspull/i,
-  /libwww-perl/i, /httpx/i, / nuclei/i,
+  /python-requests/i, /go-http-client/i, /axios/i,
+  /curl\//i, /wget\//i, /scrapy/i, /masspull/i,
+  /libwww-perl/i, /httpx/i, /nuclei/i,
   /dot.net|dotnet/i, /java\//i, /okhttp/i,
   /httpie/i, /aiohttp/i, /urllib/i, /php-curl/i,
   /^python/i, /^go\//i, /^java\//i

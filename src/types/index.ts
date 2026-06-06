@@ -21,7 +21,7 @@ export type ProductCategory =
   | 'folding' 
   | 'fixed' 
   | 'hunting' 
-  | 'damascus';
+  | 'damascus' | 'multitool' | 'edc' | 'tactical';
 
 export interface ProductSpecs {
   bladeLength: string;
@@ -46,6 +46,7 @@ export interface User {
   orders: Order[];
   favorites: string[];
   createdAt: string;
+  role?: 'user' | 'admin';
 }
 
 export interface Address {
@@ -68,6 +69,7 @@ export interface Order {
   shippingAddress: Address;
   paymentMethod: PaymentMethod;
   createdAt: string;
+  role?: 'user' | 'admin';
   updatedAt: string;
 }
 

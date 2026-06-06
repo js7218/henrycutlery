@@ -137,6 +137,26 @@ export default function AdminPage() {
   const [selectedOrderStatus, setSelectedOrderStatus] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [productForm, setProductForm] = useState<Partial<Product>>({
+    name: '',
+    brand: '',
+    price: 0,
+    description: '',
+    longDescription: '',
+    category: 'kitchen' as ProductCategory,
+    images: [''],
+    specs: {
+      bladeLength: '',
+      totalLength: '',
+      bladeMaterial: '',
+      handleMaterial: '',
+      weight: '',
+    },
+    stock: 0,
+    featured: false,
+    isNew: false,
+    tags: [],
+  });
 
   // Role verification on mount
   useEffect(() => {
@@ -188,27 +208,6 @@ export default function AdminPage() {
       </div>
     );
   }
-
-  const [productForm, setProductForm] = useState<Partial<Product>>({
-    name: '',
-    brand: '',
-    price: 0,
-    description: '',
-    longDescription: '',
-    category: 'kitchen' as ProductCategory,
-    images: [''],
-    specs: {
-      bladeLength: '',
-      totalLength: '',
-      bladeMaterial: '',
-      handleMaterial: '',
-      weight: '',
-    },
-    stock: 0,
-    featured: false,
-    isNew: false,
-    tags: [],
-  });
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
