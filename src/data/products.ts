@@ -244,7 +244,7 @@ export const products: Product[] = [
     longDescription: 'A four piece set of high-end chef knives made of seamless Damascus steel, with a large rose patterned pickled blade and a slightly concave yellow sandalwood handle decorated with copper mosaic pins. Each knife is handcrafted with meticulous attention to detail, featuring the signature rose Damascus pattern that makes every piece unique. The yellow sandalwood handle provides a comfortable grip, while the copper mosaic pins add an elegant finishing touch. Acceptable for single purchase at a price of $30 per unit. MOQ: 300pcs.',
     category: 'kitchen',
     images: [
-      '/images/9cb5e9e88c35931f030aef71f64b8959.jpg',
+      '/images/9babd2136667181d1097c3852d40cf28.jpg',
     ],
     specs: {
       bladeLength: 'Varies by knife',
@@ -269,7 +269,7 @@ export const products: Product[] = [
     longDescription: '6-inch Damascus bone cutting knife. The blade has a V G-10 Maersk steel wave pattern; The handle is made of black fiberglass with G10 mirror light treatment, and is equipped with high-end and atmospheric mosaic decorative pins. The blade adopts vacuum heat treatment and deep cooling, with a single-sided 11 degree cutting edge that is extremely sharp and durable. The sharp blade can easily scrape meat in bones/crevices with ease. Unit price $45.00. MOQ: 300pcs.',
     category: 'kitchen',
     images: [
-      '/images/9babd2136667181d1097c3852d40cf28.jpg',
+      '/images/9cb5e9e88c35931f030aef71f64b8959.jpg',
       '/images/ca1d285711b90eaa22a99762c802bd48.jpg',
     ],
     specs: {
