@@ -50,7 +50,8 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
           <div className="flex items-center space-x-3">
             <button
               onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-              className="w-8 h-8 flex items-center justify-center border border-border rounded hover:border-gold transition-colors"
+              disabled={item.product.moq && item.quantity <= item.product.moq}
+              className="w-8 h-8 flex items-center justify-center border border-border rounded hover:border-gold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Minus className="w-4 h-4 text-gray-400" />
             </button>
@@ -69,7 +70,7 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
             </p>
             {item.quantity > 1 && (
               <p className="text-xs text-gray-500">
-                单价: {formatPrice(item.product.price)}
+                Unit price: {formatPrice(item.product.price)}
               </p>
             )}
           </div>
@@ -83,10 +84,10 @@ export function EmptyCart() {
   return (
     <div className="flex flex-col items-center justify-center py-20">
       <ShoppingBag className="w-16 h-16 text-gray-600 mb-4" />
-      <h3 className="text-xl font-medium text-gray-400 mb-2">购物车是空的</h3>
-      <p className="text-sm text-gray-500 mb-6">快去挑选心仪的刀具吧</p>
+      <h3 className="text-xl font-medium text-gray-400 mb-2">Your cart is empty</h3>
+      <p className="text-sm text-gray-500 mb-6">Browse our premium knife collection</p>
       <Link href="/products" className="btn-primary">
-        浏览商品
+        Browse Products
       </Link>
     </div>
   );
