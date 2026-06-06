@@ -69,11 +69,13 @@ function appReducer(state: AppState, action: AppAction): AppState {
       }
       return {
         ...state,
-        cart: state.cart.map((item) =>
-          item.product.id === action.productId
-            ? { ...item, quantity: action.quantity }
-            : item
-        ),
+        cart: state.cart.map((item) => {
+          if (item.product.id === action.productId) {
+            const moq = item.product.moq || 1;
+            return { ...item, quantity: Math.max(action.quantity, moq) };
+          }
+          return item;
+        }),
       };
     case 'CLEAR_CART':
       return { ...state, cart: [] };
@@ -210,8 +212,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('knife-orders', JSON.stringify(state.orders));
   }, [state.orders]);
 
-  const addToCart = (product: Product, quantity = 1) => {
-    dispatch({ type: 'ADD_TO_CART', product, quantity });
+  const addToCart = (product: Product, quantity?: number) => {
+    const moq = product.moq || 1;
+    const finalQuantity = quantity && quantity >= moq ? quantity : moq;
+    dispatch({ type: 'ADD_TO_CART', product, quantity: finalQuantity });
   };
 
   const removeFromCart = (productId: string) => {

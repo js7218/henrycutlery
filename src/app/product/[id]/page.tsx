@@ -27,7 +27,7 @@ export default function ProductDetailPage() {
   const product = getProductById(productId);
   
   const { addToCart, state } = useApp();
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(product?.moq || 1);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
   
   const isFavorite = state.user?.favorites.includes(productId) || false;
@@ -41,9 +41,9 @@ export default function ProductDetailPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-20">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-4">商品不存在</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Product not found</h1>
           <Link href="/products" className="btn-primary">
-            返回商品列表
+            Back to Products
           </Link>
         </div>
       </div>
@@ -51,23 +51,25 @@ export default function ProductDetailPage() {
   }
 
   const handleAddToCart = () => {
-    addToCart(product, quantity);
+    const moq = product.moq || 1;
+    const finalQty = quantity >= moq ? quantity : moq;
+    addToCart(product, finalQty);
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-gray-400 mb-8">
-        <Link href="/" className="hover:text-gold transition-colors">首页</Link>
+        <Link href="/" className="hover:text-gold transition-colors">Home</Link>
         <ChevronRight className="w-4 h-4" />
-        <Link href="/products" className="hover:text-gold transition-colors">全部商品</Link>
+        <Link href="/products" className="hover:text-gold transition-colors">All Products</Link>
         <ChevronRight className="w-4 h-4" />
         <Link href={`/products?category=${product.category}`} className="hover:text-gold transition-colors capitalize">
-          {product.category === 'kitchen' && '厨刀'}
-          {product.category === 'folding' && '折刀'}
-          {product.category === 'fixed' && '直刀'}
-          {product.category === 'hunting' && '猎刀'}
-          {product.category === 'damascus' && '大马士革'}
+          {product.category === 'kitchen' && 'Kitchen'}
+          {product.category === 'folding' && 'Folding'}
+          {product.category === 'fixed' && 'Fixed'}
+          {product.category === 'hunting' && 'Hunting'}
+          {product.category === 'damascus' && 'Damascus'}
         </Link>
         <ChevronRight className="w-4 h-4" />
         <span className="text-gold">{product.name}</span>
@@ -149,7 +151,7 @@ export default function ProductDetailPage() {
               <span className="text-sm text-gray-400">数量</span>
               <div className="flex items-center border border-border rounded-lg">
                 <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  onClick={() => setQuantity(Math.max(product.moq || 1, quantity - 1))}
                   className="p-3 text-gray-400 hover:text-gold transition-colors"
                 >
                   <Minus className="w-4 h-4" />

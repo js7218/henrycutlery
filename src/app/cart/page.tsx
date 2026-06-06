@@ -18,7 +18,7 @@ export default function CartPage() {
         <CheckoutSteps currentStep={1} />
         <div className="flex flex-col items-center justify-center py-20">
           <ShoppingBag className="w-20 h-20 text-gray-600 mb-6" />
-          <h2 className="text-2xl font-bold text-gray-400 mb-4">购物车是空的</h2>
+          <h2 className="text-2xl font-bold text-gray-400 mb-4">Shopping Cart是空的</h2>
           <p className="text-gray-500 mb-8">快去挑选心仪的刀具吧</p>
           <Link href="/products" className="btn-primary">
             浏览商品
@@ -33,7 +33,7 @@ export default function CartPage() {
       <CheckoutSteps currentStep={1} />
       
       <h1 className="text-3xl font-bold text-foreground mb-8" style={{ fontFamily: 'Playfair Display, serif' }}>
-        我的购物车
+        我的Shopping Cart
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -47,7 +47,7 @@ export default function CartPage() {
             onClick={clearCart}
             className="text-sm text-gray-500 hover:text-red-400 transition-colors mt-4"
           >
-            清空购物车
+            清空Shopping Cart
           </button>
         </div>
 
@@ -66,10 +66,10 @@ export default function CartPage() {
                 <span>{formatPrice(cartTotal)}</span>
               </div>
               <div className="flex justify-between text-gray-400">
-                <span>运费</span>
+                <span>Shipping</span>
                 <span>
                   {shippingFee === 0 ? (
-                    <span className="text-green-400">免运费</span>
+                    <span className="text-green-400">免Shipping</span>
                   ) : (
                     formatPrice(shippingFee)
                   )}
@@ -78,7 +78,7 @@ export default function CartPage() {
               {cartTotal < 500 && (
                 <div className="p-3 bg-surfaceLight rounded-lg">
                   <p className="text-xs text-gray-400">
-                    再买 <span className="text-gold font-medium">{formatPrice(500 - cartTotal)}</span> 可免运费
+                    再买 <span className="text-gold font-medium">{formatPrice(500 - cartTotal)}</span> 可免Shipping
                   </p>
                   <div className="mt-2 h-2 bg-border rounded-full overflow-hidden">
                     <div 
@@ -98,7 +98,7 @@ export default function CartPage() {
 
               <Link href="/checkout" className="block">
                 <button className="w-full py-4 bg-gold text-background font-medium rounded-lg hover:bg-goldLight transition-colors flex items-center justify-center gap-2">
-                  去结算
+                  Checkout
                   <ArrowRight className="w-5 h-5" />
                 </button>
               </Link>
@@ -127,7 +127,7 @@ export default function CartPage() {
 
           {/* Continue Shopping */}
           <Link href="/products" className="block mt-4 text-center text-sm text-gray-400 hover:text-gold transition-colors">
-            继续购物 →
+            Continue Shopping →
           </Link>
         </div>
       </div>

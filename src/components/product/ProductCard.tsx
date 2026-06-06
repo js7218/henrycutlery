@@ -38,13 +38,13 @@ export default function ProductCard({ product }: ProductCardProps) {
             {product.isNew && (
               <span className="flex items-center px-2 py-1 bg-gold text-background text-xs font-medium rounded">
                 <Sparkles className="w-3 h-3 mr-1" />
-                新品
+                NEW
               </span>
             )}
             {product.originalPrice && (
               <span className="flex items-center px-2 py-1 bg-red-500/90 text-white text-xs font-medium rounded">
                 <Tag className="w-3 h-3 mr-1" />
-                促销
+                SALE
               </span>
             )}
           </div>
@@ -69,7 +69,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               className="w-full py-2 bg-gold text-background text-sm font-medium rounded flex items-center justify-center space-x-2 hover:bg-goldLight transition-colors"
             >
               <ShoppingCart className="w-4 h-4" />
-              <span>加入购物车</span>
+              <span>{product.moq ? `Add to Cart (MOQ: ${product.moq})` : 'Add to Cart'}</span>
             </button>
           </div>
         </div>
