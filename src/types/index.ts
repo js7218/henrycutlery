@@ -14,6 +14,7 @@ export interface Product {
   featured: boolean;
   isNew: boolean;
   tags: string[];
+  moq?: number;
 }
 
 export type ProductCategory = 
@@ -21,7 +22,7 @@ export type ProductCategory =
   | 'folding' 
   | 'fixed' 
   | 'hunting' 
-  | 'damascus' | 'multitool' | 'edc' | 'tactical';
+  | 'damascus' | 'multitool' | 'edc' | 'tactical' | 'boning';
 
 export interface ProductSpecs {
   bladeLength: string;

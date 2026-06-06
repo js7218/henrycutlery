@@ -27,6 +27,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['classic', 'USA-made', 'leather sheath'],
+    moq: 300,
   },
   {
     id: 'buck-002',
@@ -51,6 +52,7 @@ export const products: Product[] = [
     featured: false,
     isNew: true,
     tags: ['outdoor', 'rubber handle', 'USA-made'],
+    moq: 300,
   },
   {
     id: 'buck-003',
@@ -75,6 +77,7 @@ export const products: Product[] = [
     featured: false,
     isNew: true,
     tags: ['EDC', 'slim', 'lightweight'],
+    moq: 300,
   },
 
   // Benchmade
@@ -102,6 +105,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['AXIS lock', 'EDC', 'USA-made'],
+    moq: 300,
   },
   {
     id: 'benchmade-002',
@@ -126,6 +130,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['hunting', 'skinning', 'G10'],
+    moq: 300,
   },
   {
     id: 'benchmade-003',
@@ -150,6 +155,7 @@ export const products: Product[] = [
     featured: true,
     isNew: true,
     tags: ['iconic', 'AXIS lock', 'EDC'],
+    moq: 300,
   },
 
   // Spyderco
@@ -176,6 +182,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['best-seller', 'lightweight', 'Japan-made'],
+    moq: 300,
   },
   {
     id: 'spyderco-002',
@@ -200,6 +207,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['tactical', 'Compression Lock', 'G10'],
+    moq: 300,
   },
   {
     id: 'spyderco-003',
@@ -225,17 +233,18 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['USA-made', 'G10', 'ergonomic'],
+    moq: 300,
   },
   {
-    id: 'spyderco-004',
+    id: 'adam-001',
     name: 'Damascus Rose Chef Knife Set',
     brand: 'Adam Cutlery',
     price: 30,
-    description: 'A four piece set of high-end chef knives made of seamless Damascus steel, with a large rose patterned pickled blade and a slightly concave yellow sandalwood handle decorated with copper mosaic pins.',
-    longDescription: 'A four piece set of high-end chef knives made of seamless Damascus steel, with a large rose patterned pickled blade and a slightly concave yellow sandalwood handle decorated with copper mosaic pins. Each knife is handcrafted with meticulous attention to detail, featuring the signature rose Damascus pattern that makes every piece unique. The yellow sandalwood handle provides a comfortable grip, while the copper mosaic pins add an elegant finishing touch. Acceptable for single purchase at a price of $30 per unit.',
+    description: 'A four piece set of high-end chef knives made of seamless Damascus steel, with a large rose patterned pickled blade and a slightly concave yellow sandalwood handle decorated with copper mosaic pins. Acceptable for single purchase at a price of $30 per unit. MOQ: 300pcs.',
+    longDescription: 'A four piece set of high-end chef knives made of seamless Damascus steel, with a large rose patterned pickled blade and a slightly concave yellow sandalwood handle decorated with copper mosaic pins. Each knife is handcrafted with meticulous attention to detail, featuring the signature rose Damascus pattern that makes every piece unique. The yellow sandalwood handle provides a comfortable grip, while the copper mosaic pins add an elegant finishing touch. Acceptable for single purchase at a price of $30 per unit. MOQ: 300pcs.',
     category: 'kitchen',
     images: [
-      'https://images.unsplash.com/photo-1593618998160-e34014e67546?w=800',
+      '/images/chef-damascus-1.jpg',
     ],
     specs: {
       bladeLength: 'Varies by knife',
@@ -245,10 +254,37 @@ export const products: Product[] = [
       weight: 'Varies by knife',
       hardness: '58-62 HRC',
     },
-    stock: 50,
+    stock: 999,
     featured: true,
     isNew: true,
     tags: ['Damascus', 'kitchen', 'premium', 'rose pattern', 'sandalwood'],
+    moq: 300,
+  },
+  {
+    id: 'adam-002',
+    name: 'Damascus Boning Knife',
+    brand: 'Adam Cutlery',
+    price: 45,
+    description: '6-inch Damascus bone cutting knife. The blade has a V G-10 Maersk steel wave pattern; The handle is made of black fiberglass with G10 mirror light treatment, and is equipped with high-end mosaic decorative pins. Unit price $45.00. MOQ: 300pcs.',
+    longDescription: '6-inch Damascus bone cutting knife. The blade has a V G-10 Maersk steel wave pattern; The handle is made of black fiberglass with G10 mirror light treatment, and is equipped with high-end and atmospheric mosaic decorative pins. The blade adopts vacuum heat treatment and deep cooling, with a single-sided 11 degree cutting edge that is extremely sharp and durable. The sharp blade can easily scrape meat in bones/crevices with ease. Unit price $45.00. MOQ: 300pcs.',
+    category: 'kitchen',
+    images: [
+      '/images/boning-knife-1.jpg',
+      '/images/boning-knife-2.jpg',
+    ],
+    specs: {
+      bladeLength: '6 inches (15.2 cm)',
+      totalLength: '11 inches (28 cm)',
+      bladeMaterial: 'VG-10 Damascus Steel (Wave Pattern)',
+      handleMaterial: 'Black Fiberglass G10 (Mirror Finish)',
+      weight: '5.8 oz (165 g)',
+      hardness: '59-61 HRC',
+    },
+    stock: 999,
+    featured: true,
+    isNew: true,
+    tags: ['Damascus', 'boning knife', 'VG-10', 'G10 handle', 'professional'],
+    moq: 300,
   },
 
   // Kershaw
@@ -275,6 +311,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['SpeedSafe', 'assisted', 'slim'],
+    moq: 300,
   },
   {
     id: 'kershaw-002',
@@ -299,6 +336,7 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['SpeedSafe', 'DLC coating', 'tactical'],
+    moq: 300,
   },
   {
     id: 'kershaw-003',
@@ -324,6 +362,7 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['Emerson', 'Wave feature', 'tactical'],
+    moq: 300,
   },
 
   // Cold Steel
@@ -350,6 +389,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['survival', 'fixed blade', 'tough'],
+    moq: 300,
   },
   {
     id: 'coldsteel-002',
@@ -374,6 +414,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['tactical', 'G10', 'strong edge'],
+    moq: 300,
   },
   {
     id: 'coldsteel-003',
@@ -398,6 +439,7 @@ export const products: Product[] = [
     featured: false,
     isNew: true,
     tags: ['budget', 'EDC', 'value'],
+    moq: 300,
   },
 
   // Victorinox
@@ -423,6 +465,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['Swiss-made', 'classic', 'compact'],
+    moq: 300,
   },
   {
     id: 'victorinox-002',
@@ -446,6 +489,7 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['Swiss-made', 'outdoor', 'versatile'],
+    moq: 300,
   },
   {
     id: 'victorinox-003',
@@ -469,6 +513,7 @@ export const products: Product[] = [
     featured: false,
     isNew: true,
     tags: ['Swiss-made', 'hunting', 'wood saw'],
+    moq: 300,
   },
 
   // Gerber
@@ -494,6 +539,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['multi-tool', 'spring-loaded', 'butterfly'],
+    moq: 300,
   },
   {
     id: 'gerber-002',
@@ -518,6 +564,7 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['survival', 'full-tang', 'modular sheath'],
+    moq: 300,
   },
 
   // Zero Tolerance
@@ -544,6 +591,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['titanium', 'flipper', 'KVT bearing'],
+    moq: 300,
   },
   {
     id: 'zt-002',
@@ -568,6 +616,7 @@ export const products: Product[] = [
     featured: true,
     isNew: true,
     tags: ['titanium', 'CPM-20CV', 'premium'],
+    moq: 300,
   },
 
   // CRKT
@@ -594,6 +643,7 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['Kit Carson', 'serrated', 'flipper'],
+    moq: 300,
   },
   {
     id: 'crkt-002',
@@ -618,6 +668,7 @@ export const products: Product[] = [
     featured: false,
     isNew: true,
     tags: ['compact', 'frame lock', 'value'],
+    moq: 300,
   },
 
   // Microtech
@@ -644,6 +695,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['OTF', 'automatic', 'double-action'],
+    moq: 300,
   },
   {
     id: 'microtech-002',
@@ -668,6 +720,7 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['OTF', 'automatic', 'tactical'],
+    moq: 300,
   },
 
   // SOG
@@ -694,6 +747,7 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['tactical', 'fixed', 'kydex sheath'],
+    moq: 300,
   },
   {
     id: 'sog-002',
@@ -718,6 +772,7 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['assisted', 'TiNi coating', 'fast opening'],
+    moq: 300,
   },
 
   // Emerson
@@ -744,6 +799,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['Wave feature', 'tactical', 'G10'],
+    moq: 300,
   },
   {
     id: 'emerson-002',
@@ -768,6 +824,7 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['Wave feature', 'tactical', 'large'],
+    moq: 300,
   },
 
   // Ontario
@@ -794,6 +851,7 @@ export const products: Product[] = [
     featured: false,
     isNew: false,
     tags: ['budget', 'value', 'RAT series'],
+    moq: 300,
   },
   {
     id: 'ontario-002',
@@ -818,6 +876,7 @@ export const products: Product[] = [
     featured: false,
     isNew: true,
     tags: ['fixed blade', 'micarta', 'tactical'],
+    moq: 300,
   },
 
   // Additional kitchen knives
@@ -844,6 +903,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['chef knife', 'German steel', 'commercial'],
+    moq: 300,
   },
   {
     id: 'kitchen-002',
@@ -868,6 +928,7 @@ export const products: Product[] = [
     featured: true,
     isNew: false,
     tags: ['Japanese', 'Damascus', 'santoku'],
+    moq: 300,
   },
 ];
 
@@ -885,6 +946,7 @@ export const categories = [
   { id: 'tactical', name: 'Tactical', icon: '⚔️' },
   { id: 'multitool', name: 'Multi-Tool', icon: '🔧' },
   { id: 'edc', name: 'Everyday Carry', icon: '📦' },
+  { id: 'boning', name: 'Boning Knives', icon: '🦴' },
 ];
 
 export const heroSlides = [

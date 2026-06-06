@@ -23,10 +23,11 @@ export default function Header() {
 
   const navLinks = [
     { href: '/products', label: '全部商品' },
-    { href: '/products?category=kitchen', label: '厨刀' },
-    { href: '/products?category=folding', label: '折刀' },
-    { href: '/products?category=fixed', label: '直刀' },
-    { href: '/products?category=hunting', label: '猎刀' },
+    { href: '/products?category=kitchen', label: 'Kitchen' },
+    { href: '/products?category=folding', label: 'Folding' },
+    { href: '/products?category=fixed', label: 'Fixed' },
+    { href: '/products?category=hunting', label: 'Hunting' },
+    { href: '/products?category=boning', label: 'Boning' },
     { href: '/products?category=damascus', label: '大马士革' },
   ];
 
@@ -110,7 +111,7 @@ export default function Header() {
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         <Package className="w-4 h-4 mr-2" />
-                        我的订单
+                        Account订单
                       </Link>
                       <Link
                         href="/profile?tab=addresses"
@@ -128,7 +129,7 @@ export default function Header() {
                         className="w-full flex items-center px-4 py-2 text-sm text-red-400 hover:bg-surfaceLight transition-colors"
                       >
                         <LogOut className="w-4 h-4 mr-2" />
-                        退出登录
+                        退出Login
                       </button>
                     </>
                   ) : (
@@ -138,7 +139,7 @@ export default function Header() {
                         className="block px-4 py-2 text-sm text-gray-300 hover:bg-surfaceLight transition-colors"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
-                        登录
+                        Login
                       </Link>
                       <Link
                         href="/register"
