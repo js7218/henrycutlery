@@ -40,11 +40,11 @@ const bruteForceStore: Record<string, BruteForceEntry> = {};
 
 // Rate limit configurations (tiered)
 const RATE_LIMITS = {
-  global: { windowMs: 10000, maxRequests: 500 },
-  api: { windowMs: 10000, maxRequests: 100 },
-  login: { windowMs: 60000, maxRequests: 5 },
-  admin: { windowMs: 60000, maxRequests: 30 },
-  checkout: { windowMs: 60000, maxRequests: 10 }
+  global: { windowMs: 60000, maxRequests: 600 },
+  api: { windowMs: 60000, maxRequests: 200 },
+  login: { windowMs: 60000, maxRequests: 8 },
+  admin: { windowMs: 60000, maxRequests: 60 },
+  checkout: { windowMs: 60000, maxRequests: 15 }
 };
 
 // Brute force protection thresholds
@@ -195,16 +195,12 @@ const HONEYPOT_PATHS = [
 
 // Blocked User Agents (Enhanced) - 反爬虫User-Agent增强
 const BLOCKED_UAS = [
+  // Only block known security scanning/attack tools
   /sqlmap/i, /nikto/i, /nmap/i, /dirbuster/i, /gobuster/i,
   /wfuzz/i, /hydra/i, /burp/i, /metasploit/i, /masscan/i,
   /zmap/i, /wpscan/i, /acunetix/i, /netsparker/i, /appscan/i,
-  /havij/i, /pangolin/i, /bgpstream/i, /netcraft/i,
-  /python-requests/i, /go-http-client/i, /axios/i,
-  /curl\//i, /wget\//i, /scrapy/i, /masspull/i,
-  /libwww-perl/i, /httpx/i, /nuclei/i,
-  /dot.net|dotnet/i, /java\//i, /okhttp/i,
-  /httpie/i, /aiohttp/i, /urllib/i, /php-curl/i,
-  /^python/i, /^go\//i, /^java\//i
+  /havij/i, /pangolin/i, /scrapy/i, /masspull/i,
+  /nuclei/i, /libwww-perl/i
 ];
 
 // HTTP methods allowed
