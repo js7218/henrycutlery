@@ -13,7 +13,7 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <h3 className="text-2xl font-bold text-gold-gradient mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
-              BLADE
+              ADAM CUTLERY
             </h3>
             <p className="text-sm text-gray-400 leading-relaxed mb-6">
               Professional premium knife platform, featuring masterworks from top forgers worldwide.
@@ -37,7 +37,7 @@ export default function Footer() {
             <ul className="space-y-3">
               <li><Link href="/products" className="text-sm text-gray-400 hover:text-gold transition-colors">All Products</Link></li>
               <li><Link href="/products?category=kitchen" className="text-sm text-gray-400 hover:text-gold transition-colors">Kitchen Knives</Link></li>
-              <li><Link href="/products?category=damascus" className="text-sm text-gray-400 hover:text-gold transition-colors">Damascus Steel</Link></li>
+              <li><Link href="/products?category=folding" className="text-sm text-gray-400 hover:text-gold transition-colors">Folding Knives</Link></li>
               <li><Link href="/products?featured=true" className="text-sm text-gray-400 hover:text-gold transition-colors">Featured</Link></li>
             </ul>
           </div>
@@ -48,7 +48,6 @@ export default function Footer() {
             <ul className="space-y-3">
               <li><Link href="#" className="text-sm text-gray-400 hover:text-gold transition-colors">Help Center</Link></li>
               <li><Link href="#" className="text-sm text-gray-400 hover:text-gold transition-colors">Shipping Info</Link></li>
-              <li><Link href="#" className="text-sm text-gray-400 hover:text-gold transition-colors">Return Policy</Link></li>
               <li><Link href="#" className="text-sm text-gray-400 hover:text-gold transition-colors">Care Guide</Link></li>
             </ul>
           </div>
