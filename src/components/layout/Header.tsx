@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { 
-  ShoppingCart, 
-  User, 
-  Menu, 
-  X, 
+import {
+  ShoppingCart,
+  User,
+  Menu,
+  X,
   Search,
   Heart,
   LogOut,
@@ -22,13 +22,11 @@ export default function Header() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: '/products', label: '全部商品' },
+    { href: '/products', label: 'All Products' },
     { href: '/products?category=kitchen', label: 'Kitchen' },
     { href: '/products?category=folding', label: 'Folding' },
     { href: '/products?category=fixed', label: 'Fixed' },
     { href: '/products?category=hunting', label: 'Hunting' },
-    { href: '/products?category=boning', label: 'Boning' },
-    { href: '/products?category=damascus', label: '大马士革' },
   ];
 
   return (
@@ -38,7 +36,7 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
             <span className="text-2xl font-bold text-gold-gradient" style={{ fontFamily: 'Playfair Display, serif' }}>
-              BLADE
+              ADAM CUTLERY
             </span>
             <span className="text-xs text-steel hidden sm:block">EST.2024</span>
           </Link>
@@ -103,7 +101,7 @@ export default function Header() {
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         <User className="w-4 h-4 mr-2" />
-                        个人中心
+                        Profile
                       </Link>
                       <Link
                         href="/profile?tab=orders"
@@ -111,7 +109,7 @@ export default function Header() {
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         <Package className="w-4 h-4 mr-2" />
-                        Account订单
+                        My Orders
                       </Link>
                       <Link
                         href="/profile?tab=addresses"
@@ -119,7 +117,7 @@ export default function Header() {
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         <MapPin className="w-4 h-4 mr-2" />
-                        收货地址
+                        Addresses
                       </Link>
                       <button
                         onClick={() => {
@@ -129,7 +127,7 @@ export default function Header() {
                         className="w-full flex items-center px-4 py-2 text-sm text-red-400 hover:bg-surfaceLight transition-colors"
                       >
                         <LogOut className="w-4 h-4 mr-2" />
-                        退出Login
+                        Logout
                       </button>
                     </>
                   ) : (
@@ -146,7 +144,7 @@ export default function Header() {
                         className="block px-4 py-2 text-sm text-gold hover:bg-surfaceLight transition-colors"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
-                        注册
+                        Register
                       </Link>
                     </>
                   )}
