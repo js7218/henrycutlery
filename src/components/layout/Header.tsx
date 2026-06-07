@@ -32,6 +32,14 @@ export default function Header() {
     }
   }, [isSearchOpen]);
 
+  const handleSearchBlur = () => {
+    // 延迟关闭，避免和搜索按钮点击冲突
+    setTimeout(() => {
+      setIsSearchOpen(false);
+      setSearchQuery('');
+    }, 150);
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -79,7 +87,7 @@ export default function Header() {
             {/* Search */}
             <div className="relative flex items-center">
               {isSearchOpen ? (
-                <form onSubmit={handleSearch} className="flex items-center">
+                <form onSubmit={handleSearch} onBlur={handleSearchBlur} className="flex items-center">
                   <input
                     ref={searchInputRef}
                     type="text"
