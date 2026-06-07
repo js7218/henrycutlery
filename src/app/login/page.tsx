@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, Eye, EyeOff, LogIn, Shield } from 'lucide-react';
@@ -313,16 +313,16 @@ export default function LoginPage() {
   const submitCount = useRef(0);
 
   // Check lock status on mount
-  useState(() => {
+  useEffect(() => {
     const attempts = getLoginAttempts();
     if (attempts.lockedUntil && Date.now() < attempts.lockedUntil) {
       setIsLocked(true);
       setLockCountdown(Math.ceil((attempts.lockedUntil - Date.now()) / 1000));
     }
-  });
+  }, []);
 
   // Countdown timer for lock
-  useState(() => {
+  useEffect(() => {
     if (!isLocked) return;
     const interval = setInterval(() => {
       const attempts = getLoginAttempts();
