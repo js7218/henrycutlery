@@ -203,6 +203,60 @@ const BLOCKED_UAS = [
   /nuclei/i, /libwww-perl/i
 ];
 
+// ============================================================================
+// DDoS Protection - DDoS防护
+// ============================================================================
+
+// Connection tracking for DDoS detection
+const connectionTracker: Record<string, { count: number; windowStart: number; burstCount: number }> = {};
+
+const DDOS_CONFIG = {
+  // Request rate thresholds
+  maxRequestsPerSecond: 50,      // 每秒最大请求数
+  maxRequestsPerMinute: 300,     // 每分钟最大请求数
+  maxBurstRequests: 20,          // 突发请求阈值
+  burstWindowMs: 1000,           // 突发窗口
+  // Block durations
+  warningBlockMs: 5 * 60 * 1000,     // 5分钟
+  mediumBlockMs: 30 * 60 * 1000,     // 30分钟
+  severeBlockMs: 24 * 60 * 60 * 1000, // 24小时
+};
+
+// File inclusion patterns - 文件包含检测
+const FILE_INCLUSION_PATTERNS = [
+  // Local File Inclusion (LFI)
+  /\?.*(file|path|dir|page|doc|folder|view|include|require)=/i,
+  /\?.*=.*\.(php|asp|jsp|txt|ini|conf|cfg)/i,
+  /\?.*=.*\/etc\//i,
+  /\?.*=.*\/proc\//i,
+  /\?.*=.*\/var\//i,
+  /\?.*=.*\.\.\/\.\./i,
+  // Remote File Inclusion (RFI)
+  /\?.*(url|uri|src|href|location|redirect)=https?:/i,
+  /\?.*=.*https?:\/\//i,
+  /\?.*=.*ftp:\/\//i,
+  /\?.*=.*php:\/\//i,
+  /\?.*=.*data:\/\//i,
+  /\?.*=.*expect:\/\//i,
+  // Wrapper abuse
+  /php:\/\/input/i, /php:\/\/filter/i, /php:\/\/data/i,
+  /file:\/\//i, /expect:\/\//i, /input:\/\//i,
+  /zip:\/\//i, /phar:\/\//i,
+];
+
+// CSRF token validation (for state-changing requests)
+const CSRF_PROTECTED_PATHS = ['/api/checkout', '/api/profile', '/api/orders'];
+const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
+
+// DDoS detection patterns
+const DDOS_PATTERNS = [
+  // Rapid identical requests
+  { pattern: /\?.*rand=\d+/i, desc: 'Random parameter flood' },
+  { pattern: /\?.*timestamp=\d+/i, desc: 'Timestamp flood' },
+  // Slowloris-like patterns
+  { pattern: /Connection:\s*keep-alive/i, desc: 'Keep-alive abuse' },
+];
+
 // HTTP methods allowed
 const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'];
 
@@ -383,6 +437,92 @@ function isBlockedUA(ua: string): boolean {
   return BLOCKED_UAS.some(pat => pat.test(ua));
 }
 
+// ============================================================================
+// DDoS Detection Functions
+// ============================================================================
+
+function checkDDoS(ip: string): { detected: boolean; level: 'none' | 'warning' | 'medium' | 'severe'; reason: string } {
+  const now = Date.now();
+  const entry = connectionTracker[ip];
+  
+  if (!entry) {
+    connectionTracker[ip] = { count: 1, windowStart: now, burstCount: 1 };
+    return { detected: false, level: 'none', reason: '' };
+  }
+  
+  // Check burst window (1 second)
+  if (now - entry.windowStart < DDOS_CONFIG.burstWindowMs) {
+    entry.burstCount++;
+    if (entry.burstCount > DDOS_CONFIG.maxRequestsPerSecond) {
+      return { detected: true, level: 'severe', reason: 'DDoS: Requests per second exceeded' };
+    }
+    if (entry.burstCount > DDOS_CONFIG.maxBurstRequests) {
+      return { detected: true, level: 'warning', reason: 'DDoS: Burst requests detected' };
+    }
+  } else {
+    // Reset burst window
+    entry.burstCount = 1;
+    entry.windowStart = now;
+  }
+  
+  // Check per-minute rate
+  entry.count++;
+  if (entry.count > DDOS_CONFIG.maxRequestsPerMinute) {
+    return { detected: true, level: 'medium', reason: 'DDoS: Requests per minute exceeded' };
+  }
+  
+  connectionTracker[ip] = entry;
+  return { detected: false, level: 'none', reason: '' };
+}
+
+function detectFileInclusion(url: string): { detected: boolean; type: string } {
+  for (const pattern of FILE_INCLUSION_PATTERNS) {
+    if (pattern.test(url)) {
+      return { detected: true, type: 'FILE_INCLUSION' };
+    }
+  }
+  return { detected: false, type: '' };
+}
+
+function validateCSRF(request: NextRequest): boolean {
+  const path = request.nextUrl.pathname;
+  const method = request.method;
+  
+  // Only check state-changing requests on protected paths
+  if (SAFE_METHODS.includes(method)) return true;
+  if (!CSRF_PROTECTED_PATHS.some(p => path.startsWith(p))) return true;
+  
+  // Check Origin/Referer header
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  const host = request.headers.get('host') || '';
+  
+  // Validate origin matches host
+  if (origin) {
+    try {
+      const originHost = new URL(origin).host;
+      if (originHost !== host) return false;
+    } catch {
+      return false;
+    }
+  }
+  
+  // Validate referer matches host
+  if (referer) {
+    try {
+      const refererHost = new URL(referer).host;
+      if (refererHost !== host) return false;
+    } catch {
+      return false;
+    }
+  }
+  
+  // Require at least one of origin or referer
+  if (!origin && !referer) return false;
+  
+  return true;
+}
+
 function addSecurityHeaders(response: NextResponse): NextResponse {
   // Basic security headers
   response.headers.set('X-Content-Type-Options', 'nosniff');
@@ -469,6 +609,28 @@ export function middleware(request: NextRequest) {
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
   
+  // DDoS Protection Check - DDoS防护检查
+  const ddosCheck = checkDDoS(ip);
+  if (ddosCheck.detected) {
+    let blockDuration = DDOS_CONFIG.warningBlockMs;
+    if (ddosCheck.level === 'medium') blockDuration = DDOS_CONFIG.mediumBlockMs;
+    if (ddosCheck.level === 'severe') blockDuration = DDOS_CONFIG.severeBlockMs;
+    
+    blockIP(ip, ddosCheck.reason, blockDuration);
+    return NextResponse.json(
+      {
+        error: 'Too Many Requests',
+        code: 'DDOS_DETECTED',
+        reason: ddosCheck.reason,
+        retryAfter: Math.ceil(blockDuration / 1000),
+      },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil(blockDuration / 1000)) },
+      }
+    );
+  }
+
   // IP blocking check
   if (isIPBlocked(ip)) {
     const block = blockedIPs[ip];
@@ -577,6 +739,25 @@ export function middleware(request: NextRequest) {
       error: 'Forbidden', 
       code: urlThreat.type 
     }, { status: 403 });
+  }
+
+  // File Inclusion Detection - 文件包含检测 (LFI/RFI)
+  const fileInclusion = detectFileInclusion(fullUrl);
+  if (fileInclusion.detected) {
+    blockIP(ip, fileInclusion.type, 3600000);
+    console.error(`[WAF] ${fileInclusion.type} detected from ${ip}: ${fullUrl}`);
+    return NextResponse.json({ 
+      error: 'Forbidden', 
+      code: fileInclusion.type 
+    }, { status: 403 });
+  }
+
+  // CSRF Protection - CSRF防护
+  if (!validateCSRF(request)) {
+    return NextResponse.json(
+      { error: 'Forbidden', code: 'CSRF_VIOLATION' },
+      { status: 403 }
+    );
   }
   
   // Analyze request body for POST/PUT/PATCH
