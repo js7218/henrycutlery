@@ -1,13 +1,85 @@
 'use client';
-
 import Image from 'next/image';
 import Link from 'next/link';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice } from '@/lib/utils';
+import { useCallback, useRef, useEffect } from 'react';
 
 export default function CartItem({ item }: { item: { product: any; quantity: number } }) {
   const { updateQuantity, removeFromCart } = useApp();
+
+  // Hold-to-repeat refs
+  const incrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const decrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const incrementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const decrementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Hold-to-increment logic
+  const startIncrement = useCallback(() => {
+    if (item.quantity >= item.product.stock) return;
+    updateQuantity(item.product.id, item.quantity + 1);
+    
+    incrementTimeoutRef.current = setTimeout(() => {
+      incrementIntervalRef.current = setInterval(() => {
+        updateQuantity(item.product.id, (prev: number) => {
+          if (prev >= item.product.stock) {
+            stopIncrement();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 100);
+    }, 400);
+  }, [item.quantity, item.product.stock, item.product.id, updateQuantity]);
+
+  const stopIncrement = useCallback(() => {
+    if (incrementTimeoutRef.current) {
+      clearTimeout(incrementTimeoutRef.current);
+      incrementTimeoutRef.current = null;
+    }
+    if (incrementIntervalRef.current) {
+      clearInterval(incrementIntervalRef.current);
+      incrementIntervalRef.current = null;
+    }
+  }, []);
+
+  // Hold-to-decrement logic
+  const startDecrement = useCallback(() => {
+    const minQty = item.product.moq || 1;
+    if (item.quantity <= minQty) return;
+    updateQuantity(item.product.id, item.quantity - 1);
+    
+    decrementTimeoutRef.current = setTimeout(() => {
+      decrementIntervalRef.current = setInterval(() => {
+        const min = item.product.moq || 1;
+        if (item.quantity <= min) {
+          stopDecrement();
+          return;
+        }
+        updateQuantity(item.product.id, item.quantity - 1);
+      }, 100);
+    }, 400);
+  }, [item.quantity, item.product.moq, item.product.id, updateQuantity]);
+
+  const stopDecrement = useCallback(() => {
+    if (decrementTimeoutRef.current) {
+      clearTimeout(decrementTimeoutRef.current);
+      decrementTimeoutRef.current = null;
+    }
+    if (decrementIntervalRef.current) {
+      clearInterval(decrementIntervalRef.current);
+      decrementIntervalRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopIncrement();
+      stopDecrement();
+    };
+  }, [stopIncrement, stopDecrement]);
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 p-4 bg-surface border border-border rounded-lg">
@@ -47,9 +119,13 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
 
         {/* Price & Quantity */}
         <div className="flex items-center justify-between mt-4">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 select-none">
             <button
-              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+              onMouseDown={startDecrement}
+              onMouseUp={stopDecrement}
+              onMouseLeave={stopDecrement}
+              onTouchStart={startDecrement}
+              onTouchEnd={stopDecrement}
               disabled={item.product.moq && item.quantity <= item.product.moq}
               className="w-8 h-8 flex items-center justify-center border border-border rounded hover:border-gold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
@@ -57,7 +133,11 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
             </button>
             <span className="w-10 text-center text-foreground">{item.quantity}</span>
             <button
-              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+              onMouseDown={startIncrement}
+              onMouseUp={stopIncrement}
+              onMouseLeave={stopIncrement}
+              onTouchStart={startIncrement}
+              onTouchEnd={stopIncrement}
               disabled={item.quantity >= item.product.stock}
               className="w-8 h-8 flex items-center justify-center border border-border rounded hover:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
