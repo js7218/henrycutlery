@@ -58,6 +58,54 @@ export default function ProductDetailPage() {
     }
   }, []);
 
+  // Use ref to store product for useCallback hooks that need it
+  const productRef = useRef(product);
+  productRef.current = product;
+
+  // Hold-to-increment logic - MUST be before any conditional returns
+  const startIncrement = useCallback(() => {
+    const currentProduct = productRef.current;
+    if (!currentProduct) return;
+    if (quantity >= currentProduct.stock) return;
+    setQuantity(prev => Math.min(currentProduct.stock, prev + 1));
+    
+    incrementTimeoutRef.current = setTimeout(() => {
+      incrementIntervalRef.current = setInterval(() => {
+        setQuantity(prev => {
+          if (!productRef.current) return prev;
+          if (prev >= productRef.current.stock) {
+            stopIncrement();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 100);
+    }, 400);
+  }, [quantity, stopIncrement]);
+
+  // Hold-to-decrement logic - MUST be before any conditional returns
+  const startDecrement = useCallback(() => {
+    const currentProduct = productRef.current;
+    if (!currentProduct) return;
+    const minQty = currentProduct.moq || 1;
+    if (quantity <= minQty) return;
+    setQuantity(prev => Math.max(minQty, prev - 1));
+    
+    decrementTimeoutRef.current = setTimeout(() => {
+      decrementIntervalRef.current = setInterval(() => {
+        setQuantity(prev => {
+          if (!productRef.current) return prev;
+          const min = productRef.current.moq || 1;
+          if (prev <= min) {
+            stopDecrement();
+            return prev;
+          }
+          return prev - 1;
+        });
+      }, 100);
+    }, 400);
+  }, [quantity, stopDecrement]);
+
   // Cleanup on unmount - MUST be before any conditional returns
   useEffect(() => {
     return () => {
@@ -92,44 +140,6 @@ export default function ProductDetailPage() {
     const finalQty = quantity >= moq ? quantity : moq;
     addToCart(product, finalQty);
   };
-
-  // Hold-to-increment logic - after conditional return, using setQuantity
-  const startIncrement = useCallback(() => {
-    if (quantity >= product.stock) return;
-    setQuantity(prev => Math.min(product.stock, prev + 1));
-    
-    incrementTimeoutRef.current = setTimeout(() => {
-      incrementIntervalRef.current = setInterval(() => {
-        setQuantity(prev => {
-          if (prev >= product.stock) {
-            stopIncrement();
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, 100);
-    }, 400);
-  }, [quantity, product.stock, stopIncrement]);
-
-  // Hold-to-decrement logic
-  const startDecrement = useCallback(() => {
-    const minQty = product.moq || 1;
-    if (quantity <= minQty) return;
-    setQuantity(prev => Math.max(minQty, prev - 1));
-    
-    decrementTimeoutRef.current = setTimeout(() => {
-      decrementIntervalRef.current = setInterval(() => {
-        setQuantity(prev => {
-          const min = product.moq || 1;
-          if (prev <= min) {
-            stopDecrement();
-            return prev;
-          }
-          return prev - 1;
-        });
-      }, 100);
-    }, 400);
-  }, [quantity, product.moq, product.stock, stopDecrement]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
