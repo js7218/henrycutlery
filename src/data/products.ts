@@ -14,7 +14,7 @@ export const products: Product[] = [
       '/images/ti.jpg',
       '/images/folding-new-1.jpg',
       '/images/folding-new-2.jpg',
-      '/images/thomas-new.jpg',
+      '/images/folding-new-3.jpg',
     ],
     specs: {
       bladeLength: '115mm (4.5 inches)',
@@ -325,7 +325,7 @@ export const products: Product[] = [
     longDescription: 'Premium silver folding knife with precision crafted details. Price: $96 per unit. MOQ: 200pcs.',
     category: 'folding',
     images: [
-      '/images/folding-new-3.jpg',
+      '/images/thomas-new.jpg',
     ],
     specs: {
       bladeLength: '115mm',
