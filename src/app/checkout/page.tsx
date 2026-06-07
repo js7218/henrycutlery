@@ -64,7 +64,7 @@ export default function CheckoutPage() {
   const handlePayment = async () => {
     if (!selectedAddress) return;
 
-    // SECURITY: Validate address fields
+    // SECURITY: Validate address fields (rebuild trigger)
     if (!selectedAddress.name || !selectedAddress.phone || !selectedAddress.detail) {
       securityLogger.log('INPUT_VALIDATION_FAILURE', 'Checkout: incomplete address');
       return;
