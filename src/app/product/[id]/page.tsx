@@ -29,7 +29,7 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(product?.moq || 1);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
   
-  // Use ref to access product inside useCallback without adding to deps
+  // Use ref to access product inside useCallback without adding to deps (rebuild trigger)
   const productRef = useRef(product);
   productRef.current = product;
   
