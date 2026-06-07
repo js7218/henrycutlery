@@ -170,7 +170,7 @@ export default function ProductDetailPage() {
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-              <span className="text-sm text-gray-500">库存 {product.stock} 件</span>
+              <span className="text-sm text-gray-500">Stock {product.stock} 件</span>
             </div>
 
             <div className="flex flex-wrap gap-4">
