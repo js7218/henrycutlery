@@ -18,12 +18,8 @@ const SESSION_CONFIG = {
 // SECURITY: Business Logic Limits
 // ============================================================================
 const BUSINESS_LIMITS = {
-  maxOrderAmount: 100000,
-  minOrderAmount: 1,
   maxQuantityPerItem: 10000,
   maxItemsPerCart: 50,
-  maxOrdersPerHour: 10,
-  maxOrdersPerDay: 50,
 };
 
 interface AppState {
@@ -420,36 +416,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // ============================================================================
-  // SECURITY: Order Creation with Price Tampering Protection
+  // SECURITY: Order Creation - Price Tampering Protection ONLY
   // ============================================================================
   const createOrder = (address: Address, paymentMethod: 'wechat' | 'alipay' | 'card'): Order | null => {
     if (!state.user) return null;
+    if (state.cart.length === 0) return null;
 
-    // SECURITY: Business logic limits
-    if (cartTotal > BUSINESS_LIMITS.maxOrderAmount) {
-      securityLogger.log('PRICE_TAMPERING_ATTEMPT', `Order amount ${cartTotal} exceeds max ${BUSINESS_LIMITS.maxOrderAmount}`, {
-        userId: state.user.id,
-        amount: cartTotal,
-      });
-      return null;
-    }
-
-    if (cartTotal < BUSINESS_LIMITS.minOrderAmount) {
-      securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Order amount ${cartTotal} below minimum`, { userId: state.user.id });
-      return null;
-    }
-
-    // SECURITY: Velocity check - max orders per hour
-    const oneHourAgo = Date.now() - 60 * 60 * 1000;
-    const recentOrders = state.orders.filter(o => new Date(o.createdAt).getTime() > oneHourAgo);
-    if (recentOrders.length >= BUSINESS_LIMITS.maxOrdersPerHour) {
-      securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Order velocity exceeded: ${recentOrders.length} orders in last hour`, {
-        userId: state.user.id,
-      });
-      return null;
-    }
-
-    // SECURITY: Verify prices server-side (use product data, not client-sent prices)
+    // SECURITY: Verify prices server-side (use product data, NOT client-sent prices)
+    // This is the CRITICAL protection - prices come from product data, never from user input
     const order: Order = {
       id: `o${Date.now()}`,
       orderNumber: generateOrderNumber(),
@@ -457,7 +431,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         productId: item.product.id,
         productName: item.product.name,
         productImage: item.product.images[0],
-        price: item.product.price, // SECURITY: Price from product data, not user input
+        price: item.product.price, // SECURITY: Price from product data source, NOT user input
         quantity: item.quantity,
       })),
       totalAmount: cartTotal,
@@ -473,7 +447,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     securityLogger.log('ORDER_CREATED', `Order ${order.orderNumber} created, total: ${cartTotal}`, {
       userId: state.user.id,
       orderId: order.id,
-      amount: cartTotal,
+      itemCount: state.cart.length,
     });
     return order;
   };
