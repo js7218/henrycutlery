@@ -37,6 +37,37 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Factory Section */}
+      <section className="py-20 px-4 bg-surface">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-bold text-center text-gold-gradient mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>
+            Our Factory
+          </h2>
+          <p className="text-center text-gray-400 max-w-4xl mx-auto mb-12 text-lg leading-relaxed">
+            We have a professional manufacturing team and technology to produce various types of cutting tool products. We can accept OEM customization services. As long as you send us your design drawings and plans, we can provide you with preferential quotations and high-quality production plans according to your needs, and customize products specifically for you to help you explore a wider market.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              '/images/factory1.jpg',
+              '/images/factory2.jpg',
+              '/images/factory3.jpg',
+              '/images/factory4.jpg',
+              '/images/factory6.jpg',
+              '/images/factory7.jpg',
+              '/images/factory8.jpg',
+            ].map((src, index) => (
+              <div key={index} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-border">
+                <img
+                  src={src}
+                  alt={`Factory ${index + 1}`}
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section className="py-20 px-4">
         <div className="max-w-7xl mx-auto">
