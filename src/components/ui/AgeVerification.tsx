@@ -21,7 +21,7 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
       localStorage.setItem('knife-age-verified-at', new Date().toISOString());
       setShowModal(false);
     } else {
-      window.location.href = 'https://www.baidu.com';
+      window.location.href = 'https://www.google.com';
     }
   };
 
@@ -34,9 +34,9 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
             {/* Logo */}
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold text-gold-gradient mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-                BLADE
+                ADAM CUTLERY
               </h1>
-              <p className="text-sm text-gray-400">刃艺精选 · 高端刀具专业平台</p>
+              <p className="text-sm text-gray-400">Premium Knives & Cutlery</p>
             </div>
 
             {/* Warning Icon */}
@@ -49,12 +49,12 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
             {/* Content */}
             <div className="text-center mb-8">
               <h2 className="text-xl font-semibold text-foreground mb-3">
-                年龄验证
+                Age Verification
               </h2>
               <p className="text-sm text-gray-400 leading-relaxed">
-                根据相关法规，购买刀具需要确认您已年满18周岁。
+                You must be 18 years or older to purchase knives.
                 <br />
-                请选择您的出生年份段：
+                Please confirm your age:
               </p>
             </div>
 
@@ -65,23 +65,23 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
                 className="w-full py-3 px-6 bg-gold text-background font-medium rounded-lg hover:bg-goldLight transition-colors flex items-center justify-center space-x-2"
               >
                 <Check className="w-5 h-5" />
-                <span>我已年满18周岁</span>
+                <span>I am 18 or older</span>
               </button>
-              
+
               <button
                 onClick={() => handleVerify(false)}
                 className="w-full py-3 px-6 border border-border text-gray-400 rounded-lg hover:border-red-500 hover:text-red-400 transition-colors"
               >
-                我未满18周岁
+                I am under 18
               </button>
             </div>
 
             {/* Disclaimer */}
             <p className="text-xs text-gray-500 text-center mt-6">
-              点击&ldquo;我已年满18周岁&rdquo;即表示您同意我们的
-              <a href="#" className="text-gold hover:underline ml-1">使用条款</a>
-              和
-              <a href="#" className="text-gold hover:underline ml-1">购买须知</a>
+              By clicking &ldquo;I am 18 or older&rdquo; you agree to our
+              <a href="#" className="text-gold hover:underline ml-1">Terms of Service</a>
+              and
+              <a href="#" className="text-gold hover:underline ml-1">Purchase Policy</a>
             </p>
           </div>
         </div>
