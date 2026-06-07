@@ -15,28 +15,6 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
   const incrementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const decrementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Hold-to-increment logic
-  const startIncrement = useCallback(() => {
-    if (item.quantity >= item.product.stock) return;
-    const newQty = item.quantity + 1;
-    updateQuantity(item.product.id, newQty);
-    
-    incrementTimeoutRef.current = setTimeout(() => {
-      incrementIntervalRef.current = setInterval(() => {
-        // Use a ref-like approach by reading from DOM or using closure
-        // Since we can't use callback, we increment based on current known value
-        // But we need to track the latest quantity
-        const currentQty = item.quantity + 1; // Start from what we just set
-        const nextQty = currentQty + 1;
-        if (nextQty > item.product.stock) {
-          stopIncrement();
-          return;
-        }
-        updateQuantity(item.product.id, nextQty);
-      }, 100);
-    }, 400);
-  }, [item.quantity, item.product.stock, item.product.id, updateQuantity]);
-
   const stopIncrement = useCallback(() => {
     if (incrementTimeoutRef.current) {
       clearTimeout(incrementTimeoutRef.current);
@@ -47,6 +25,36 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
       incrementIntervalRef.current = null;
     }
   }, []);
+
+  const stopDecrement = useCallback(() => {
+    if (decrementTimeoutRef.current) {
+      clearTimeout(decrementTimeoutRef.current);
+      decrementTimeoutRef.current = null;
+    }
+    if (decrementIntervalRef.current) {
+      clearInterval(decrementIntervalRef.current);
+      decrementIntervalRef.current = null;
+    }
+  }, []);
+
+  // Hold-to-increment logic
+  const startIncrement = useCallback(() => {
+    if (item.quantity >= item.product.stock) return;
+    const newQty = item.quantity + 1;
+    updateQuantity(item.product.id, newQty);
+    
+    incrementTimeoutRef.current = setTimeout(() => {
+      incrementIntervalRef.current = setInterval(() => {
+        const currentQty = item.quantity + 1;
+        const nextQty = currentQty + 1;
+        if (nextQty > item.product.stock) {
+          stopIncrement();
+          return;
+        }
+        updateQuantity(item.product.id, nextQty);
+      }, 100);
+    }, 400);
+  }, [item.quantity, item.product.stock, item.product.id, updateQuantity, stopIncrement]);
 
   // Hold-to-decrement logic
   const startDecrement = useCallback(() => {
@@ -67,18 +75,7 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
         updateQuantity(item.product.id, nextQty);
       }, 100);
     }, 400);
-  }, [item.quantity, item.product.moq, item.product.id, updateQuantity]);
-
-  const stopDecrement = useCallback(() => {
-    if (decrementTimeoutRef.current) {
-      clearTimeout(decrementTimeoutRef.current);
-      decrementTimeoutRef.current = null;
-    }
-    if (decrementIntervalRef.current) {
-      clearInterval(decrementIntervalRef.current);
-      decrementIntervalRef.current = null;
-    }
-  }, []);
+  }, [item.quantity, item.product.moq, item.product.id, updateQuantity, stopDecrement]);
 
   // Cleanup on unmount
   useEffect(() => {
