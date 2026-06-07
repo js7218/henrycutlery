@@ -158,7 +158,7 @@ export default function AdminPage() {
     tags: [],
   });
 
-  // Role verification on mount
+  // Role verification on mount (rebuild trigger)
   useEffect(() => {
     const checkAuthorization = async () => {
       await new Promise(resolve => setTimeout(resolve, 500));
