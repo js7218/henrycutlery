@@ -39,7 +39,7 @@ const CMD_BLACKLIST = [
   '../', '..\\', '/ETC/', '/PROC/', '/VAR/',
 ];
 
-const DANGEROUS_CHARS = /[;'"`\|&$<>{}[]\(\)\*\?\^\~\!\#\%\@]/;
+const DANGEROUS_CHARS = /[;'"`\|&$<>{}\[\]\(\)\*\?\^\~\!\#\%\@]/;
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const PHONE_REGEX = /^1[3-9]\d{9}$/;
