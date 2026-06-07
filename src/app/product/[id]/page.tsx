@@ -29,6 +29,10 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(product?.moq || 1);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
   
+  // Use ref to access product inside useCallback without adding to deps
+  const productRef = useRef(product);
+  productRef.current = product;
+  
   // Hold-to-repeat refs - MUST be before any conditional returns
   const incrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const decrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -58,22 +62,17 @@ export default function ProductDetailPage() {
     }
   }, []);
 
-  // Use ref to store product for useCallback hooks that need it
-  const productRef = useRef(product);
-  productRef.current = product;
-
-  // Hold-to-increment logic - MUST be before any conditional returns
+  // Hold-to-increment - uses productRef to avoid conditional hook issue
   const startIncrement = useCallback(() => {
-    const currentProduct = productRef.current;
-    if (!currentProduct) return;
-    if (quantity >= currentProduct.stock) return;
-    setQuantity(prev => Math.min(currentProduct.stock, prev + 1));
+    const p = productRef.current;
+    if (!p) return;
+    if (quantity >= p.stock) return;
+    setQuantity(prev => Math.min(p.stock, prev + 1));
     
     incrementTimeoutRef.current = setTimeout(() => {
       incrementIntervalRef.current = setInterval(() => {
         setQuantity(prev => {
-          if (!productRef.current) return prev;
-          if (prev >= productRef.current.stock) {
+          if (prev >= p.stock) {
             stopIncrement();
             return prev;
           }
@@ -83,19 +82,18 @@ export default function ProductDetailPage() {
     }, 400);
   }, [quantity, stopIncrement]);
 
-  // Hold-to-decrement logic - MUST be before any conditional returns
+  // Hold-to-decrement - uses productRef to avoid conditional hook issue
   const startDecrement = useCallback(() => {
-    const currentProduct = productRef.current;
-    if (!currentProduct) return;
-    const minQty = currentProduct.moq || 1;
+    const p = productRef.current;
+    if (!p) return;
+    const minQty = p.moq || 1;
     if (quantity <= minQty) return;
     setQuantity(prev => Math.max(minQty, prev - 1));
     
     decrementTimeoutRef.current = setTimeout(() => {
       decrementIntervalRef.current = setInterval(() => {
         setQuantity(prev => {
-          if (!productRef.current) return prev;
-          const min = productRef.current.moq || 1;
+          const min = p.moq || 1;
           if (prev <= min) {
             stopDecrement();
             return prev;
