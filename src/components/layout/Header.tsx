@@ -38,7 +38,6 @@ export default function Header() {
             <span className="text-2xl font-bold text-gold-gradient" style={{ fontFamily: 'Playfair Display, serif' }}>
               ADAM CUTLERY
             </span>
-            <span className="text-xs text-steel hidden sm:block">EST.2024</span>
           </Link>
 
           {/* Desktop Navigation */}
