@@ -14,10 +14,10 @@ interface CheckoutStepsProps {
 
 export default function CheckoutSteps({ currentStep }: CheckoutStepsProps) {
   const steps: Step[] = [
-    { id: 1, name: '购物车', status: currentStep === 1 ? 'current' : currentStep > 1 ? 'complete' : 'upcoming' },
-    { id: 2, name: '确认订单', status: currentStep === 2 ? 'current' : currentStep > 2 ? 'complete' : 'upcoming' },
-    { id: 3, name: '支付', status: currentStep === 3 ? 'current' : currentStep > 3 ? 'complete' : 'upcoming' },
-    { id: 4, name: '完成', status: currentStep === 4 ? 'current' : 'upcoming' },
+    { id: 1, name: 'Cart', status: currentStep === 1 ? 'current' : currentStep > 1 ? 'complete' : 'upcoming' },
+    { id: 2, name: 'Confirm Order', status: currentStep === 2 ? 'current' : currentStep > 2 ? 'complete' : 'upcoming' },
+    { id: 3, name: 'Payment', status: currentStep === 3 ? 'current' : currentStep > 3 ? 'complete' : 'upcoming' },
+    { id: 4, name: 'Complete', status: currentStep === 4 ? 'current' : 'upcoming' },
   ];
 
   return (
