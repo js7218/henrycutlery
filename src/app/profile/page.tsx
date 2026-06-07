@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -25,15 +24,15 @@ import ProductCard from '@/components/product/ProductCard';
 type Tab = 'orders' | 'favorites' | 'addresses' | 'settings';
 
 const tabs = [
-  { id: 'orders' as Tab, label: '我的订单', icon: Package },
-  { id: 'favorites' as Tab, label: '我的收藏', icon: Heart },
-  { id: 'addresses' as Tab, label: '收货地址', icon: MapPin },
-  { id: 'settings' as Tab, label: '账户设置', icon: Settings },
+  { id: 'orders' as Tab, label: 'My Orders', icon: Package },
+  { id: 'favorites' as Tab, label: 'My Favorites', icon: Heart },
+  { id: 'addresses' as Tab, label: 'Addresses', icon: MapPin },
+  { id: 'settings' as Tab, label: 'Account Settings', icon: Settings },
 ];
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={<div className="max-w-7xl mx-auto px-4 py-20 text-center text-gray-400">加载中...</div>}>
+    <Suspense fallback={<div className="max-w-7xl mx-auto px-4 py-20 text-center text-gray-400">Loading...</div>}>
       <ProfileContent />
     </Suspense>
   );
@@ -43,7 +42,7 @@ function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { state, logout, dispatch } = useApp();
-  
+
   const [activeTab, setActiveTab] = useState<Tab>('orders');
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState<any>(null);
@@ -77,12 +76,12 @@ function ProfileContent() {
   const favoriteProducts = state.user ? products.filter(p => state.user?.favorites.includes(p.id)) : [];
 
   const statusLabels: Record<string, { label: string; color: string }> = {
-    pending: { label: '待支付', color: 'text-yellow-400' },
-    paid: { label: '已支付', color: 'text-blue-400' },
-    processing: { label: '处理中', color: 'text-blue-400' },
-    shipped: { label: '已发货', color: 'text-purple-400' },
-    delivered: { label: '已完成', color: 'text-green-400' },
-    cancelled: { label: '已取消', color: 'text-red-400' },
+    pending: { label: 'Pending Payment', color: 'text-yellow-400' },
+    paid: { label: 'Paid', color: 'text-blue-400' },
+    processing: { label: 'Processing', color: 'text-blue-400' },
+    shipped: { label: 'Shipped', color: 'text-purple-400' },
+    delivered: { label: 'Completed', color: 'text-green-400' },
+    cancelled: { label: 'Cancelled', color: 'text-red-400' },
   };
 
   const handleSaveAddress = () => {
@@ -178,7 +177,7 @@ function ProfileContent() {
                 className="w-full flex items-center gap-3 px-6 py-4 text-left text-red-400 hover:bg-red-500/10 transition-colors"
               >
                 <LogOut className="w-5 h-5" />
-                退出登录
+                Logout
               </button>
             </div>
           </nav>
@@ -190,16 +189,16 @@ function ProfileContent() {
           {activeTab === 'orders' && (
             <div>
               <h1 className="text-2xl font-bold text-foreground mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>
-                我的订单
+                My Orders
               </h1>
               
               {state.orders.length === 0 ? (
                 <div className="bg-surface border border-border rounded-lg p-12 text-center">
                   <ShoppingBag className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-400 mb-2">暂无订单</h3>
-                  <p className="text-sm text-gray-500 mb-6">快去选购心仪的刀具吧</p>
+                  <h3 className="text-lg font-medium text-gray-400 mb-2">No Orders Yet</h3>
+                  <p className="text-sm text-gray-500 mb-6">Go shop for your favorite knives</p>
                   <Link href="/products" className="btn-primary">
-                    浏览商品
+                    Browse Products
                   </Link>
                 </div>
               ) : (
@@ -208,11 +207,11 @@ function ProfileContent() {
                     <div key={order.id} className="bg-surface border border-border rounded-lg p-6">
                       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-border">
                         <div>
-                          <p className="text-sm text-gray-400">订单号</p>
+                          <p className="text-sm text-gray-400">Order Number</p>
                           <p className="font-mono text-foreground">{order.orderNumber}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-400">下单时间</p>
+                          <p className="text-sm text-gray-400">Order Date</p>
                           <p className="text-foreground">{formatDate(order.createdAt)}</p>
                         </div>
                         <div>
@@ -221,7 +220,7 @@ function ProfileContent() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm text-gray-400">订单金额</p>
+                          <p className="text-sm text-gray-400">Total</p>
                           <p className="text-lg font-semibold text-gold">{formatPrice(order.totalAmount)}</p>
                         </div>
                       </div>
@@ -255,16 +254,16 @@ function ProfileContent() {
           {activeTab === 'favorites' && (
             <div>
               <h1 className="text-2xl font-bold text-foreground mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>
-                我的收藏
+                My Favorites
               </h1>
               
               {favoriteProducts.length === 0 ? (
                 <div className="bg-surface border border-border rounded-lg p-12 text-center">
                   <Heart className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-400 mb-2">暂无收藏</h3>
-                  <p className="text-sm text-gray-500 mb-6">在商品详情页点击爱心即可收藏</p>
+                  <h3 className="text-lg font-medium text-gray-400 mb-2">No Favorites</h3>
+                  <p className="text-sm text-gray-500 mb-6">Click the heart icon on product pages to add favorites</p>
                   <Link href="/products" className="btn-primary">
-                    浏览商品
+                    Browse Products
                   </Link>
                 </div>
               ) : (
@@ -282,7 +281,7 @@ function ProfileContent() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'Playfair Display, serif' }}>
-                  收货地址
+                  Shipping Addresses
                 </h1>
                 {!showAddressForm && (
                   <button
@@ -302,7 +301,7 @@ function ProfileContent() {
                     className="flex items-center gap-2 px-4 py-2 bg-gold text-background rounded-lg hover:bg-goldLight transition-colors"
                   >
                     <Plus className="w-4 h-4" />
-                    新增地址
+                    Add Address
                   </button>
                 )}
               </div>
@@ -310,41 +309,41 @@ function ProfileContent() {
               {showAddressForm && (
                 <div className="bg-surface border border-gold/50 rounded-lg p-6 mb-6">
                   <h3 className="font-semibold text-foreground mb-4">
-                    {editingAddress ? '编辑地址' : '新增地址'}
+                    {editingAddress ? 'Edit Address' : 'Add New Address'}
                   </h3>
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <input
-                      placeholder="收货人姓名"
+                      placeholder="Recipient Name"
                       value={addressForm.name}
                       onChange={e => setAddressForm({ ...addressForm, name: e.target.value })}
                       className="input-field col-span-2 md:col-span-1"
                     />
                     <input
-                      placeholder="手机号码"
+                      placeholder="Phone Number"
                       value={addressForm.phone}
                       onChange={e => setAddressForm({ ...addressForm, phone: e.target.value })}
                       className="input-field col-span-2 md:col-span-1"
                     />
                     <input
-                      placeholder="省份"
+                      placeholder="Province"
                       value={addressForm.province}
                       onChange={e => setAddressForm({ ...addressForm, province: e.target.value })}
                       className="input-field"
                     />
                     <input
-                      placeholder="城市"
+                      placeholder="City"
                       value={addressForm.city}
                       onChange={e => setAddressForm({ ...addressForm, city: e.target.value })}
                       className="input-field"
                     />
                     <input
-                      placeholder="区县"
+                      placeholder="District"
                       value={addressForm.district}
                       onChange={e => setAddressForm({ ...addressForm, district: e.target.value })}
                       className="input-field"
                     />
                     <input
-                      placeholder="详细地址"
+                      placeholder="Detailed Address"
                       value={addressForm.detail}
                       onChange={e => setAddressForm({ ...addressForm, detail: e.target.value })}
                       className="input-field col-span-2"
@@ -357,7 +356,7 @@ function ProfileContent() {
                       onChange={e => setAddressForm({ ...addressForm, isDefault: e.target.checked })}
                       className="w-4 h-4 rounded border-gray-600 bg-surfaceLight text-gold"
                     />
-                    <span className="text-sm text-gray-400">设为默认地址</span>
+                    <span className="text-sm text-gray-400">Set as default address</span>
                   </label>
                   <div className="flex gap-4">
                     <button
@@ -367,13 +366,13 @@ function ProfileContent() {
                       }}
                       className="px-6 py-2 border border-border rounded-lg text-gray-400 hover:text-foreground"
                     >
-                      取消
+                      Cancel
                     </button>
                     <button
                       onClick={handleSaveAddress}
                       className="px-6 py-2 bg-gold text-background rounded-lg hover:bg-goldLight"
                     >
-                      保存
+                      Save
                     </button>
                   </div>
                 </div>
@@ -382,8 +381,8 @@ function ProfileContent() {
               {state.user.addresses.length === 0 && !showAddressForm ? (
                 <div className="bg-surface border border-border rounded-lg p-12 text-center">
                   <MapPin className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-400 mb-2">暂无收货地址</h3>
-                  <p className="text-sm text-gray-500">点击上方按钮添加收货地址</p>
+                  <h3 className="text-lg font-medium text-gray-400 mb-2">No Addresses</h3>
+                  <p className="text-sm text-gray-500">Click the button above to add a shipping address</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -397,7 +396,7 @@ function ProfileContent() {
                     >
                       {address.isDefault && (
                         <span className="absolute top-3 right-3 px-2 py-0.5 bg-gold/20 text-gold text-xs rounded">
-                          默认
+                          Default
                         </span>
                       )}
                       <h3 className="font-medium text-foreground pr-16">{address.name}</h3>
@@ -412,14 +411,14 @@ function ProfileContent() {
                           className="flex items-center gap-1 text-sm text-gray-400 hover:text-gold transition-colors"
                         >
                           <Edit className="w-4 h-4" />
-                          编辑
+                          Edit
                         </button>
                         {!address.isDefault && (
                           <button
                             onClick={() => handleSetDefaultAddress(address.id)}
                             className="flex items-center gap-1 text-sm text-gray-400 hover:text-gold transition-colors"
                           >
-                            设为默认
+                            Set as Default
                           </button>
                         )}
                         <button
@@ -427,7 +426,7 @@ function ProfileContent() {
                           className="flex items-center gap-1 text-sm text-gray-400 hover:text-red-400 transition-colors ml-auto"
                         >
                           <Trash2 className="w-4 h-4" />
-                          删除
+                          Delete
                         </button>
                       </div>
                     </div>
@@ -441,37 +440,37 @@ function ProfileContent() {
           {activeTab === 'settings' && (
             <div>
               <h1 className="text-2xl font-bold text-foreground mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>
-                账户设置
+                Account Settings
               </h1>
-              
+
               <div className="bg-surface border border-border rounded-lg divide-y divide-border">
                 <div className="p-6 flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium text-foreground">用户名</h3>
+                    <h3 className="font-medium text-foreground">Username</h3>
                     <p className="text-sm text-gray-400">{state.user.name}</p>
                   </div>
-                  <button className="text-gold text-sm hover:underline">修改</button>
+                  <button className="text-gold text-sm hover:underline">Edit</button>
                 </div>
                 <div className="p-6 flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium text-foreground">邮箱</h3>
+                    <h3 className="font-medium text-foreground">Email</h3>
                     <p className="text-sm text-gray-400">{state.user.email}</p>
                   </div>
-                  <button className="text-gold text-sm hover:underline">修改</button>
+                  <button className="text-gold text-sm hover:underline">Edit</button>
                 </div>
                 <div className="p-6 flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium text-foreground">手机号码</h3>
-                    <p className="text-sm text-gray-400">{state.user.phone || '未绑定'}</p>
+                    <h3 className="font-medium text-foreground">Phone Number</h3>
+                    <p className="text-sm text-gray-400">{state.user.phone || 'Not bound'}</p>
                   </div>
-                  <button className="text-gold text-sm hover:underline">绑定</button>
+                  <button className="text-gold text-sm hover:underline">Bind</button>
                 </div>
                 <div className="p-6 flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium text-foreground">密码</h3>
+                    <h3 className="font-medium text-foreground">Password</h3>
                     <p className="text-sm text-gray-400">••••••••</p>
                   </div>
-                  <button className="text-gold text-sm hover:underline">修改</button>
+                  <button className="text-gold text-sm hover:underline">Edit</button>
                 </div>
               </div>
             </div>
