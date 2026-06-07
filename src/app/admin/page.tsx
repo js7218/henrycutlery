@@ -127,7 +127,7 @@ const mockOrders: Order[] = [
 ];
 
 export default function AdminPage() {
-  const { state } = useApp();
+  const { state, hasRole } = useApp();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [orders, setOrders] = useState<Order[]>(mockOrders);
@@ -161,20 +161,13 @@ export default function AdminPage() {
   // Role verification on mount
   useEffect(() => {
     const checkAuthorization = async () => {
-      // Simulate loading delay for security
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const user = state.user;
-      if (user && user.role === 'admin') {
-        setIsAuthorized(true);
-      } else {
-        setIsAuthorized(false);
-      }
+      setIsAuthorized(hasRole('admin'));
       setIsLoading(false);
     };
     
     checkAuthorization();
-  }, [state.user]);
+  }, [hasRole]);
 
   // Access denied view
   if (!isLoading && !isAuthorized) {
