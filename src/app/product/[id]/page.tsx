@@ -29,19 +29,44 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(product?.moq || 1);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
   
-  const isFavorite = state.user?.favorites.includes(productId) || false;
-  
-  // Hold-to-repeat refs
+  // Hold-to-repeat refs - MUST be before any conditional returns
   const incrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const decrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const incrementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const decrementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Get related products
-  const relatedProducts = products
-    .filter(p => p.category === product?.category && p.id !== productId)
-    .slice(0, 4);
+  // Hold-to-increment logic - MUST be before any conditional returns
+  const stopIncrement = useCallback(() => {
+    if (incrementTimeoutRef.current) {
+      clearTimeout(incrementTimeoutRef.current);
+      incrementTimeoutRef.current = null;
+    }
+    if (incrementIntervalRef.current) {
+      clearInterval(incrementIntervalRef.current);
+      incrementIntervalRef.current = null;
+    }
+  }, []);
 
+  const stopDecrement = useCallback(() => {
+    if (decrementTimeoutRef.current) {
+      clearTimeout(decrementTimeoutRef.current);
+      decrementTimeoutRef.current = null;
+    }
+    if (decrementIntervalRef.current) {
+      clearInterval(decrementIntervalRef.current);
+      decrementIntervalRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount - MUST be before any conditional returns
+  useEffect(() => {
+    return () => {
+      stopIncrement();
+      stopDecrement();
+    };
+  }, [stopIncrement, stopDecrement]);
+  
+  // Conditional return MUST be after all Hooks
   if (!product) {
     return (
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-20">
@@ -55,13 +80,20 @@ export default function ProductDetailPage() {
     );
   }
 
+  const isFavorite = state.user?.favorites.includes(productId) || false;
+  
+  // Get related products
+  const relatedProducts = products
+    .filter(p => p.category === product?.category && p.id !== productId)
+    .slice(0, 4);
+
   const handleAddToCart = () => {
     const moq = product.moq || 1;
     const finalQty = quantity >= moq ? quantity : moq;
     addToCart(product, finalQty);
   };
 
-  // Hold-to-increment logic
+  // Hold-to-increment logic - after conditional return, using setQuantity
   const startIncrement = useCallback(() => {
     if (quantity >= product.stock) return;
     setQuantity(prev => Math.min(product.stock, prev + 1));
@@ -77,18 +109,7 @@ export default function ProductDetailPage() {
         });
       }, 100);
     }, 400);
-  }, [quantity, product.stock]);
-
-  const stopIncrement = useCallback(() => {
-    if (incrementTimeoutRef.current) {
-      clearTimeout(incrementTimeoutRef.current);
-      incrementTimeoutRef.current = null;
-    }
-    if (incrementIntervalRef.current) {
-      clearInterval(incrementIntervalRef.current);
-      incrementIntervalRef.current = null;
-    }
-  }, []);
+  }, [quantity, product.stock, stopIncrement]);
 
   // Hold-to-decrement logic
   const startDecrement = useCallback(() => {
@@ -108,26 +129,7 @@ export default function ProductDetailPage() {
         });
       }, 100);
     }, 400);
-  }, [quantity, product.moq, product.stock]);
-
-  const stopDecrement = useCallback(() => {
-    if (decrementTimeoutRef.current) {
-      clearTimeout(decrementTimeoutRef.current);
-      decrementTimeoutRef.current = null;
-    }
-    if (decrementIntervalRef.current) {
-      clearInterval(decrementIntervalRef.current);
-      decrementIntervalRef.current = null;
-    }
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopIncrement();
-      stopDecrement();
-    };
-  }, [stopIncrement, stopDecrement]);
+  }, [quantity, product.moq, product.stock, stopDecrement]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
