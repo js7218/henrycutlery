@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { CheckCircle, ArrowLeft, ArrowRight, Copy, MapPin, CreditCard } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice, generateOrderNumber } from '@/lib/utils';
+import { securityLogger } from '@/lib/securityLogger';
 import { Address } from '@/types';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
 import PaymentSelector from '@/components/checkout/PaymentSelector';
@@ -63,12 +64,20 @@ export default function CheckoutPage() {
   const handlePayment = async () => {
     if (!selectedAddress) return;
 
-    setIsProcessing(true);
+    // SECURITY: Validate address fields
+    if (!selectedAddress.name || !selectedAddress.phone || !selectedAddress.detail) {
+      securityLogger.log('INPUT_VALIDATION_FAILURE', 'Checkout: incomplete address');
+      return;
+    }
 
-    // Simulate payment process
+    setIsProcessing(true);
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     const order = createOrder(selectedAddress, paymentMethod);
+    if (!order) {
+      setIsProcessing(false);
+      return;
+    }
     setOrderNumber(order.orderNumber);
     setCurrentStep('complete');
     setIsProcessing(false);
