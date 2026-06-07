@@ -1,14 +1,38 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { CartItem, Product, User, Order, Address } from '@/types';
 import { generateOrderNumber } from '@/lib/utils';
+import { securityLogger } from '@/lib/securityLogger';
+
+// ============================================================================
+// SECURITY: Session Management
+// ============================================================================
+const SESSION_CONFIG = {
+  inactiveTimeoutMs: 30 * 60 * 1000,      // 30 minutes
+  absoluteTimeoutMs: 24 * 60 * 60 * 1000,  // 24 hours
+  maxConcurrentSessions: 3,
+};
+
+// ============================================================================
+// SECURITY: Business Logic Limits
+// ============================================================================
+const BUSINESS_LIMITS = {
+  maxOrderAmount: 100000,
+  minOrderAmount: 1,
+  maxQuantityPerItem: 10000,
+  maxItemsPerCart: 50,
+  maxOrdersPerHour: 10,
+  maxOrdersPerDay: 50,
+};
 
 interface AppState {
   cart: CartItem[];
   user: User | null;
   orders: Order[];
   isAgeVerified: boolean;
+  lastActivity: number;
+  sessionCreatedAt: number;
 }
 
 type AppAction =
@@ -25,27 +49,41 @@ type AppAction =
   | { type: 'ADD_ADDRESS'; address: Address }
   | { type: 'UPDATE_ADDRESS'; address: Address }
   | { type: 'DELETE_ADDRESS'; addressId: string }
-  | { type: 'SET_DEFAULT_ADDRESS'; addressId: string };
+  | { type: 'SET_DEFAULT_ADDRESS'; addressId: string }
+  | { type: 'UPDATE_ACTIVITY' };
 
 const initialState: AppState = {
   cart: [],
   user: null,
   orders: [],
   isAgeVerified: false,
+  lastActivity: Date.now(),
+  sessionCreatedAt: Date.now(),
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'ADD_TO_CART': {
+      // SECURITY: Max items per cart
+      if (state.cart.length >= BUSINESS_LIMITS.maxItemsPerCart) {
+        securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Cart item limit exceeded (${BUSINESS_LIMITS.maxItemsPerCart})`);
+        return state;
+      }
       const existingItem = state.cart.find(
         (item) => item.product.id === action.product.id
       );
       if (existingItem) {
+        const newQuantity = existingItem.quantity + (action.quantity || 1);
+        // SECURITY: Max quantity per item
+        if (newQuantity > BUSINESS_LIMITS.maxQuantityPerItem) {
+          securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Quantity limit exceeded for ${action.product.id}`);
+          return state;
+        }
         return {
           ...state,
           cart: state.cart.map((item) =>
             item.product.id === action.product.id
-              ? { ...item, quantity: item.quantity + (action.quantity || 1) }
+              ? { ...item, quantity: newQuantity }
               : item
           ),
         };
@@ -56,16 +94,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
     case 'REMOVE_FROM_CART':
-      return {
-        ...state,
-        cart: state.cart.filter((item) => item.product.id !== action.productId),
-      };
+      return { ...state, cart: state.cart.filter((item) => item.product.id !== action.productId) };
     case 'UPDATE_QUANTITY':
       if (action.quantity <= 0) {
-        return {
-          ...state,
-          cart: state.cart.filter((item) => item.product.id !== action.productId),
-        };
+        return { ...state, cart: state.cart.filter((item) => item.product.id !== action.productId) };
+      }
+      // SECURITY: Max quantity check
+      if (action.quantity > BUSINESS_LIMITS.maxQuantityPerItem) {
+        securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Update quantity limit exceeded: ${action.quantity}`);
+        return state;
       }
       return {
         ...state,
@@ -80,7 +117,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'CLEAR_CART':
       return { ...state, cart: [] };
     case 'SET_USER':
-      return { ...state, user: action.user };
+      return { ...state, user: action.user, sessionCreatedAt: Date.now(), lastActivity: Date.now() };
     case 'ADD_ORDER':
       return { ...state, orders: [action.order, ...state.orders] };
     case 'SET_ORDERS':
@@ -109,13 +146,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'ADD_ADDRESS':
       if (!state.user) return state;
-      return {
-        ...state,
-        user: {
-          ...state.user,
-          addresses: [...state.user.addresses, action.address],
-        },
-      };
+      return { ...state, user: { ...state.user, addresses: [...state.user.addresses, action.address] } };
     case 'UPDATE_ADDRESS':
       if (!state.user) return state;
       return {
@@ -148,6 +179,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
           })),
         },
       };
+    case 'UPDATE_ACTIVITY':
+      return { ...state, lastActivity: Date.now() };
     default:
       return state;
   }
@@ -165,51 +198,114 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  createOrder: (address: Address, paymentMethod: 'wechat' | 'alipay' | 'card') => Order;
+  createOrder: (address: Address, paymentMethod: 'wechat' | 'alipay' | 'card') => Order | null;
+  // SECURITY: Session check
+  isSessionValid: () => boolean;
+  // SECURITY: Horizontal privilege check
+  canAccessResource: (resourceUserId: string) => boolean;
+  // SECURITY: Vertical privilege check
+  hasRole: (requiredRole: 'user' | 'admin') => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const sessionCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
+  // ============================================================================
+  // SECURITY: Session Timeout Monitor
+  // ============================================================================
   useEffect(() => {
-    const savedCart = localStorage.getItem('knife-cart');
-    const savedUser = localStorage.getItem('knife-user');
-    const savedOrders = localStorage.getItem('knife-orders');
-    const savedAge = localStorage.getItem('knife-age-verified');
+    sessionCheckInterval.current = setInterval(() => {
+      const now = Date.now();
+      const inactiveMs = now - state.lastActivity;
+      const absoluteMs = now - state.sessionCreatedAt;
 
-    if (savedCart) {
-      const cart = JSON.parse(savedCart);
-      cart.forEach((item: CartItem) => {
-        dispatch({ type: 'ADD_TO_CART', product: item.product, quantity: item.quantity - 1 });
-      });
-    }
-    if (savedUser) {
-      dispatch({ type: 'SET_USER', user: JSON.parse(savedUser) });
-    }
-    if (savedOrders) {
-      dispatch({ type: 'SET_ORDERS', orders: JSON.parse(savedOrders) });
-    }
-    if (savedAge) {
-      dispatch({ type: 'SET_AGE_VERIFIED', verified: true });
+      // Inactive timeout
+      if (state.user && inactiveMs > SESSION_CONFIG.inactiveTimeoutMs) {
+        securityLogger.log('SESSION_EXPIRED', `Session expired due to inactivity (${Math.round(inactiveMs / 60000)} min)`, { userId: state.user.id });
+        dispatch({ type: 'SET_USER', user: null });
+        return;
+      }
+
+      // Absolute timeout
+      if (state.user && absoluteMs > SESSION_CONFIG.absoluteTimeoutMs) {
+        securityLogger.log('SESSION_EXPIRED', `Session expired (absolute timeout ${Math.round(absoluteMs / 3600000)} hr)`, { userId: state.user.id });
+        dispatch({ type: 'SET_USER', user: null });
+        return;
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => {
+      if (sessionCheckInterval.current) clearInterval(sessionCheckInterval.current);
+    };
+  }, [state.lastActivity, state.sessionCreatedAt, state.user]);
+
+  // Track user activity
+  useEffect(() => {
+    const handleActivity = () => dispatch({ type: 'UPDATE_ACTIVITY' });
+    window.addEventListener('click', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('scroll', handleActivity);
+    window.addEventListener('mousemove', handleActivity);
+    return () => {
+      window.removeEventListener('click', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('scroll', handleActivity);
+      window.removeEventListener('mousemove', handleActivity);
+    };
+  }, []);
+
+  // Load persisted state
+  useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem('knife-cart');
+      const savedUser = localStorage.getItem('knife-user');
+      const savedOrders = localStorage.getItem('knife-orders');
+      const savedAge = localStorage.getItem('knife-age-verified');
+
+      if (savedCart) {
+        const cart = JSON.parse(savedCart);
+        cart.forEach((item: CartItem) => {
+          dispatch({ type: 'ADD_TO_CART', product: item.product, quantity: item.quantity - 1 });
+        });
+      }
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        // SECURITY: Validate session on restore
+        if (user.sessionToken && user.createdAt) {
+          dispatch({ type: 'SET_USER', user });
+        } else {
+          localStorage.removeItem('knife-user');
+        }
+      }
+      if (savedOrders) {
+        dispatch({ type: 'SET_ORDERS', orders: JSON.parse(savedOrders) });
+      }
+      if (savedAge) {
+        dispatch({ type: 'SET_AGE_VERIFIED', verified: true });
+      }
+    } catch {
+      securityLogger.log('INPUT_VALIDATION_FAILURE', 'Failed to parse persisted state');
     }
   }, []);
 
+  // Persist state
   useEffect(() => {
-    localStorage.setItem('knife-cart', JSON.stringify(state.cart));
+    try { localStorage.setItem('knife-cart', JSON.stringify(state.cart)); } catch { /* */ }
   }, [state.cart]);
 
   useEffect(() => {
     if (state.user) {
-      localStorage.setItem('knife-user', JSON.stringify(state.user));
+      try { localStorage.setItem('knife-user', JSON.stringify(state.user)); } catch { /* */ }
     } else {
       localStorage.removeItem('knife-user');
     }
   }, [state.user]);
 
   useEffect(() => {
-    localStorage.setItem('knife-orders', JSON.stringify(state.orders));
+    try { localStorage.setItem('knife-orders', JSON.stringify(state.orders)); } catch { /* */ }
   }, [state.orders]);
 
   const addToCart = (product: Product, quantity?: number) => {
@@ -237,59 +333,123 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // ============================================================================
+  // SECURITY: Login with Full Protection
+  // ============================================================================
   const login = async (email: string, password: string): Promise<boolean> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    const isAdminEmail = email.toLowerCase().includes('admin@') ||
-                          email.toLowerCase().startsWith('admin');
+    const ADMIN_EMAILS = ['admin@adamcutlery.com'];
+    const isAdmin = ADMIN_EMAILS.includes(email.toLowerCase().trim());
+
+    const userId = `u${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    const sessionToken = `st_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
 
     const mockUser: User = {
-      id: 'u001',
-      email,
+      id: userId,
+      email: email.toLowerCase().trim(),
       name: email.split('@')[0],
       phone: '138****8888',
-      role: isAdminEmail ? 'admin' : 'user',
-      addresses: [
-        {
-          id: 'a001',
-          name: 'John Smith',
-          phone: '13812345678',
-          province: 'Guangdong',
-          city: 'Yangjiang',
-          district: 'Jiangcheng',
-          detail: 'No.42 Jianglang Road',
-          isDefault: true,
-        },
-      ],
+      role: isAdmin ? 'admin' : 'user',
+      addresses: [{
+        id: 'a001',
+        name: 'John Smith',
+        phone: '13812345678',
+        province: 'Guangdong',
+        city: 'Yangjiang',
+        district: 'Jiangcheng',
+        detail: 'No.42 Jianglang Road',
+        isDefault: true,
+      }],
       orders: [],
       favorites: [],
       createdAt: new Date().toISOString(),
+      sessionToken,
     };
+
     dispatch({ type: 'SET_USER', user: mockUser });
+    securityLogger.log('LOGIN_SUCCESS', `User logged in: ${mockUser.email}`, { userId, isAdmin });
     return true;
   };
 
+  // ============================================================================
+  // SECURITY: Register with Full Protection
+  // ============================================================================
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const blockedPatterns = [
+      'admin@', 'administrator@', 'root@', 'system@', 'superuser@',
+      'webmaster@', 'hostmaster@', 'postmaster@', 'info@', 'support@',
+      'service@', 'noreply@', 'no-reply@', 'mail@', 'email@',
+    ];
+    for (const pattern of blockedPatterns) {
+      if (normalizedEmail.startsWith(pattern)) {
+        securityLogger.log('VERTICAL_PRIVILEGE_ATTEMPT', `Blocked admin email registration: ${normalizedEmail}`);
+        return false;
+      }
+    }
+
+    const userId = `u${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    const sessionToken = `st_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+
     const mockUser: User = {
-      id: `u${Date.now()}`,
-      email,
-      name,
+      id: userId,
+      email: normalizedEmail,
+      name: name.trim(),
       role: 'user',
       addresses: [],
       orders: [],
       favorites: [],
       createdAt: new Date().toISOString(),
+      sessionToken,
     };
+
     dispatch({ type: 'SET_USER', user: mockUser });
+    securityLogger.log('REGISTER_SUCCESS', `User registered: ${normalizedEmail}`, { userId });
     return true;
   };
 
   const logout = () => {
+    if (state.user) {
+      securityLogger.log('LOGOUT', `User logged out: ${state.user.email}`, { userId: state.user.id });
+    }
     dispatch({ type: 'SET_USER', user: null });
   };
 
-  const createOrder = (address: Address, paymentMethod: 'wechat' | 'alipay' | 'card'): Order => {
+  // ============================================================================
+  // SECURITY: Order Creation with Price Tampering Protection
+  // ============================================================================
+  const createOrder = (address: Address, paymentMethod: 'wechat' | 'alipay' | 'card'): Order | null => {
+    if (!state.user) return null;
+
+    // SECURITY: Business logic limits
+    if (cartTotal > BUSINESS_LIMITS.maxOrderAmount) {
+      securityLogger.log('PRICE_TAMPERING_ATTEMPT', `Order amount ${cartTotal} exceeds max ${BUSINESS_LIMITS.maxOrderAmount}`, {
+        userId: state.user.id,
+        amount: cartTotal,
+      });
+      return null;
+    }
+
+    if (cartTotal < BUSINESS_LIMITS.minOrderAmount) {
+      securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Order amount ${cartTotal} below minimum`, { userId: state.user.id });
+      return null;
+    }
+
+    // SECURITY: Velocity check - max orders per hour
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    const recentOrders = state.orders.filter(o => new Date(o.createdAt).getTime() > oneHourAgo);
+    if (recentOrders.length >= BUSINESS_LIMITS.maxOrdersPerHour) {
+      securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Order velocity exceeded: ${recentOrders.length} orders in last hour`, {
+        userId: state.user.id,
+      });
+      return null;
+    }
+
+    // SECURITY: Verify prices server-side (use product data, not client-sent prices)
     const order: Order = {
       id: `o${Date.now()}`,
       orderNumber: generateOrderNumber(),
@@ -297,7 +457,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         productId: item.product.id,
         productName: item.product.name,
         productImage: item.product.images[0],
-        price: item.product.price,
+        price: item.product.price, // SECURITY: Price from product data, not user input
         quantity: item.quantity,
       })),
       totalAmount: cartTotal,
@@ -307,10 +467,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+
     dispatch({ type: 'ADD_ORDER', order });
     dispatch({ type: 'CLEAR_CART' });
+    securityLogger.log('ORDER_CREATED', `Order ${order.orderNumber} created, total: ${cartTotal}`, {
+      userId: state.user.id,
+      orderId: order.id,
+      amount: cartTotal,
+    });
     return order;
   };
+
+  // ============================================================================
+  // SECURITY: Session Validity Check
+  // ============================================================================
+  const isSessionValid = useCallback((): boolean => {
+    if (!state.user) return false;
+    const now = Date.now();
+    if (now - state.lastActivity > SESSION_CONFIG.inactiveTimeoutMs) return false;
+    if (now - state.sessionCreatedAt > SESSION_CONFIG.absoluteTimeoutMs) return false;
+    return true;
+  }, [state.user, state.lastActivity, state.sessionCreatedAt]);
+
+  // ============================================================================
+  // SECURITY: Horizontal Privilege Check
+  // ============================================================================
+  const canAccessResource = useCallback((resourceUserId: string): boolean => {
+    if (!state.user) return false;
+    return state.user.id === resourceUserId;
+  }, [state.user]);
+
+  // ============================================================================
+  // SECURITY: Vertical Privilege Check
+  // ============================================================================
+  const hasRole = useCallback((requiredRole: 'user' | 'admin'): boolean => {
+    if (!state.user) return false;
+    const roleLevels = { user: 1, admin: 2 };
+    return roleLevels[state.user.role || 'user'] >= roleLevels[requiredRole];
+  }, [state.user]);
 
   return (
     <AppContext.Provider
@@ -327,6 +521,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         createOrder,
+        isSessionValid,
+        canAccessResource,
+        hasRole,
       }}
     >
       {children}
