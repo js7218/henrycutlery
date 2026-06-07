@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ShoppingCart,
   User,
@@ -18,11 +19,29 @@ import { cn } from '@/lib/utils';
 
 export default function Header() {
   const { state, cartCount, logout } = useApp();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchOpen]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setIsSearchOpen(false);
+      setSearchQuery('');
+    }
+  };
 
   const navLinks = [
-    { href: '/', label: 'Home' },
     { href: '/products', label: 'All Products' },
     { href: '/products?category=kitchen', label: 'Kitchen' },
     { href: '/products?category=folding', label: 'Folding' },
@@ -57,9 +76,43 @@ export default function Header() {
           {/* Right Actions */}
           <div className="flex items-center space-x-4">
             {/* Search */}
-            <Link href="/products" className="p-2 text-gray-400 hover:text-gold transition-colors">
-              <Search className="w-5 h-5" />
-            </Link>
+            <div className="relative flex items-center">
+              {isSearchOpen ? (
+                <form onSubmit={handleSearch} className="flex items-center">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search products..."
+                    className="w-48 md:w-64 px-3 py-1.5 text-sm bg-surface border border-border rounded-l-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold"
+                  />
+                  <button
+                    type="submit"
+                    className="p-2 bg-gold text-background rounded-r-lg hover:bg-gold/90 transition-colors"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSearchOpen(false);
+                      setSearchQuery('');
+                    }}
+                    className="ml-2 p-1 text-gray-400 hover:text-gold transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </form>
+              ) : (
+                <button
+                  onClick={() => setIsSearchOpen(true)}
+                  className="p-2 text-gray-400 hover:text-gold transition-colors"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+              )}
+            </div>
 
             {/* Favorites */}
             {state.user && (
