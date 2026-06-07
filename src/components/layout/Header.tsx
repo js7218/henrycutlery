@@ -22,6 +22,7 @@ export default function Header() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const navLinks = [
+    { href: '/', label: 'Home' },
     { href: '/products', label: 'All Products' },
     { href: '/products?category=kitchen', label: 'Kitchen' },
     { href: '/products?category=folding', label: 'Folding' },
