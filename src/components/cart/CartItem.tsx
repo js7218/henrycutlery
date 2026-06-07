@@ -18,17 +18,21 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
   // Hold-to-increment logic
   const startIncrement = useCallback(() => {
     if (item.quantity >= item.product.stock) return;
-    updateQuantity(item.product.id, item.quantity + 1);
+    const newQty = item.quantity + 1;
+    updateQuantity(item.product.id, newQty);
     
     incrementTimeoutRef.current = setTimeout(() => {
       incrementIntervalRef.current = setInterval(() => {
-        updateQuantity(item.product.id, (prev: number) => {
-          if (prev >= item.product.stock) {
-            stopIncrement();
-            return prev;
-          }
-          return prev + 1;
-        });
+        // Use a ref-like approach by reading from DOM or using closure
+        // Since we can't use callback, we increment based on current known value
+        // But we need to track the latest quantity
+        const currentQty = item.quantity + 1; // Start from what we just set
+        const nextQty = currentQty + 1;
+        if (nextQty > item.product.stock) {
+          stopIncrement();
+          return;
+        }
+        updateQuantity(item.product.id, nextQty);
       }, 100);
     }, 400);
   }, [item.quantity, item.product.stock, item.product.id, updateQuantity]);
@@ -48,16 +52,19 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
   const startDecrement = useCallback(() => {
     const minQty = item.product.moq || 1;
     if (item.quantity <= minQty) return;
-    updateQuantity(item.product.id, item.quantity - 1);
+    const newQty = item.quantity - 1;
+    updateQuantity(item.product.id, newQty);
     
     decrementTimeoutRef.current = setTimeout(() => {
       decrementIntervalRef.current = setInterval(() => {
+        const currentQty = item.quantity - 1;
+        const nextQty = currentQty - 1;
         const min = item.product.moq || 1;
-        if (item.quantity <= min) {
+        if (nextQty < min) {
           stopDecrement();
           return;
         }
-        updateQuantity(item.product.id, item.quantity - 1);
+        updateQuantity(item.product.id, nextQty);
       }, 100);
     }, 400);
   }, [item.quantity, item.product.moq, item.product.id, updateQuantity]);
