@@ -366,7 +366,7 @@ const PATH_TRAVERSAL_PATTERNS = [
   /\\+\.\.\\/i, /\.\.\/\\\./i,
   /%c0%ae%c0%ae/i, /%c1%9c/i, /%c1%1c/i,
   /%e0%80%ae/i, /%e0%80%af/i,
-  /\.\.\\\/i,
+  /\.\.[\\\/]/i,
   /..%252f/i, /..%255c/i,
   /\.\.%c0%af/i, /\.\.%c1%9c/i,
 ];
@@ -454,7 +454,7 @@ const BLOCKED_UAS = [
   /nuclei/i, /libwww-perl/i,
   /httpclient/i, /python-requests/i, /python-urllib/i,
   /go-http-client/i, /java\/\d/i,
-  /wget/i, /curl\/i, /fetch/i,
+  /wget/i, /curl/i, /fetch/i,
   /bot/i, /crawler/i, /spider/i, /scraper/i,
   /Censys/i, /Shodan/i, /ZoomEye/i, /Fofa/i,
   /AhrefsBot/i, /SemrushBot/i, /MegaIndex/i,
