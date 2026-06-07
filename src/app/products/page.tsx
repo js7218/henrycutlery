@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Filter, Grid, List, SlidersHorizontal, X } from 'lucide-react';
@@ -9,25 +8,35 @@ import ProductCard from '@/components/product/ProductCard';
 import { cn } from '@/lib/utils';
 
 const priceRanges = [
-  { label: '全部', min: 0, max: Infinity },
-  { label: '500元以下', min: 0, max: 500 },
-  { label: '500-1000元', min: 500, max: 1000 },
-  { label: '1000-2000元', min: 1000, max: 2000 },
-  { label: '2000-3000元', min: 2000, max: 3000 },
-  { label: '3000元以上', min: 3000, max: Infinity },
+  { label: 'All', min: 0, max: Infinity },
+  { label: 'Under $500', min: 0, max: 500 },
+  { label: '$500 - $1,000', min: 500, max: 1000 },
+  { label: '$1,000 - $2,000', min: 1000, max: 2000 },
+  { label: '$2,000 - $3,000', min: 2000, max: 3000 },
+  { label: 'Above $3,000', min: 3000, max: Infinity },
 ];
 
 const sortOptions = [
-  { value: 'default', label: '默认排序' },
-  { value: 'price-asc', label: '价格从低到高' },
-  { value: 'price-desc', label: '价格从高到低' },
-  { value: 'name', label: '按名称' },
-  { value: 'newest', label: '最新上架' },
+  { value: 'default', label: 'Default Sort' },
+  { value: 'price-asc', label: 'Price: Low to High' },
+  { value: 'price-desc', label: 'Price: High to Low' },
+  { value: 'name', label: 'By Name' },
+  { value: 'newest', label: 'Newest Arrivals' },
 ];
+
+// Brands to remove from filter
+const removedBrands = new Set([
+  'Buck', 'Benchmade', 'Spyderco', 'Kershaw', 'Cold Steel', 
+  'Victorinox', 'Gerber', 'Zero Tolerance', 'CRKT', 'Microtech', 
+  'SOG', 'Emerson', 'Mercer Culinary', 'Miyabi'
+]);
+
+// Filter out removed brands
+const filteredBrands = brands.filter(brand => !removedBrands.has(brand));
 
 export default function ProductsPage() {
   return (
-    <Suspense fallback={<div className="max-w-7xl mx-auto px-4 py-20 text-center text-gray-400">加载中...</div>}>
+    <Suspense fallback={<div className="max-w-7xl mx-auto px-4 py-20 text-center text-gray-400">Loading...</div>}>
       <ProductsContent />
     </Suspense>
   );
@@ -57,17 +66,17 @@ function ProductsContent() {
 
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
-
+    
     // Category filter
     if (selectedCategory) {
       filtered = filtered.filter(p => p.category === selectedCategory);
     }
-
+    
     // Brand filter
     if (selectedBrand) {
       filtered = filtered.filter(p => p.brand === selectedBrand);
     }
-
+    
     // Price range filter
     const range = priceRanges[selectedPriceRange];
     if (range.max !== Infinity) {
@@ -75,7 +84,7 @@ function ProductsContent() {
     } else {
       filtered = filtered.filter(p => p.price >= range.min);
     }
-
+    
     // Sort
     switch (sortBy) {
       case 'price-asc':
@@ -91,7 +100,7 @@ function ProductsContent() {
         filtered.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
         break;
     }
-
+    
     return filtered;
   }, [selectedCategory, selectedBrand, selectedPriceRange, sortBy]);
 
@@ -109,10 +118,10 @@ function ProductsContent() {
       {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-          全部商品
+          All Products
         </h1>
         <p className="text-gray-400">
-          共找到 <span className="text-gold font-semibold">{filteredProducts.length}</span> 件商品
+          Found <span className="text-gold font-semibold">{filteredProducts.length}</span> products
         </p>
       </div>
 
@@ -129,20 +138,18 @@ function ProductsContent() {
             )}
           >
             <SlidersHorizontal className="w-4 h-4" />
-            <span className="hidden sm:inline">筛选</span>
+            <span className="hidden sm:inline">Filter</span>
           </button>
-
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
               className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gold transition-colors"
             >
               <X className="w-4 h-4" />
-              清除筛选
+              Clear Filters
             </button>
           )}
         </div>
-
         <div className="flex items-center gap-4">
           {/* Sort */}
           <select
@@ -156,7 +163,6 @@ function ProductsContent() {
               </option>
             ))}
           </select>
-
           {/* View Mode */}
           <div className="flex items-center border border-border rounded-lg overflow-hidden">
             <button
@@ -188,7 +194,7 @@ function ProductsContent() {
             <div className="sticky top-24 space-y-6">
               {/* Category */}
               <div>
-                <h3 className="text-sm font-semibold text-gold mb-4">分类</h3>
+                <h3 className="text-sm font-semibold text-gold mb-4">Category</h3>
                 <div className="space-y-2">
                   <button
                     onClick={() => setSelectedCategory('')}
@@ -199,7 +205,7 @@ function ProductsContent() {
                         : 'text-gray-400 hover:bg-surfaceLight hover:text-foreground'
                     )}
                   >
-                    全部
+                    All
                   </button>
                   {categories.map(cat => (
                     <button
@@ -220,7 +226,7 @@ function ProductsContent() {
 
               {/* Brand */}
               <div>
-                <h3 className="text-sm font-semibold text-gold mb-4">品牌</h3>
+                <h3 className="text-sm font-semibold text-gold mb-4">Brand</h3>
                 <div className="space-y-2">
                   <button
                     onClick={() => setSelectedBrand('')}
@@ -231,9 +237,9 @@ function ProductsContent() {
                         : 'text-gray-400 hover:bg-surfaceLight hover:text-foreground'
                     )}
                   >
-                    全部品牌
+                    All Brands
                   </button>
-                  {brands.map(brand => (
+                  {filteredBrands.map(brand => (
                     <button
                       key={brand}
                       onClick={() => setSelectedBrand(brand)}
@@ -252,7 +258,7 @@ function ProductsContent() {
 
               {/* Price Range */}
               <div>
-                <h3 className="text-sm font-semibold text-gold mb-4">价格区间</h3>
+                <h3 className="text-sm font-semibold text-gold mb-4">Price Range</h3>
                 <div className="space-y-2">
                   {priceRanges.map((range, index) => (
                     <button
@@ -280,15 +286,14 @@ function ProductsContent() {
             <div className="absolute inset-0 bg-black/60" onClick={() => setShowFilters(false)} />
             <div className="absolute bottom-0 left-0 right-0 bg-surface rounded-t-2xl p-6 max-h-[80vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold">筛选</h3>
+                <h3 className="text-lg font-semibold">Filter</h3>
                 <button onClick={() => setShowFilters(false)} className="p-2">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-
               {/* Mobile Category */}
               <div className="mb-6">
-                <h4 className="text-sm font-semibold text-gold mb-3">分类</h4>
+                <h4 className="text-sm font-semibold text-gold mb-3">Category</h4>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setSelectedCategory('')}
@@ -297,7 +302,7 @@ function ProductsContent() {
                       !selectedCategory ? 'bg-gold text-background' : 'bg-surfaceLight text-gray-400'
                     )}
                   >
-                    全部
+                    All
                   </button>
                   {categories.map(cat => (
                     <button
@@ -313,10 +318,9 @@ function ProductsContent() {
                   ))}
                 </div>
               </div>
-
               {/* Mobile Brand */}
               <div className="mb-6">
-                <h4 className="text-sm font-semibold text-gold mb-3">品牌</h4>
+                <h4 className="text-sm font-semibold text-gold mb-3">Brand</h4>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setSelectedBrand('')}
@@ -325,9 +329,9 @@ function ProductsContent() {
                       !selectedBrand ? 'bg-gold text-background' : 'bg-surfaceLight text-gray-400'
                     )}
                   >
-                    全部
+                    All
                   </button>
-                  {brands.map(brand => (
+                  {filteredBrands.map(brand => (
                     <button
                       key={brand}
                       onClick={() => setSelectedBrand(brand)}
@@ -341,10 +345,9 @@ function ProductsContent() {
                   ))}
                 </div>
               </div>
-
               {/* Mobile Price */}
               <div className="mb-6">
-                <h4 className="text-sm font-semibold text-gold mb-3">价格</h4>
+                <h4 className="text-sm font-semibold text-gold mb-3">Price</h4>
                 <div className="flex flex-wrap gap-2">
                   {priceRanges.map((range, index) => (
                     <button
@@ -360,19 +363,18 @@ function ProductsContent() {
                   ))}
                 </div>
               </div>
-
               <div className="flex gap-4">
                 <button
                   onClick={clearFilters}
                   className="flex-1 py-3 border border-border rounded-lg text-gray-400"
                 >
-                  清除筛选
+                  Clear Filters
                 </button>
                 <button
                   onClick={() => setShowFilters(false)}
                   className="flex-1 py-3 bg-gold text-background rounded-lg font-medium"
                 >
-                  应用筛选
+                  Apply Filters
                 </button>
               </div>
             </div>
@@ -384,10 +386,10 @@ function ProductsContent() {
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Filter className="w-16 h-16 text-gray-600 mb-4" />
-              <h3 className="text-xl font-medium text-gray-400 mb-2">暂无符合条件的商品</h3>
-              <p className="text-sm text-gray-500 mb-6">试试调整筛选条件</p>
+              <h3 className="text-xl font-medium text-gray-400 mb-2">No products found</h3>
+              <p className="text-sm text-gray-500 mb-6">Try adjusting your filters</p>
               <button onClick={clearFilters} className="btn-secondary">
-                清除筛选
+                Clear Filters
               </button>
             </div>
           ) : (
