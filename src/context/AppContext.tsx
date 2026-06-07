@@ -239,11 +239,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    
-    // Detect admin by email prefix or domain
-    const isAdminEmail = email.toLowerCase().includes('admin@') || 
+
+    const isAdminEmail = email.toLowerCase().includes('admin@') ||
                           email.toLowerCase().startsWith('admin');
-    
+
     const mockUser: User = {
       id: 'u001',
       email,
@@ -253,12 +252,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addresses: [
         {
           id: 'a001',
-          name: '张三',
+          name: 'John Smith',
           phone: '13812345678',
-          province: '北京市',
-          city: '北京市',
-          district: '朝阳区',
-          detail: '建国路88号1号楼1501',
+          province: 'Guangdong',
+          city: 'Yangjiang',
+          district: 'Jiangcheng',
+          detail: 'No.42 Jianglang Road',
           isDefault: true,
         },
       ],
@@ -272,7 +271,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    // New users default to 'user' role (not admin)
     const mockUser: User = {
       id: `u${Date.now()}`,
       email,
