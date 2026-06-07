@@ -10,7 +10,7 @@ import { validateEmail } from '@/lib/utils';
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useApp();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,12 +22,12 @@ export default function LoginPage() {
     setError('');
 
     if (!email || !password) {
-      setError('请输入邮箱和密码');
+      setError('Please enter email and password');
       return;
     }
 
     if (!validateEmail(email)) {
-      setError('请输入有效的邮箱地址');
+      setError('Please enter a valid email address');
       return;
     }
 
@@ -38,7 +38,7 @@ export default function LoginPage() {
     if (success) {
       router.push('/profile');
     } else {
-      setError('登录失败，请重试');
+      setError('Login failed, please try again');
     }
   };
 
@@ -47,9 +47,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gold-gradient mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-            欢迎回来
+            Welcome Back
           </h1>
-          <p className="text-gray-400">登录您的 BLADE 账户</p>
+          <p className="text-gray-400">Sign in to your Adam Cutlery account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-surface border border-border rounded-xl p-8">
@@ -62,7 +62,7 @@ export default function LoginPage() {
           {/* Email */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              邮箱地址
+              Email Address
             </label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -79,7 +79,7 @@ export default function LoginPage() {
           {/* Password */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              密码
+              Password
             </label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -107,10 +107,10 @@ export default function LoginPage() {
                 type="checkbox"
                 className="w-4 h-4 rounded border-gray-600 bg-surfaceLight text-gold focus:ring-gold focus:ring-offset-0"
               />
-              <span className="text-sm text-gray-400">记住我</span>
+              <span className="text-sm text-gray-400">Remember me</span>
             </label>
             <a href="#" className="text-sm text-gold hover:underline">
-              忘记密码？
+              Forgot password?
             </a>
           </div>
 
@@ -125,23 +125,23 @@ export default function LoginPage() {
             ) : (
               <>
                 <LogIn className="w-5 h-5" />
-                登录
+                Sign In
               </>
             )}
           </button>
 
           {/* Register Link */}
           <p className="text-center mt-6 text-gray-400">
-            还没有账户？{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/register" className="text-gold hover:underline">
-             立即注册
+              Register now
             </Link>
           </p>
         </form>
 
         {/* Demo Hint */}
         <p className="text-center mt-6 text-sm text-gray-500">
-          演示模式：输入任意邮箱和密码即可登录
+          Demo mode: enter any email and password to login
         </p>
       </div>
     </div>
