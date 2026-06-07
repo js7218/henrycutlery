@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Filter, Grid, List, SlidersHorizontal, X } from 'lucide-react';
+import { Filter, Grid, List, SlidersHorizontal, X, Search } from 'lucide-react';
 import { products, brands, categories } from '@/data/products';
 import { ProductCategory } from '@/types';
 import ProductCard from '@/components/product/ProductCard';
@@ -56,16 +56,35 @@ function ProductsContent() {
   const [selectedBrand, setSelectedBrand] = useState<string>('');
   const [selectedPriceRange, setSelectedPriceRange] = useState<number>(0);
   const [sortBy, setSortBy] = useState<string>('default');
+  const [searchQuery, setSearchQuery] = useState<string>(
+    searchParams.get('search') || ''
+  );
 
   useEffect(() => {
     const category = searchParams.get('category');
+    const search = searchParams.get('search');
     if (category) {
       setSelectedCategory(category as ProductCategory);
+    }
+    if (search) {
+      setSearchQuery(search);
     }
   }, [searchParams]);
 
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
+    
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(query) ||
+        p.brand.toLowerCase().includes(query) ||
+        p.description.toLowerCase().includes(query) ||
+        p.category.toLowerCase().includes(query) ||
+        (p.tags && p.tags.some(tag => tag.toLowerCase().includes(query)))
+      );
+    }
     
     // Category filter
     if (selectedCategory) {
@@ -102,16 +121,18 @@ function ProductsContent() {
     }
     
     return filtered;
-  }, [selectedCategory, selectedBrand, selectedPriceRange, sortBy]);
+  }, [selectedCategory, selectedBrand, selectedPriceRange, sortBy, searchQuery]);
 
   const clearFilters = () => {
     setSelectedCategory('');
     setSelectedBrand('');
     setSelectedPriceRange(0);
     setSortBy('default');
+    setSearchQuery('');
+    router.push('/products');
   };
 
-  const hasActiveFilters = selectedCategory || selectedBrand || selectedPriceRange !== 0;
+  const hasActiveFilters = selectedCategory || selectedBrand || selectedPriceRange !== 0 || searchQuery !== '';
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
@@ -123,6 +144,28 @@ function ProductsContent() {
         <p className="text-gray-400">
           Found <span className="text-gold font-semibold">{filteredProducts.length}</span> products
         </p>
+      </div>
+
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative max-w-xl">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, brand, category..."
+            className="w-full pl-10 pr-4 py-3 bg-surface border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gold transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Toolbar */}
