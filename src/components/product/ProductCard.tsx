@@ -1,5 +1,4 @@
 'use client';
-
 import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, ShoppingCart, Sparkles, Tag } from 'lucide-react';
@@ -104,7 +103,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               )}
             </div>
             {product.stock <= 5 && product.stock > 0 && (
-              <span className="text-xs text-orange-400">仅剩{product.stock}件</span>
+              <span className="text-xs text-orange-400">Only {product.stock} left</span>
             )}
           </div>
         </div>
