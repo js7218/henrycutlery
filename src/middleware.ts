@@ -115,7 +115,7 @@ const PHP_MALICIOUS_PATTERNS = [
   /<\?php\s*@?create_function\s*\(.*\$_(GET|POST|REQUEST)/i,
   /<\?php\s*@?call_user_func\s*\(.*\$_(GET|POST|REQUEST)/i,
   /<\?php\s*@?array_map\s*\(.*\$_(GET|POST|REQUEST)/i,
-  /<\?php\s*@?array_filter\s*\(.*\$_(GET|POST|REQUEST)/i),
+  /<\?php\s*@?array_filter\s*\(.*\$_(GET|POST|REQUEST)/i,
   /<\?php\s*@?usort\s*\(.*\$_(GET|POST|REQUEST)/i,
   /<\?php\s*@?file_put_contents\s*\(.*\$_(GET|POST|REQUEST)/i,
   /<\?php\s*@?str_replace\s*\(.*\$_(GET|POST|REQUEST)/i,
