@@ -12,6 +12,9 @@ export const products: Product[] = [
     category: 'folding',
     images: [
       '/images/ti.jpg',
+      '/images/folding-new-1.jpg',
+      '/images/folding-new-2.jpg',
+      '/images/thomas-new.jpg',
     ],
     specs: {
       bladeLength: '115mm (4.5 inches)',
@@ -315,17 +318,14 @@ export const products: Product[] = [
   },
   {
     id: 'adam-003',
-    name: 'Folding Knife Collection',
+    name: 'Silver Folding Knife',
     brand: 'Adam Cutlery',
     price: 96,
-    description: 'M3092, M3901, Thomas folding knife collection. Multiple models available. Price: $96. MOQ: 200pcs.',
-    longDescription: 'Premium folding knife collection featuring M3092, M3901, and Thomas models. Each knife is precision crafted with attention to detail. Blade material: CNC Satin D2, Handle material: CNC titanium. Line lock + ball bearing system. Price: $96 per unit. MOQ: 200pcs.',
+    description: 'Premium silver folding knife. Price: $96. MOQ: 200pcs.',
+    longDescription: 'Premium silver folding knife with precision crafted details. Price: $96 per unit. MOQ: 200pcs.',
     category: 'folding',
     images: [
-      '/images/folding-new-1.jpg',
-      '/images/folding-new-2.jpg',
       '/images/folding-new-3.jpg',
-      '/images/thomas-new.jpg',
     ],
     specs: {
       bladeLength: '115mm',
