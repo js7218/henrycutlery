@@ -6,7 +6,7 @@ import { generateOrderNumber } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
 
 // ============================================================================
-// SECURITY: Session Management
+// SECURITY: Session Management (rebuild trigger)
 // ============================================================================
 const SESSION_CONFIG = {
   inactiveTimeoutMs: 30 * 60 * 1000,      // 30 minutes
