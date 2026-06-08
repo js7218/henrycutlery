@@ -18,7 +18,6 @@ const SESSION_CONFIG = {
 // SECURITY: Business Logic Limits
 // ============================================================================
 const BUSINESS_LIMITS = {
-  maxQuantityPerItem: 10000,
   maxItemsPerCart: 50,
 };
 
@@ -69,12 +68,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
         (item) => item.product.id === action.product.id
       );
       if (existingItem) {
-        const newQuantity = existingItem.quantity + (action.quantity || 1);
-        // SECURITY: Max quantity per item
-        if (newQuantity > BUSINESS_LIMITS.maxQuantityPerItem) {
-          securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Quantity limit exceeded for ${action.product.id}`);
-          return state;
-        }
         return {
           ...state,
           cart: state.cart.map((item) =>
@@ -94,11 +87,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'UPDATE_QUANTITY':
       if (action.quantity <= 0) {
         return { ...state, cart: state.cart.filter((item) => item.product.id !== action.productId) };
-      }
-      // SECURITY: Max quantity check
-      if (action.quantity > BUSINESS_LIMITS.maxQuantityPerItem) {
-        securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Update quantity limit exceeded: ${action.quantity}`);
-        return state;
       }
       return {
         ...state,
