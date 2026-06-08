@@ -27,6 +27,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // ============================================================================
+// PROTECTED PATHS: Block direct access to sensitive files and directories
+// These paths return 403 Forbidden to prevent information disclosure
+// ============================================================================
+const PROTECTED_PATHS = [
+  // Build output (should never be accessed directly)
+  '/_next/static/chunks/', '/_next/static/css/', '/_next/static/media/',
+  '/_next/static/webpack-', '/_next/static/development/',
+  // Source maps (can expose original source code)
+  '.map', '.js.map', '.css.map',
+  // Config files (contain sensitive settings)
+  '/package.json', '/package-lock.json', '/yarn.lock',
+  '/tsconfig.json', '/next.config', '/tailwind.config',
+  '/postcss.config', '/.eslintrc', '/.babelrc',
+  // Environment and secrets
+  '/.env', '/.env.local', '/.env.production', '/.env.development',
+  // Version control
+  '/.git/', '/.gitignore', '/.gitattributes',
+  // IDE and editor files
+  '/.vscode/', '/.idea/', '/.editorconfig',
+  // Logs and temp files
+  '/.log', '/logs/', '/log/', '/tmp/', '/temp/',
+  // Documentation that may contain sensitive info
+  '/README.md', '/CHANGELOG.md', '/SECURITY.md',
+  '/DEPLOYMENT.md', '/安全审计报告.md',
+  // Scripts that should not be executed directly
+  '/scripts/', '/audit.sh', '/check-deps.js',
+  // Node modules (should never be served)
+  '/node_modules/',
+];
+
+function isProtectedPath(path: string): boolean {
+  return PROTECTED_PATHS.some(protectedPath => {
+    if (protectedPath.startsWith('/')) {
+      return path.startsWith(protectedPath) || path === protectedPath;
+    }
+    // For extensions like .map
+    return path.endsWith(protectedPath);
+  });
+}
+
+// ============================================================================
 // In-Memory Stores
 // ============================================================================
 interface RateLimitEntry {
@@ -912,7 +953,16 @@ export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const method = request.method;
 
-  // Skip static assets
+  // SECURITY: Block direct access to protected paths (config files, source maps, build output internals)
+  // This prevents information disclosure and unauthorized access to sensitive files
+  if (isProtectedPath(path)) {
+    return NextResponse.json(
+      { error: 'Forbidden', code: 'PROTECTED_PATH' },
+      { status: 403 }
+    );
+  }
+
+  // Skip static assets (but NOT protected paths above)
   if (
     path.startsWith('/_next/static') ||
     path.startsWith('/_next/image') ||
@@ -1033,7 +1083,7 @@ export function middleware(request: NextRequest) {
     const threat = detectThreat(query);
     if (threat.detected) {
       blockIP(ip, threat.type, 3600000);
-      console.error(`[WAF] ${threat.type} from ${ip}: ${threat.pattern}`);
+      
       return NextResponse.json({ error: 'Forbidden', code: threat.type }, { status: 403 });
     }
   }
@@ -1056,7 +1106,7 @@ export function middleware(request: NextRequest) {
   const fileInclusion = detectFileInclusion(fullUrl);
   if (fileInclusion.detected) {
     blockIP(ip, fileInclusion.type, 3600000);
-    console.error(`[WAF] ${fileInclusion.type} from ${ip}: ${fullUrl}`);
+    
     return NextResponse.json({ error: 'Forbidden', code: fileInclusion.type }, { status: 403 });
   }
 
