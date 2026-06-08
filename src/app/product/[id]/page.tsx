@@ -76,10 +76,10 @@ export default function ProductDetailPage() {
             stopIncrement();
             return prev;
           }
-          return prev + 1;
+          return Math.min(p.stock, prev + 1);
         });
-      }, 100);
-    }, 400);
+      }, 80);
+    }, 300);
   }, [quantity, stopIncrement]);
 
   // Hold-to-decrement - uses productRef to avoid conditional hook issue
@@ -98,10 +98,10 @@ export default function ProductDetailPage() {
             stopDecrement();
             return prev;
           }
-          return prev - 1;
+          return Math.max(min, prev - 1);
         });
-      }, 100);
-    }, 400);
+      }, 80);
+    }, 300);
   }, [quantity, stopDecrement]);
 
   // Cleanup on unmount - MUST be before any conditional returns
