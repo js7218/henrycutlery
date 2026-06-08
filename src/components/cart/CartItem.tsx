@@ -40,41 +40,35 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
   // Hold-to-increment logic
   const startIncrement = useCallback(() => {
     if (item.quantity >= item.product.stock) return;
-    const newQty = item.quantity + 1;
-    updateQuantity(item.product.id, newQty);
+    updateQuantity(item.product.id, Math.min(item.product.stock, item.quantity + 1));
     
     incrementTimeoutRef.current = setTimeout(() => {
       incrementIntervalRef.current = setInterval(() => {
-        const currentQty = item.quantity + 1;
-        const nextQty = currentQty + 1;
-        if (nextQty > item.product.stock) {
+        if (item.quantity >= item.product.stock) {
           stopIncrement();
           return;
         }
-        updateQuantity(item.product.id, nextQty);
-      }, 100);
-    }, 400);
+        updateQuantity(item.product.id, Math.min(item.product.stock, item.quantity + 1));
+      }, 80);
+    }, 300);
   }, [item.quantity, item.product.stock, item.product.id, updateQuantity, stopIncrement]);
 
   // Hold-to-decrement logic
   const startDecrement = useCallback(() => {
     const minQty = item.product.moq || 1;
     if (item.quantity <= minQty) return;
-    const newQty = item.quantity - 1;
-    updateQuantity(item.product.id, newQty);
+    updateQuantity(item.product.id, Math.max(minQty, item.quantity - 1));
     
     decrementTimeoutRef.current = setTimeout(() => {
       decrementIntervalRef.current = setInterval(() => {
-        const currentQty = item.quantity - 1;
-        const nextQty = currentQty - 1;
         const min = item.product.moq || 1;
-        if (nextQty < min) {
+        if (item.quantity <= min) {
           stopDecrement();
           return;
         }
-        updateQuantity(item.product.id, nextQty);
-      }, 100);
-    }, 400);
+        updateQuantity(item.product.id, Math.max(min, item.quantity - 1));
+      }, 80);
+    }, 300);
   }, [item.quantity, item.product.moq, item.product.id, updateQuantity, stopDecrement]);
 
   // Cleanup on unmount
