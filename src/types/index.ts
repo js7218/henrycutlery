@@ -48,6 +48,8 @@ export interface User {
   favorites: string[];
   createdAt: string;
   role?: 'user' | 'admin';
+  // SECURITY: Session token for horizontal privilege checks
+  sessionToken?: string;
 }
 
 export interface Address {
