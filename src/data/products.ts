@@ -92,7 +92,7 @@ export const products: Product[] = [
     longDescription: 'Blade material: black stonewashed D2\nHandle material: black G10\nMechanism: OTF slider lock\n\nPackage: with black box\nPrice: $8.50/pc\nMOQ: 600pcs',
     category: 'folding',
     images: [
-      'https://images.unsplash.com/photo-1616410634328-7f448f8e0c71?w=800',
+      '/products/OTF.jpg',
     ],
     specs: {
       bladeLength: 'N/A',
