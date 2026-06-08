@@ -16,7 +16,7 @@ type CheckoutStep = 'confirm' | 'payment' | 'complete';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { state, cartTotal, createOrder } = useApp();
+  const { state, dispatch, cartTotal } = useApp();
 
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('confirm');
   const [paymentMethod, setPaymentMethod] = useState<'wechat' | 'alipay' | 'card'>('wechat');
@@ -71,16 +71,48 @@ export default function CheckoutPage() {
     }
 
     setIsProcessing(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
 
-    const order = createOrder(selectedAddress, paymentMethod);
-    if (!order) {
+    try {
+      // SECURITY: Call server-side API to create order
+      // Client only sends productId + quantity, server looks up prices
+      const orderItems = state.cart.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+      }));
+
+      const response = await fetch('/api/order/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: orderItems,
+          address: selectedAddress,
+          paymentMethod,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        securityLogger.log('PRICE_TAMPERING_ATTEMPT', `Order API rejected: ${result.error || result.code}`);
+        setIsProcessing(false);
+        return;
+      }
+
+      // SECURITY: Use server-verified order data
+      const serverOrder = result.order;
+      setOrderNumber(serverOrder.orderNumber);
+      
+      // Add order to local state using server-verified data
+      dispatch({ type: 'ADD_ORDER', order: serverOrder });
+      dispatch({ type: 'CLEAR_CART' });
+      
+      securityLogger.log('ORDER_CREATED', `Server-verified order ${serverOrder.orderNumber}, total: ${result.serverTotal}`);
+      setCurrentStep('complete');
+    } catch (error) {
+      securityLogger.log('ORDER_FAILED', 'Failed to create order via API');
+    } finally {
       setIsProcessing(false);
-      return;
     }
-    setOrderNumber(order.orderNumber);
-    setCurrentStep('complete');
-    setIsProcessing(false);
   };
 
   const handleCopyOrderNumber = () => {
