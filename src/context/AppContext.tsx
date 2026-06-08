@@ -68,11 +68,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
         (item) => item.product.id === action.product.id
       );
       if (existingItem) {
+        const newQty = existingItem.quantity + (action.quantity || 1);
         return {
           ...state,
           cart: state.cart.map((item) =>
             item.product.id === action.product.id
-              ? { ...item, quantity: newQuantity }
+              ? { ...item, quantity: newQty }
               : item
           ),
         };
