@@ -746,9 +746,9 @@ function auditRequestHeaders(request: NextRequest, ip: string): { passed: boolea
     }
   }
 
-  // 6. Block suspicious headers
+  // 6. Block suspicious headers (but NOT Vercel/CDN headers)
   const suspiciousHeaders = [
-    'x-original-url', 'x-forwarded-host', 'x-rewrite-url',
+    'x-original-url', 'x-rewrite-url',
     'x-cdn-url', 'x-proxy-url',
   ];
   for (const header of suspiciousHeaders) {
