@@ -922,6 +922,12 @@ export function middleware(request: NextRequest) {
     return addSecurityHeaders(NextResponse.next());
   }
 
+  // Skip internal API routes from WAF (they have their own server-side validation)
+  const isInternalAPI = path.startsWith('/api/order') || path.startsWith('/api/user');
+  if (isInternalAPI) {
+    return addSecurityHeaders(NextResponse.next());
+  }
+
   // 1. HTTP method validation
   if (!ALLOWED_METHODS.includes(method)) {
     return NextResponse.json({ error: 'Method Not Allowed', code: 'INVALID_METHOD' }, { status: 405 });
