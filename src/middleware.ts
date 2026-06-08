@@ -812,10 +812,6 @@ function detectThreat(value: string): { detected: boolean; type: string; pattern
   for (const pattern of IMAGE_TROJAN_PATTERNS) {
     if (pattern.test(value)) return { detected: true, type: 'IMAGE_TROJAN', pattern: pattern.source };
   }
-  // Malicious File Extensions
-  for (const pattern of MALICIOUS_EXTENSIONS) {
-    if (pattern.test(value)) return { detected: true, type: 'MALICIOUS_FILE_UPLOAD', pattern: pattern.source };
-  }
   // Command Execution
   for (const pattern of CMD_EXECUTION_PATTERNS) {
     if (pattern.test(value)) return { detected: true, type: 'CMD_EXECUTION', pattern: pattern.source };
@@ -839,6 +835,14 @@ function detectThreat(value: string): { detected: boolean; type: string; pattern
   // Malicious Redirect
   for (const pattern of REDIRECT_PATTERNS) {
     if (pattern.test(value)) return { detected: true, type: 'MALICIOUS_REDIRECT', pattern: pattern.source };
+  }
+  return { detected: false, type: '' };
+}
+
+// Separate function for file upload detection (only used on file upload paths)
+function detectMaliciousFileExtension(value: string): { detected: boolean; type: string; pattern?: string } {
+  for (const pattern of MALICIOUS_EXTENSIONS) {
+    if (pattern.test(value)) return { detected: true, type: 'MALICIOUS_FILE_UPLOAD', pattern: pattern.source };
   }
   return { detected: false, type: '' };
 }
@@ -1063,6 +1067,14 @@ export function middleware(request: NextRequest) {
       if (bodyThreat.detected) {
         blockIP(ip, bodyThreat.type, 3600000);
         return NextResponse.json({ error: 'Forbidden', code: bodyThreat.type }, { status: 403 });
+      }
+      // SECURITY: File upload extension check (only on upload paths)
+      if (path.includes('/upload')) {
+        const fileExtThreat = detectMaliciousFileExtension(request.nextUrl.searchParams.toString());
+        if (fileExtThreat.detected) {
+          blockIP(ip, fileExtThreat.type, 3600000);
+          return NextResponse.json({ error: 'Forbidden', code: fileExtThreat.type }, { status: 403 });
+        }
       }
     }
   }
