@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   ShoppingCart, 
@@ -12,7 +12,8 @@ import {
   ChevronRight,
   Check,
   Minus,
-  Plus
+  Plus,
+  ArrowLeft
 } from 'lucide-react';
 import { getProductById, products } from '@/data/products';
 import { useApp } from '@/context/AppContext';
@@ -22,6 +23,7 @@ import ProductCard from '@/components/product/ProductCard';
 
 export default function ProductDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const productId = params.id as string;
   const product = getProductById(productId);
   
@@ -141,6 +143,15 @@ export default function ProductDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+      {/* Back Button */}
+      <button
+        onClick={() => router.back()}
+        className="flex items-center gap-2 text-gray-400 hover:text-gold transition-colors mb-4 group"
+      >
+        <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+        <span className="text-sm font-medium">Back</span>
+      </button>
+
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-gray-400 mb-8">
         <Link href="/" className="hover:text-gold transition-colors">Home</Link>
