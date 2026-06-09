@@ -1012,6 +1012,33 @@ export const products: Product[] = [
     tags: ['ball bearing', 'D2', 'titanium', 'premium'],
     moq: 300,
   },
+  {
+    id: 'batch-d-001',
+    name: 'Ball Bearing',
+    brand: 'Adam Cutlery',
+    price: 6.5,
+    description: 'H ball bearing. Blade: Satin 440 stainless steel. Handle: 3D printing stainless steel.',
+    longDescription: 'H ball bearing\nBlade: Satin 440 stainless steel\nHandle: 3D printing stainless steel\nMechanism: ball bearing + Liner lock\n\nPrice: USD$6.50/pc\nMOQ: 100pcs',
+    category: 'folding',
+    images: [
+      '/products/batch-d1.jpg',
+      '/products/batch-d2.jpg',
+      '/products/batch-d3.jpg',
+    ],
+    specs: {
+      bladeLength: 'TBD',
+      totalLength: 'TBD',
+      bladeMaterial: 'Satin 440 Stainless Steel',
+      handleMaterial: '3D Printing Stainless Steel',
+      weight: 'TBD',
+      hardness: 'TBD',
+    },
+    stock: 999999,
+    featured: true,
+    isNew: true,
+    tags: ['ball bearing', '440 steel', 'liner lock'],
+    moq: 100,
+  },
 ];
 
 export const brands = [
