@@ -84,7 +84,7 @@ export const products: Product[] = [
   // Benchmade
   {
     id: 'benchmade-001',
-    name: '945 Mini Osborne OTF',
+    name: '945 Mini Osborne Ball Bearing',
     brand: 'Adam Cutlery',
     price: 8.5,
     originalPrice: 12,
@@ -293,7 +293,7 @@ export const products: Product[] = [
   // Kershaw
   {
     id: 'kershaw-001',
-    name: 'H Ball Bearing Folder',
+    name: 'H Ball Bearing',
     brand: 'Adam Cutlery',
     price: 6.5,
     description: 'Satin 440 stainless steel blade with 3D printing stainless steel handle, ball bearing + liner lock',
@@ -345,7 +345,7 @@ export const products: Product[] = [
   },
   {
     id: 'kershaw-003',
-    name: 'Satin D2 Ball Bearing Folder',
+    name: 'Satin D2 Ball Bearing',
     brand: 'Adam Cutlery',
     price: 9.8,
     description: 'Satin D2 blade with two tones CNC G10 handle, line lock + ball bearing',
@@ -422,7 +422,7 @@ export const products: Product[] = [
   },
   {
     id: 'coldsteel-003',
-    name: 'Spring Straight Out Knife',
+    name: 'Spring Straight Out Ball Bearing',
     brand: 'Adam Cutlery',
     price: 15.7,
     description: 'Satin D2 blade with black G10 handle, spring straight out mechanism',
@@ -938,7 +938,7 @@ export const products: Product[] = [
   // New Adam Cutlery Products
   {
     id: 'adam-004',
-    name: 'Black Stone Washed D2 Folder',
+    name: 'Black Stone Washed D2 Ball Bearing',
     brand: 'Adam Cutlery',
     price: 9.3,
     description: 'Black stone washed D2 blade with two tones CNC G10 handle, line lock + ball bearing',
@@ -963,7 +963,7 @@ export const products: Product[] = [
   },
   {
     id: 'adam-005',
-    name: 'Orange G10 Ball Bearing Folder',
+    name: 'Orange G10 Ball Bearing',
     brand: 'Adam Cutlery',
     price: 8.5,
     description: 'Ball bearing folder with Satin D2 blade and CNC Orange G10 handle',
@@ -988,7 +988,7 @@ export const products: Product[] = [
   },
   {
     id: 'adam-006',
-    name: 'CNC G10 Ball Bearing Folder',
+    name: 'CNC G10 Ball Bearing',
     brand: 'Adam Cutlery',
     price: 8.3,
     description: 'Ball bearing folder with satin D2 blade and CNC G10 handle',
