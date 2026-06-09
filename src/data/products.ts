@@ -4,7 +4,7 @@ export const products: Product[] = [
   // Buck Knives
   {
     id: 'buck-001',
-    name: 'TI Folding Knife',
+    name: 'TI Ball Bearing Knife',
     brand: 'Adam Cutlery',
     price: 86,
     description: 'CNC Satin D2 steel blade with CNC titanium handle. Line lock + ball bearing system. Blade length: 115mm, Blade thickness: 3.7mm, Handle length: 150mm. Price: $86. MOQ: 200pcs.',
@@ -57,7 +57,7 @@ export const products: Product[] = [
   },
   {
     id: 'buck-003',
-    name: 'Ball Bearing Folding Knife',
+    name: 'Ball Bearing Knife',
     brand: 'Adam Cutlery',
     price: 7.6,
     description: 'Blade material: satin D2. Handle material: G10. Mechanism: ball bearing and liner lock. Close length: 4.20 inch. Blade length: 3.50 inch. Blade thickness: 3mm. Package: with black box. Price: $7.60/pc. MOQ: 600pcs per color.',
@@ -137,7 +137,7 @@ export const products: Product[] = [
   },
   {
     id: 'benchmade-003',
-    name: 'Classic Buck Folding Knife',
+    name: 'Classic Buck Ball Bearing Knife',
     brand: 'Adam Cutlery',
     price: 13,
     description: 'Classic style folding knife with premium materials. Price: $13/pc. MOQ: 600pcs.',
@@ -165,7 +165,7 @@ export const products: Product[] = [
   // Spyderco
   {
     id: 'spyderco-001',
-    name: 'Ball Bearing Folding Knife',
+    name: 'Ball Bearing Knife',
     brand: 'Adam Cutlery',
     price: 15,
     description: 'Ball Bearing folder with CNC Satin D2 blade and CNC G10 handle',
@@ -320,7 +320,7 @@ export const products: Product[] = [
   },
   {
     id: 'adam-003',
-    name: 'Silver Folding Knife',
+    name: 'Silver Ball Bearing Knife',
     brand: 'Adam Cutlery',
     price: 96,
     description: 'Premium silver folding knife. Price: $96. MOQ: 200pcs.',
@@ -1011,6 +1011,59 @@ export const products: Product[] = [
     tags: ['ball bearing', 'D2', 'G10', 'line lock'],
     moq: 600,
   },
+  // Batch A - New Products
+  {
+    id: 'batch-a-001',
+    name: 'Batch A Ball Bearing Set',
+    brand: 'Adam Cutlery',
+    price: 12.5,
+    description: 'Ball bearing knife set featuring three unique designs with premium materials.',
+    longDescription: 'Ball bearing knife set featuring three unique designs.\n\nDesign 1: Satin D2 blade with CNC G10 handle\nDesign 2: Stonewashed D2 blade with 3D printing G10 handle\nDesign 3: Black stone washed D2 blade with two tones CNC G10 handle\n\nAll feature line lock + Ball bearing mechanism\n\nPackage: Colored box\nPrice: $12.50/pc\nMOQ: 600pcs',
+    category: 'folding',
+    images: [
+      '/products/batch-a1.jpg',
+      '/products/batch-a2.jpg',
+      '/products/batch-a3.jpg',
+    ],
+    specs: {
+      bladeLength: 'TBD',
+      totalLength: 'TBD',
+      bladeMaterial: 'Satin D2 / Stonewashed D2',
+      handleMaterial: 'CNC G10 / 3D Printing G10',
+      weight: 'TBD',
+      hardness: 'TBD',
+    },
+    stock: 999999,
+    featured: true,
+    isNew: true,
+    tags: ['ball bearing', 'D2', 'G10', 'set'],
+    moq: 600,
+  },
+  {
+    id: 'batch-a-002',
+    name: 'Batch A Single Ball Bearing',
+    brand: 'Adam Cutlery',
+    price: 10.8,
+    description: 'Premium ball bearing knife with CNC Satin D2 blade and CNC titanium handle.',
+    longDescription: 'Premium ball bearing knife with CNC Satin D2 blade and CNC titanium handle. Line lock + ball bearing system.\n\nPackage: Colored box\nPrice: $10.80/pc\nMOQ: 300pcs',
+    category: 'folding',
+    images: [
+      '/products/batch-a4.jpg',
+    ],
+    specs: {
+      bladeLength: '115mm',
+      totalLength: '265mm',
+      bladeMaterial: 'CNC Satin D2 Steel',
+      handleMaterial: 'CNC Titanium',
+      weight: 'TBD',
+      hardness: '59-61 HRC',
+    },
+    stock: 999999,
+    featured: true,
+    isNew: true,
+    tags: ['ball bearing', 'D2', 'titanium', 'premium'],
+    moq: 300,
+  },
 ];
 
 export const brands = [
@@ -1021,7 +1074,7 @@ export const brands = [
 
 export const categories = [
   { id: 'kitchen', name: 'Kitchen Knives', icon: '🍳' },
-  { id: 'folding', name: 'Folding Knives', icon: '🔗' },
+  { id: 'folding', name: 'Ball Bearing Knives', icon: '🔗' },
   { id: 'fixed', name: 'Fixed Blade', icon: '🗡️' },
   { id: 'hunting', name: 'Hunting', icon: '🏹' },
   { id: 'tactical', name: 'Tactical', icon: '⚔️' },
