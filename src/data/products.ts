@@ -164,31 +164,6 @@ export const products: Product[] = [
 
   // Spyderco
   {
-    id: 'spyderco-001',
-    name: 'Ball Bearing Knife',
-    brand: 'Adam Cutlery',
-    price: 15,
-    description: 'Ball Bearing folder with CNC Satin D2 blade and CNC G10 handle',
-    longDescription: 'Blade material: CNC Satin D2\nBlade length: 105mm\nBlade thickness: 3.2mm\nHandle material: CNC G10\nHandle length: 150mm\nMechanism: line lock + Ball bearing\n\nPrice: $15.00/pc\nMOQ: 300pcs',
-    category: 'folding',
-    images: [
-      '/products/ball-bearing.jpg',
-    ],
-    specs: {
-      bladeLength: '105mm',
-      totalLength: '255mm',
-      bladeMaterial: 'CNC Satin D2',
-      handleMaterial: 'CNC G10',
-      weight: 'TBD',
-      hardness: 'TBD',
-    },
-    stock: 999999,
-    featured: true,
-    isNew: true,
-    tags: ['ball bearing', 'D2', 'G10', 'line lock'],
-    moq: 300,
-  },
-  {
     id: 'spyderco-002',
     name: 'Para 3 Ball Bearing',
     brand: 'Adam Cutlery',
@@ -1012,33 +987,6 @@ export const products: Product[] = [
     moq: 600,
   },
   // Batch A - New Products
-  {
-    id: 'batch-a-001',
-    name: 'Batch A Ball Bearing Set',
-    brand: 'Adam Cutlery',
-    price: 12.5,
-    description: 'Ball bearing knife set featuring three unique designs with premium materials.',
-    longDescription: 'Ball bearing knife set featuring three unique designs.\n\nDesign 1: Satin D2 blade with CNC G10 handle\nDesign 2: Stonewashed D2 blade with 3D printing G10 handle\nDesign 3: Black stone washed D2 blade with two tones CNC G10 handle\n\nAll feature line lock + Ball bearing mechanism\n\nPackage: Colored box\nPrice: $12.50/pc\nMOQ: 600pcs',
-    category: 'folding',
-    images: [
-      '/products/batch-a1.jpg',
-      '/products/batch-a2.jpg',
-      '/products/batch-a3.jpg',
-    ],
-    specs: {
-      bladeLength: 'TBD',
-      totalLength: 'TBD',
-      bladeMaterial: 'Satin D2 / Stonewashed D2',
-      handleMaterial: 'CNC G10 / 3D Printing G10',
-      weight: 'TBD',
-      hardness: 'TBD',
-    },
-    stock: 999999,
-    featured: true,
-    isNew: true,
-    tags: ['ball bearing', 'D2', 'G10', 'set'],
-    moq: 600,
-  },
   {
     id: 'batch-a-002',
     name: 'Batch A Single Ball Bearing',
