@@ -6,7 +6,7 @@ import { AlertTriangle, Check } from 'lucide-react';
 
 export default function AgeVerification({ children }: { children?: ReactNode }) {
   const { state, dispatch } = useApp();
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(true);
 
   useEffect(() => {
     if (!state.isAgeVerified) {
@@ -45,9 +45,12 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
     }
   };
 
+  if (state.isAgeVerified) {
+    return <>{children}</>;
+  }
+
   return (
     <>
-      {children}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm">
           <div className="bg-surface border border-border rounded-xl p-8 max-w-md w-full mx-4 animate-slide-up shadow-2xl">

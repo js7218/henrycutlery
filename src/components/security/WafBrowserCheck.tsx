@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Ban, Loader2, ShieldCheck } from 'lucide-react';
 
 const WAF_PASS_MS = 30 * 60 * 1000;
-const WAF_MIN_CHECK_MS = 3200;
+const WAF_MIN_CHECK_MS = 5000;
 const WAF_PASS_KEY = 'waf_browser_verified_until';
 
 type CheckState = 'checking' | 'blocked' | 'passed';
@@ -122,8 +122,9 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState(12);
   const statusText = useMemo(() => {
     if (state === 'blocked') return 'Access blocked. Automated browser or script behavior was detected.';
-    if (progress < 45) return 'Checking your browser before accessing Adam Cutlery...';
-    if (progress < 80) return 'Verifying that you are not a bot or script...';
+    if (progress < 35) return 'Checking your browser before accessing Adam Cutlery...';
+    if (progress < 65) return 'Verifying that you are not a bot or script...';
+    if (progress < 92) return 'Running WAF security challenge...';
     return 'Finalizing security check...';
   }, [progress, state]);
 
