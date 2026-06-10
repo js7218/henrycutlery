@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import AgeVerification from '@/components/ui/AgeVerification';
 import UrlPathHider from '@/components/security/UrlPathHider';
+import HumanVerificationGate from '@/components/security/HumanVerificationGate';
 
 export default function ClientLayout({
   children,
@@ -15,6 +16,7 @@ export default function ClientLayout({
     <AppProvider>
       <AgeVerification>
         <UrlPathHider />
+        <HumanVerificationGate />
         <Header />
         <main className="min-h-screen pt-16 md:pt-20">
           {children}

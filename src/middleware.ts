@@ -95,10 +95,17 @@ interface DDoSEntry {
   lockDate: string | null;
 }
 
+interface PageAccessEntry {
+  count: number;
+  firstSeen: number;
+  lastSeen: number;
+}
+
 const requestCounts: Record<string, RateLimitEntry> = {};
 const blockedIPs: Record<string, { expiresAt: number; reason: string; lockDate: string | null }> = {};
 const bruteForceStore: Record<string, BruteForceEntry> = {};
 const connectionTracker: Record<string, DDoSEntry> = {};
+const pageAccessTracker: Record<string, PageAccessEntry> = {};
 
 // ============================================================================
 // CONFIG: Rate Limits (Tiered)
@@ -139,6 +146,52 @@ const BRUTE_FORCE = {
   failures10Block: 24 * 60 * 60 * 1000,
   failures20Block: 7 * 24 * 60 * 60 * 1000,
 };
+
+const HUMAN_VERIFICATION = {
+  maxSamePageVisits: 10,
+  windowMs: 10 * 60 * 1000,
+  verifiedMs: 30 * 60 * 1000,
+};
+
+function isHumanVerified(request: NextRequest): boolean {
+  const verifiedUntil = Number(request.cookies.get('human_verified_until')?.value || '0');
+  return Number.isFinite(verifiedUntil) && verifiedUntil > Date.now();
+}
+
+function shouldChallengeHuman(request: NextRequest, ip: string): boolean {
+  if (isHumanVerified(request)) return false;
+
+  const path = request.nextUrl.pathname;
+  const accept = request.headers.get('accept') || '';
+  const isHtmlNavigation = request.method === 'GET' && accept.includes('text/html');
+  const isLoginArea = path.includes('/login') || path.includes('/register');
+
+  if (!isHtmlNavigation && !isLoginArea) return false;
+
+  const now = Date.now();
+  const key = `${ip}:${path}`;
+  const current = pageAccessTracker[key];
+
+  if (!current || now - current.firstSeen > HUMAN_VERIFICATION.windowMs) {
+    pageAccessTracker[key] = { count: 1, firstSeen: now, lastSeen: now };
+    return false;
+  }
+
+  current.count += 1;
+  current.lastSeen = now;
+
+  return current.count > HUMAN_VERIFICATION.maxSamePageVisits;
+}
+
+function withHumanChallengeCookie(response: NextResponse): NextResponse {
+  response.cookies.set('human_verification_required', '1', {
+    path: '/',
+    sameSite: 'lax',
+    maxAge: Math.floor(HUMAN_VERIFICATION.verifiedMs / 1000),
+  });
+  response.headers.set('X-Human-Verification-Required', '1');
+  return response;
+}
 
 // ============================================================================
 // PATTERNS: PHP Malicious Code / WebShell / One-liner Trojan (一句话木马)
@@ -1005,6 +1058,10 @@ export function middleware(request: NextRequest) {
     /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|eot)$/i.test(path)
   ) {
     return addSecurityHeaders(NextResponse.next());
+  }
+
+  if (shouldChallengeHuman(request, ip)) {
+    return addSecurityHeaders(withHumanChallengeCookie(NextResponse.next()));
   }
 
   // Skip internal API routes from WAF (they have their own server-side validation)

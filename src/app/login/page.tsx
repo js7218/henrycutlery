@@ -255,8 +255,24 @@ function recordLoginAttempt(): { allowed: boolean; lockedUntil?: number; attempt
     }
   }
   
+  // 第 11 次登录尝试触发人机验证
+  const HUMAN_VERIFICATION_THRESHOLD = 10;
+
+  if (attempts.count > HUMAN_VERIFICATION_THRESHOLD) {
+    localStorage.setItem('login_attempts', JSON.stringify(attempts));
+    localStorage.setItem('human_verification_required', 'true');
+    window.dispatchEvent(new Event('human-verification-required'));
+    return {
+      allowed: false,
+      attemptsLeft: 0,
+      reason: isBotAttack
+        ? 'Dictionary or brute-force behavior detected. Please complete human verification.'
+        : 'Please complete human verification before continuing.',
+    };
+  }
+
   // Lock thresholds
-  const LOCK_THRESHOLD = 5; // 5次失败触发锁定
+  const LOCK_THRESHOLD = 20; // 人机验证后仍连续失败才进入锁定
   
   if (attempts.count >= LOCK_THRESHOLD) {
     if (isBotAttack) {
@@ -285,7 +301,7 @@ function recordLoginAttempt(): { allowed: boolean; lockedUntil?: number; attempt
   }
   
   localStorage.setItem('login_attempts', JSON.stringify(attempts));
-  return { allowed: true, attemptsLeft: LOCK_THRESHOLD - attempts.count };
+  return { allowed: true, attemptsLeft: Math.max(0, HUMAN_VERIFICATION_THRESHOLD - attempts.count) };
 }
 
 function resetLoginAttempts(): void {
@@ -348,8 +364,10 @@ export default function LoginPage() {
     // SECURITY: Rate limiting check
     const rateCheck = recordLoginAttempt();
     if (!rateCheck.allowed) {
-      setIsLocked(true);
-      setLockCountdown(Math.ceil((rateCheck.lockedUntil! - Date.now()) / 1000));
+      if (rateCheck.lockedUntil) {
+        setIsLocked(true);
+        setLockCountdown(Math.ceil((rateCheck.lockedUntil - Date.now()) / 1000));
+      }
       setError(rateCheck.reason || `Too many failed attempts. Account locked.`);
       return;
     }
