@@ -1,18 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 
 const HOLD_DURATION_MS = 1800;
-const VISIT_LIMIT = 10;
-const WINDOW_MS = 10 * 60 * 1000;
 const VERIFIED_MS = 30 * 60 * 1000;
-
-interface VisitRecord {
-  count: number;
-  firstSeen: number;
-}
 
 function readCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -33,7 +25,6 @@ function isRecentlyVerified(): boolean {
 }
 
 export default function HumanVerificationGate() {
-  const pathname = usePathname();
   const [showChallenge, setShowChallenge] = useState(false);
   const [progress, setProgress] = useState(0);
   const holdStartedAt = useRef(0);
@@ -46,33 +37,12 @@ export default function HumanVerificationGate() {
     }
   }, []);
 
-  useEffect(() => {
-    const routeKey = pathname || '/';
-    const storageKey = `human_visit_${routeKey}`;
-    const now = Date.now();
-    const raw = localStorage.getItem(storageKey);
-    let record: VisitRecord = { count: 0, firstSeen: now };
-
-    if (raw) {
-      try {
-        record = JSON.parse(raw) as VisitRecord;
-      } catch {
-        record = { count: 0, firstSeen: now };
-      }
-    }
-
-    if (now - record.firstSeen > WINDOW_MS) {
-      record = { count: 0, firstSeen: now };
-    }
-
-    record.count += 1;
-    localStorage.setItem(storageKey, JSON.stringify(record));
-
-    if (record.count > VISIT_LIMIT) {
-      requireChallenge();
-    }
-  }, [pathname, requireChallenge]);
-
+  // The gate is opened ONLY when:
+  // 1) middleware sets the `human_verification_required` cookie (bot timing,
+  //    DDoS warning, brute force), or
+  // 2) the login page detects dictionary/brute-force behavior.
+  // Normal browsing — even refreshing the same page hundreds of times — never
+  // triggers the gate.
   useEffect(() => {
     const checkChallenge = () => {
       if (

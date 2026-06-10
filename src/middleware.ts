@@ -95,17 +95,10 @@ interface DDoSEntry {
   lockDate: string | null;
 }
 
-interface PageAccessEntry {
-  count: number;
-  firstSeen: number;
-  lastSeen: number;
-}
-
 const requestCounts: Record<string, RateLimitEntry> = {};
 const blockedIPs: Record<string, { expiresAt: number; reason: string; lockDate: string | null }> = {};
 const bruteForceStore: Record<string, BruteForceEntry> = {};
 const connectionTracker: Record<string, DDoSEntry> = {};
-const pageAccessTracker: Record<string, PageAccessEntry> = {};
 
 // ============================================================================
 // CONFIG: Rate Limits (Tiered)
@@ -147,10 +140,16 @@ const BRUTE_FORCE = {
   failures20Block: 7 * 24 * 60 * 60 * 1000,
 };
 
+// Human verification is now triggered ONLY by anomalous behavior (high-frequency
+// bursts, very-uniform timing, or login brute force). Normal repeated browsing
+// of the SAME page never triggers a challenge — so legitimate users can refresh
+// or revisit pages as much as they like.
 const HUMAN_VERIFICATION = {
-  maxSamePageVisits: 10,
-  windowMs: 10 * 60 * 1000,
   verifiedMs: 30 * 60 * 1000,
+  // anomaly thresholds (per-IP, sliding window)
+  uniformTimingWindowMs: 30 * 1000,
+  uniformTimingMinSamples: 8,
+  uniformTimingMaxStdDev: 250, // ms — almost-constant intervals = bot
 };
 
 function isHumanVerified(request: NextRequest): boolean {
@@ -158,29 +157,35 @@ function isHumanVerified(request: NextRequest): boolean {
   return Number.isFinite(verifiedUntil) && verifiedUntil > Date.now();
 }
 
-function shouldChallengeHuman(request: NextRequest, ip: string): boolean {
-  if (isHumanVerified(request)) return false;
+// Per-IP recent request timestamps (used to detect uniform-timing bots
+// that pace requests slowly to evade rate limits, e.g. one request every 3s).
+const requestTimingTracker: Record<string, number[]> = {};
 
-  const path = request.nextUrl.pathname;
-  const accept = request.headers.get('accept') || '';
-  const isHtmlNavigation = request.method === 'GET' && accept.includes('text/html');
-  const isLoginArea = path.includes('/login') || path.includes('/register');
-
-  if (!isHtmlNavigation && !isLoginArea) return false;
-
+function recordTiming(ip: string): { uniformBot: boolean } {
   const now = Date.now();
-  const key = `${ip}:${path}`;
-  const current = pageAccessTracker[key];
-
-  if (!current || now - current.firstSeen > HUMAN_VERIFICATION.windowMs) {
-    pageAccessTracker[key] = { count: 1, firstSeen: now, lastSeen: now };
-    return false;
+  const list = requestTimingTracker[ip] || [];
+  list.push(now);
+  // keep only the recent window
+  while (list.length && now - list[0] > HUMAN_VERIFICATION.uniformTimingWindowMs) {
+    list.shift();
   }
+  requestTimingTracker[ip] = list;
 
-  current.count += 1;
-  current.lastSeen = now;
-
-  return current.count > HUMAN_VERIFICATION.maxSamePageVisits;
+  if (list.length < HUMAN_VERIFICATION.uniformTimingMinSamples) {
+    return { uniformBot: false };
+  }
+  // compute std-dev of inter-request intervals
+  const gaps: number[] = [];
+  for (let i = 1; i < list.length; i++) gaps.push(list[i] - list[i - 1]);
+  const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+  const variance = gaps.reduce((a, b) => a + (b - mean) ** 2, 0) / gaps.length;
+  const std = Math.sqrt(variance);
+  // mean must also be small-ish (very fast scripts) to flag — slow human-like
+  // pacing >5s between clicks is fine.
+  if (mean < 5000 && std < HUMAN_VERIFICATION.uniformTimingMaxStdDev) {
+    return { uniformBot: true };
+  }
+  return { uniformBot: false };
 }
 
 function withHumanChallengeCookie(response: NextResponse): NextResponse {
@@ -479,6 +484,85 @@ const SSRF_PATTERNS = [
   /100\.100\.\d+\.\d+/i,
   /fd[\da-f]{2}:[\da-f:]+/i,
 ];
+
+// ============================================================================
+// Multi-layer Decoder — defeats URL/double-URL/base64/hex/unicode evasion
+// ============================================================================
+function tryBase64Decode(s: string): string | null {
+  // Only attempt for plausibly-base64 looking long substrings
+  const m = s.match(/[A-Za-z0-9+/]{20,}={0,2}/g);
+  if (!m) return null;
+  let out = '';
+  for (const chunk of m) {
+    try {
+      // atob is available in Edge runtime
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const decoded = (globalThis as any).atob ? (globalThis as any).atob(chunk) : Buffer.from(chunk, 'base64').toString('utf-8');
+      out += ' ' + decoded;
+    } catch { /* ignore */ }
+  }
+  return out || null;
+}
+
+function tryHexDecode(s: string): string | null {
+  // \xNN, %NN, 0xNN, &#xNN;, \uNNNN, &#NN;
+  let out = s
+    .replace(/\\x([0-9a-fA-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/0x([0-9a-fA-F]{2,8})/g, (_, h) => {
+      try { return String.fromCharCode(parseInt(h, 16)); } catch { return ''; }
+    })
+    .replace(/&#x([0-9a-fA-F]+);?/g, (_, h) => {
+      try { return String.fromCharCode(parseInt(h, 16)); } catch { return ''; }
+    })
+    .replace(/&#(\d+);?/g, (_, d) => {
+      try { return String.fromCharCode(parseInt(d, 10)); } catch { return ''; }
+    })
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => {
+      try { return String.fromCharCode(parseInt(h, 16)); } catch { return ''; }
+    });
+  return out !== s ? out : null;
+}
+
+function tryUrlDecode(s: string): string | null {
+  try {
+    const d = decodeURIComponent(s.replace(/\+/g, ' '));
+    return d !== s ? d : null;
+  } catch {
+    // strip invalid % sequences and retry
+    try {
+      const cleaned = s.replace(/%(?![0-9a-fA-F]{2})/g, '');
+      const d = decodeURIComponent(cleaned);
+      return d !== s ? d : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * Generate all decoded representations of an input. We loop because attackers
+ * stack encodings (e.g. base64( url-encoded( <?php ... ) )).
+ */
+function explodeEncodings(input: string, maxIterations = 4): string[] {
+  const seen = new Set<string>([input]);
+  const queue: string[] = [input];
+  while (queue.length && maxIterations-- > 0) {
+    const next: string[] = [];
+    for (const cur of queue) {
+      const candidates = [tryUrlDecode(cur), tryHexDecode(cur), tryBase64Decode(cur)];
+      for (const c of candidates) {
+        if (c && !seen.has(c)) {
+          seen.add(c);
+          next.push(c);
+        }
+      }
+    }
+    queue.length = 0;
+    queue.push(...next);
+    if (next.length === 0) break;
+  }
+  return [...seen];
+}
 
 function isUnsafeImageOptimizerUrl(value: string | null): boolean {
   if (!value) return false;
@@ -920,9 +1004,11 @@ function validateCSRF(request: NextRequest): boolean {
 }
 
 // ============================================================================
-// Threat Detection (All-in-one)
+// Threat Detection (All-in-one) — runs against ALL decoded variants so
+// URL-encoded / double-URL-encoded / base64 / hex / unicode / mixed-case
+// payloads cannot bypass the WAF.
 // ============================================================================
-function detectThreat(value: string): { detected: boolean; type: string; pattern?: string } {
+function detectThreatRaw(value: string): { detected: boolean; type: string; pattern?: string } {
   // PHP Malicious Code / WebShell / One-liner Trojan
   for (const pattern of PHP_MALICIOUS_PATTERNS) {
     if (pattern.test(value)) return { detected: true, type: 'PHP_MALICIOUS_CODE', pattern: pattern.source };
@@ -954,6 +1040,17 @@ function detectThreat(value: string): { detected: boolean; type: string; pattern
   // Malicious Redirect
   for (const pattern of REDIRECT_PATTERNS) {
     if (pattern.test(value)) return { detected: true, type: 'MALICIOUS_REDIRECT', pattern: pattern.source };
+  }
+  return { detected: false, type: '' };
+}
+
+function detectThreat(value: string): { detected: boolean; type: string; pattern?: string } {
+  if (!value) return { detected: false, type: '' };
+  // Scan the raw value plus every decoded variant so encoded payloads
+  // (URL, double-URL, hex, unicode \u, base64, html-entity) all match.
+  for (const variant of explodeEncodings(value)) {
+    const r = detectThreatRaw(variant);
+    if (r.detected) return r;
   }
   return { detected: false, type: '' };
 }
@@ -1060,8 +1157,14 @@ export function middleware(request: NextRequest) {
     return addSecurityHeaders(NextResponse.next());
   }
 
-  if (shouldChallengeHuman(request, ip)) {
-    return addSecurityHeaders(withHumanChallengeCookie(NextResponse.next()));
+  if (!isHumanVerified(request)) {
+    const timing = recordTiming(ip);
+    if (timing.uniformBot) {
+      // Bot pacing requests with near-constant intervals (typical of dictionary
+      // / brute-force / scraper scripts that try to look slow). Normal humans
+      // produce highly variable timing, so this only fires on automation.
+      return addSecurityHeaders(withHumanChallengeCookie(NextResponse.next()));
+    }
   }
 
   // Skip internal API routes from WAF (they have their own server-side validation)
