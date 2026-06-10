@@ -1,13 +1,13 @@
 'use client';
 
 import { ReactNode, useEffect, useMemo, useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { Ban, Loader2, ShieldCheck } from 'lucide-react';
 
 const WAF_PASS_MS = 30 * 60 * 1000;
+const WAF_MIN_CHECK_MS = 3200;
 const WAF_PASS_KEY = 'waf_browser_verified_until';
-const HUMAN_PASS_KEY = 'human_verified_until';
 
-type CheckState = 'checking' | 'challenge' | 'passed';
+type CheckState = 'checking' | 'blocked' | 'passed';
 
 interface BrowserSignal {
   name: string;
@@ -30,10 +30,6 @@ function markWafPassed() {
 
 function hasFreshWafPass() {
   return readStoredUntil(WAF_PASS_KEY) > now();
-}
-
-function hasFreshHumanPass() {
-  return readStoredUntil(HUMAN_PASS_KEY) > now();
 }
 
 function getWindowFlagScore(): BrowserSignal[] {
@@ -121,31 +117,22 @@ function runCloudflareStyleCheck(): { suspicious: boolean; score: number; signal
   };
 }
 
-function triggerHumanVerification() {
-  localStorage.setItem('human_verification_required', 'true');
-  window.dispatchEvent(new Event('human-verification-required'));
-}
-
 export default function WafBrowserCheck({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<CheckState>(() => (typeof window !== 'undefined' && hasFreshWafPass() ? 'passed' : 'checking'));
+  const [state, setState] = useState<CheckState>('checking');
   const [progress, setProgress] = useState(12);
   const statusText = useMemo(() => {
-    if (state === 'challenge') return 'Please complete human verification to continue.';
+    if (state === 'blocked') return 'Access blocked. Automated browser or script behavior was detected.';
     if (progress < 45) return 'Checking your browser before accessing Adam Cutlery...';
-    if (progress < 80) return 'Verifying secure browser signals...';
+    if (progress < 80) return 'Verifying that you are not a bot or script...';
     return 'Finalizing security check...';
   }, [progress, state]);
 
   useEffect(() => {
-    if (state === 'passed') return;
-
-    if (hasFreshWafPass()) {
-      setState('passed');
-      return;
-    }
+    if (state !== 'checking') return;
 
     let stopped = false;
     const timers: number[] = [];
+    const startedAt = now();
 
     const progressTimer = window.setInterval(() => {
       setProgress(prev => Math.min(96, prev + Math.max(2, Math.round((100 - prev) / 8))));
@@ -156,31 +143,32 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
     const checkTimer = window.setTimeout(() => {
       if (stopped) return;
 
-      const result = runCloudflareStyleCheck();
+      const result = hasFreshWafPass()
+        ? { suspicious: false, score: 0, signals: [] }
+        : runCloudflareStyleCheck();
+
+      const finishAfterMinimumWait = (nextState: CheckState) => {
+        const elapsed = now() - startedAt;
+        const wait = Math.max(0, WAF_MIN_CHECK_MS - elapsed);
+        window.setTimeout(() => {
+          if (stopped) return;
+          setProgress(100);
+          window.setTimeout(() => {
+            if (!stopped) setState(nextState);
+          }, 250);
+        }, wait);
+      };
+
       if (!result.suspicious) {
         markWafPassed();
-        setProgress(100);
-        window.setTimeout(() => {
-          if (!stopped) setState('passed');
-        }, 250);
+        finishAfterMinimumWait('passed');
         return;
       }
 
-      triggerHumanVerification();
-      setState('challenge');
+      finishAfterMinimumWait('blocked');
     }, 900);
 
     timers.push(checkTimer);
-
-    const humanPassTimer = window.setInterval(() => {
-      if (hasFreshHumanPass()) {
-        markWafPassed();
-        setProgress(100);
-        setState('passed');
-      }
-    }, 500);
-
-    timers.push(humanPassTimer);
 
     return () => {
       stopped = true;
@@ -196,26 +184,49 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
       <div className="w-full max-w-md mx-4 rounded-xl border border-border bg-surface p-8 shadow-2xl">
         <div className="flex justify-center mb-5">
           <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center">
-            <ShieldCheck className="w-8 h-8 text-gold" />
+            {state === 'blocked' ? (
+              <Ban className="w-8 h-8 text-red-400" />
+            ) : (
+              <ShieldCheck className="w-8 h-8 text-gold" />
+            )}
           </div>
         </div>
 
         <h2 className="text-xl font-semibold text-foreground text-center mb-3">
-          Security Check
+          {state === 'blocked' ? 'Access Denied' : 'Checking your browser'}
         </h2>
         <p className="text-sm text-gray-400 text-center leading-relaxed mb-6">
           {statusText}
         </p>
 
-        <div className="h-2 w-full overflow-hidden rounded-full bg-surfaceLight border border-border">
-          <div
-            className="h-full rounded-full bg-gold transition-[width] duration-200"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+        {state === 'checking' ? (
+          <>
+            <div className="flex justify-center mb-6">
+              <Loader2 className="h-10 w-10 animate-spin text-gold" />
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-surfaceLight border border-border">
+              <div
+                className="h-full rounded-full bg-gold transition-[width] duration-200"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem(WAF_PASS_KEY);
+              setProgress(12);
+              setState('checking');
+            }}
+            className="w-full rounded-lg border border-border px-4 py-3 text-sm text-gray-300 hover:border-gold hover:text-gold transition-colors"
+          >
+            Try again
+          </button>
+        )}
 
         <p className="text-xs text-gray-500 text-center mt-4">
-          This automatic WAF check runs before age verification.
+          This Cloudflare-style WAF check runs before age verification.
         </p>
       </div>
     </div>
