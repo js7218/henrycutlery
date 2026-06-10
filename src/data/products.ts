@@ -860,31 +860,6 @@ export const products: Product[] = [
 
   // Additional kitchen knives
   {
-    id: 'kitchen-001',
-    name: 'Chef\'s Classic 8" Chef Knife',
-    brand: 'Mercer Culinary',
-    price: 39.99,
-    description: 'High-carbon German steel chef knife',
-    longDescription: 'The Mercer Culinary Chef\'s Classic chef knife features an 8-inch blade of high-carbon German steel for excellent edge retention and easy sharpening. The Santoprene handle is slip-resistant and NSF certified for commercial use.',
-    category: 'kitchen',
-    images: [
-      'https://images.unsplash.com/photo-1566454419290-57a0589c9b17?w=800',
-    ],
-    specs: {
-      bladeLength: '8 inches (20.3 cm)',
-      totalLength: '13 inches (33 cm)',
-      bladeMaterial: 'High-Carbon German Steel',
-      handleMaterial: 'Santoprene',
-      weight: '9.6 oz (272 g)',
-      hardness: '56-58 HRC',
-    },
-    stock: 999999,
-    featured: true,
-    isNew: false,
-    tags: ['chef knife', 'German steel', 'commercial'],
-    moq: 300,
-  },
-  {
     id: 'kitchen-002',
     name: 'Rising Sun Santoku',
     brand: 'Miyabi',
