@@ -6,6 +6,7 @@ import Footer from '@/components/layout/Footer';
 import AgeVerification from '@/components/ui/AgeVerification';
 import UrlPathHider from '@/components/security/UrlPathHider';
 import HumanVerificationGate from '@/components/security/HumanVerificationGate';
+import WafBrowserCheck from '@/components/security/WafBrowserCheck';
 
 export default function ClientLayout({
   children,
@@ -14,15 +15,17 @@ export default function ClientLayout({
 }) {
   return (
     <AppProvider>
-      <AgeVerification>
-        <UrlPathHider />
-        <HumanVerificationGate />
-        <Header />
-        <main className="min-h-screen pt-16 md:pt-20">
-          {children}
-        </main>
-        <Footer />
-      </AgeVerification>
+      <HumanVerificationGate />
+      <WafBrowserCheck>
+        <AgeVerification>
+          <UrlPathHider />
+          <Header />
+          <main className="min-h-screen pt-16 md:pt-20">
+            {children}
+          </main>
+          <Footer />
+        </AgeVerification>
+      </WafBrowserCheck>
     </AppProvider>
   );
 }

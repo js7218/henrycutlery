@@ -117,7 +117,7 @@ export default function HumanVerificationGate() {
           Human Verification
         </h2>
         <p className="text-sm text-gray-400 text-center leading-relaxed mb-6">
-          We detected repeated access to the same page or login area.
+          Our WAF detected suspicious automation or login behavior.
           <br />
           Press and hold the button to continue.
         </p>
