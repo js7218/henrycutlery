@@ -1266,6 +1266,34 @@ export const products: Product[] = [
     tags: ['kitchen', 'chef knife', 'VG-10', 'G10 handle', 'rose pattern'],
     moq: 1200,
   },
+  {
+    id: 'fish-head-knife-001',
+    name: 'Fish Head Knife',
+    brand: 'Adam Cutlery',
+    price: 50.0,
+    description: 'Fish Head Knife with Yellow Sandalwood Water Drop Handle and 5Cr15Mov handmade satin blade.',
+    longDescription: 'Fish Head Knife\nYellow Sandalwood Water Drop Handle\n5Cr15Mov Handmade satin blade\nSpecification: 210 * 62 * 6.0MM\nWith a pressure and concave grinding depth of up to 3MM. It is super anti stick when cutting, and the water drop shaped handle design provides a comfortable grip. It is a new boutique Kitchen knife.\n\nPrice: $50.00\nMOQ: 600pcs',
+    category: 'kitchen',
+    images: [
+      '/products/fish-head-knife-1.jpeg',
+      '/products/fish-head-knife-2.jpeg',
+      '/products/fish-head-knife-3.jpeg',
+      '/products/fish-head-knife-4.jpeg',
+    ],
+    specs: {
+      bladeLength: '210mm',
+      totalLength: '210mm',
+      bladeMaterial: '5Cr15Mov Handmade Satin Blade',
+      handleMaterial: 'Yellow Sandalwood Water Drop Handle',
+      weight: 'TBD',
+      hardness: 'TBD',
+    },
+    stock: 999999,
+    featured: true,
+    isNew: true,
+    tags: ['kitchen', 'fish head knife', '5Cr15Mov', 'yellow sandalwood', 'anti stick'],
+    moq: 600,
+  },
 ];
 
 export const brands = [

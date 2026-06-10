@@ -448,7 +448,7 @@ export default function AdminPage() {
                             <Image src={product.images[0]} alt={product.name} fill className="object-cover" />
                           </div>
                           <div>
-                            <p className="font-medium text-foreground">{product.name}</p>
+                            <p className="font-medium text-foreground">{product.name.toUpperCase()}</p>
                             <p className="text-sm text-gray-400">{product.brand}</p>
                           </div>
                         </div>
@@ -541,7 +541,7 @@ export default function AdminPage() {
                           <Image src={item.productImage} alt={item.productName} fill className="object-cover" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-foreground line-clamp-1">{item.productName}</p>
+                          <p className="text-sm text-foreground line-clamp-1">{item.productName.toUpperCase()}</p>
                           <p className="text-xs text-gray-400">x{item.quantity}</p>
                         </div>
                         <p className="text-sm text-gold">{formatPrice(item.price)}</p>

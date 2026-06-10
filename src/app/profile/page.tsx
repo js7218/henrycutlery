@@ -237,7 +237,7 @@ function ProfileContent() {
                               />
                             </div>
                             <div>
-                              <p className="text-sm text-foreground line-clamp-1">{item.productName}</p>
+                              <p className="text-sm text-foreground line-clamp-1">{item.productName.toUpperCase()}</p>
                               <p className="text-xs text-gray-400">x{item.quantity}</p>
                             </div>
                           </div>

@@ -282,7 +282,7 @@ export default function CheckoutPage() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-foreground font-medium line-clamp-1">{item.product.name}</p>
+                      <p className="text-foreground font-medium line-clamp-1">{item.product.name.toUpperCase()}</p>
                       <p className="text-sm text-gray-400">{item.product.brand}</p>
                     </div>
                     <div className="text-right">

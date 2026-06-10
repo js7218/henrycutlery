@@ -166,7 +166,7 @@ export default function ProductDetailPage() {
           {product.category === 'damascus' && 'Damascus'}
         </Link>
         <ChevronRight className="w-4 h-4" />
-        <span className="text-gold">{product.name}</span>
+        <span className="text-gold">{product.name.toUpperCase()}</span>
       </nav>
 
       {/* Product Main */}
@@ -182,7 +182,7 @@ export default function ProductDetailPage() {
           <div>
             <p className="text-sm text-steel uppercase tracking-wider mb-2">{product.brand}</p>
             <h1 className="text-3xl font-bold text-foreground mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
-              {product.name}
+              {product.name.toUpperCase()}
             </h1>
             <div className="flex items-center gap-4 mb-4">
               {product.isNew && (

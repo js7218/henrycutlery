@@ -99,7 +99,7 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
           <div>
             <Link href={`/product/${item.product.id}`} className="block">
               <h3 className="text-foreground font-medium hover:text-gold transition-colors line-clamp-1">
-                {item.product.name}
+                {item.product.name.toUpperCase()}
               </h3>
             </Link>
             <p className="text-sm text-steel mt-1">{item.product.brand}</p>

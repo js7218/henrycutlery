@@ -82,7 +82,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           
           {/* Name */}
           <h3 className="text-foreground font-medium mb-2 line-clamp-1 group-hover:text-gold transition-colors">
-            {product.name}
+            {product.name.toUpperCase()}
           </h3>
 
           {/* Specs */}
