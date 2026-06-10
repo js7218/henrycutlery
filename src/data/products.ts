@@ -1239,6 +1239,33 @@ export const products: Product[] = [
     tags: ['hunting', 'fixed knife', 'D2', 'G10', 'Kydex sheath'],
     moq: 1200,
   },
+  {
+    id: 'kitchen-chef-001',
+    name: 'Chef Knive',
+    brand: 'Adam Cutlery',
+    price: 16.5,
+    description: '7-inch medium kitchen knife and 8-inch chef knife with VG-10 Maersk steel blade, large rose pattern, and black fiberglass G10 mirror light handle.',
+    longDescription: '7-inch medium kitchen knife and 8-inch chef knife\nThe blade is made of VG-10 Maersk steel with a large rose pattern\nThe handle is made of black fiberglass with G10 mirror light treatment, and is equipped with high-end and atmospheric mosaic decorative mosaics nails\nThe blade adopts vacuum heat treatment and deep cooling, with a single-sided 11 degree cutting edge that is extremely sharp and durable\n\nPrice: $16.50/pc\nMOQ: 1200pcs',
+    category: 'kitchen',
+    images: [
+      '/products/kitchen-chef-1.jpeg',
+      '/products/kitchen-chef-2.jpeg',
+      '/products/kitchen-chef-3.jpeg',
+    ],
+    specs: {
+      bladeLength: '7-inch / 8-inch',
+      totalLength: 'TBD',
+      bladeMaterial: 'VG-10 Maersk Steel',
+      handleMaterial: 'Black Fiberglass with G10 Mirror Light Treatment',
+      weight: 'TBD',
+      hardness: 'TBD',
+    },
+    stock: 999999,
+    featured: true,
+    isNew: true,
+    tags: ['kitchen', 'chef knife', 'VG-10', 'G10 handle', 'rose pattern'],
+    moq: 1200,
+  },
 ];
 
 export const brands = [
