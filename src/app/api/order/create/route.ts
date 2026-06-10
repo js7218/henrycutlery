@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { products } from '@/data/products';
 import { generateOrderNumber } from '@/lib/utils';
+import { findUnsafeUrl } from '@/lib/ssrfProtection';
 
 // In production, this would be a database lookup
 function getProductById(productId: string) {
@@ -19,6 +20,14 @@ function getProductById(productId: string) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const unsafeUrl = findUnsafeUrl(body);
+    if (unsafeUrl) {
+      return NextResponse.json(
+        { error: 'Unsafe URL rejected', code: 'SSRF_BLOCKED' },
+        { status: 400 }
+      );
+    }
+
     const { items, address, paymentMethod } = body;
 
     // SECURITY: Validate required fields

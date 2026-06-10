@@ -195,7 +195,11 @@ const nextConfig = {
           destination: '/404',
         },
         {
-          source: '/docker-compose:path*',
+          source: '/docker-compose/:path*',
+          destination: '/404',
+        },
+        {
+          source: '/docker-compose',
           destination: '/404',
         },
         {
@@ -306,12 +310,6 @@ const nextConfig = {
     // Remove console logs in production
     removeConsole: process.env.NODE_ENV === 'production',
   },
-
-  // Skip ESLint during build to prevent Vercel failures
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  
   // Security: Trailing slash handling
   trailingSlash: false,
   

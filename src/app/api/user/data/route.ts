@@ -8,6 +8,7 @@ import { cookies } from 'next/headers';
 import { verifyJWT } from '@/lib/auth';
 import { safeUserDisplay, removeL1Fields, maskL2Fields } from '@/lib/masking';
 import { logSecurityEvent } from '@/lib/sanitizedLogger';
+import { findUnsafeUrl } from '@/lib/ssrfProtection';
 
 // Mock user database
 const mockUsers = new Map<string, {
@@ -144,6 +145,21 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    let requestBody: unknown = null;
+    try {
+      requestBody = await request.clone().json();
+    } catch {
+      requestBody = null;
+    }
+
+    const unsafeUrl = findUnsafeUrl(requestBody);
+    if (unsafeUrl) {
+      return NextResponse.json(
+        { success: false, error: 'Unsafe URL rejected', code: 'SSRF_BLOCKED' },
+        { status: 400 }
+      );
+    }
+
     // Get token
     const cookieStore = await cookies();
     const token = cookieStore.get('access_token')?.value ||

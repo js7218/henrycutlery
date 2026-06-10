@@ -427,6 +427,31 @@ const SSRF_PATTERNS = [
   /fd[\da-f]{2}:[\da-f:]+/i,
 ];
 
+function isUnsafeImageOptimizerUrl(value: string | null): boolean {
+  if (!value) return false;
+
+  let decoded = value;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+
+  try {
+    const url = new URL(decoded.startsWith('//') ? `https:${decoded}` : decoded);
+    if (!['https:', 'http:'].includes(url.protocol)) return true;
+    if (url.username || url.password) return true;
+  } catch {
+    return /(?:file|ftp|gopher|dict|ldap|data|jar|php|expect):/i.test(decoded);
+  }
+
+  return SSRF_PATTERNS.some(pattern => pattern.test(decoded));
+}
+
 // ============================================================================
 // PATTERNS: Malicious Redirect
 // ============================================================================
@@ -960,6 +985,16 @@ export function middleware(request: NextRequest) {
       { error: 'Forbidden', code: 'PROTECTED_PATH' },
       { status: 403 }
     );
+  }
+
+  if (path.startsWith('/_next/image')) {
+    const imageUrl = request.nextUrl.searchParams.get('url');
+    if (isUnsafeImageOptimizerUrl(imageUrl)) {
+      return NextResponse.json(
+        { error: 'Forbidden', code: 'SSRF_BLOCKED' },
+        { status: 403 }
+      );
+    }
   }
 
   // Skip static assets (but NOT protected paths above)
