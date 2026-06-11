@@ -92,7 +92,7 @@ export type OrderStatus =
   | 'delivered' 
   | 'cancelled';
 
-export type PaymentMethod = 'wechat' | 'alipay' | 'card';
+export type PaymentMethod = 'bank_transfer' | 'wechat' | 'alipay' | 'card';
 
 export interface FilterOptions {
   category?: ProductCategory;

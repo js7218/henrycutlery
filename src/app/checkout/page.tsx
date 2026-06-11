@@ -1,25 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { CheckCircle, ArrowLeft, ArrowRight, Copy, MapPin, CreditCard } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { formatPrice, generateOrderNumber } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
-import { Address } from '@/types';
+import { Address, PaymentMethod } from '@/types';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
 import PaymentSelector from '@/components/checkout/PaymentSelector';
 
 type CheckoutStep = 'confirm' | 'payment' | 'complete';
 
 export default function CheckoutPage() {
-  const router = useRouter();
   const { state, dispatch, cartTotal } = useApp();
 
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('confirm');
-  const [paymentMethod, setPaymentMethod] = useState<'wechat' | 'alipay' | 'card'>('wechat');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wechat');
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(
     state.user?.addresses.find(a => a.isDefault) || state.user?.addresses[0] || null
   );
@@ -41,7 +39,6 @@ export default function CheckoutPage() {
 
   const shippingFee = cartTotal >= 500 ? 0 : 50;
   const totalAmount = cartTotal + shippingFee;
-
   if (state.cart.length === 0 && currentStep !== 'complete') {
     return (
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-20">

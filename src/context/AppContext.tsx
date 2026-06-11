@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { CartItem, Product, User, Order, Address } from '@/types';
+import { CartItem, Product, User, Order, Address, PaymentMethod } from '@/types';
 import { generateOrderNumber } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
 
@@ -183,7 +183,7 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  createOrder: (address: Address, paymentMethod: 'wechat' | 'alipay' | 'card') => Order | null;
+  createOrder: (address: Address, paymentMethod: PaymentMethod) => Order | null;
   // SECURITY: Session check
   isSessionValid: () => boolean;
   // SECURITY: Horizontal privilege check
@@ -407,7 +407,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ============================================================================
   // SECURITY: Order Creation - Price Tampering Protection ONLY
   // ============================================================================
-  const createOrder = (address: Address, paymentMethod: 'wechat' | 'alipay' | 'card'): Order | null => {
+  const createOrder = (address: Address, paymentMethod: PaymentMethod): Order | null => {
     if (!state.user) return null;
     if (state.cart.length === 0) return null;
 

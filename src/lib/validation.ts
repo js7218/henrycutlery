@@ -271,7 +271,7 @@ export const checkoutSchema = z.object({
     .min(1, '请选择收货地址'),
   
   paymentMethod: z
-    .enum(['wechat', 'alipay', 'card']),
+    .enum(['wechat', 'alipay', 'card', 'bank_transfer']),
   
   remark: z
     .string()

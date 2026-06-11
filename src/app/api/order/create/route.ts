@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { products } from '@/data/products';
 import { generateOrderNumber } from '@/lib/utils';
 import { findUnsafeUrl } from '@/lib/ssrfProtection';
+import { sendOrderNotificationEmail } from '@/lib/orderEmail';
 
 // In production, this would be a database lookup
 function getProductById(productId: string) {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!paymentMethod || !['wechat', 'alipay', 'card'].includes(paymentMethod)) {
+    if (!paymentMethod || !['wechat', 'alipay', 'card', 'bank_transfer'].includes(paymentMethod)) {
       return NextResponse.json(
         { error: 'Invalid payment method', code: 'INVALID_PAYMENT' },
         { status: 400 }
@@ -120,11 +121,23 @@ export async function POST(request: NextRequest) {
       verifiedAt: new Date().toISOString(),
     };
 
+    let emailStatus: { sent: boolean; skipped: boolean; reason?: string } = {
+      sent: false,
+      skipped: false,
+    };
+
+    try {
+      emailStatus = await sendOrderNotificationEmail(order);
+    } catch {
+      emailStatus = { sent: false, skipped: false, reason: 'SMTP_SEND_FAILED' };
+    }
+
     return NextResponse.json({
       success: true,
       order,
       // SECURITY: Return server-calculated total for client display
       serverTotal,
+      emailStatus,
       message: 'Order created with server-verified pricing',
     });
 

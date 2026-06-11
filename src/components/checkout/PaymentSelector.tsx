@@ -1,15 +1,30 @@
 'use client';
 
 import { useState } from 'react';
-import { QrCode, CreditCard, Check } from 'lucide-react';
+import { QrCode, CreditCard, Check, Landmark, Copy } from 'lucide-react';
+import { PaymentMethod } from '@/types';
 
 interface PaymentSelectorProps {
-  selected: 'wechat' | 'alipay' | 'card';
-  onSelect: (method: 'wechat' | 'alipay' | 'card') => void;
+  selected: PaymentMethod;
+  onSelect: (method: PaymentMethod) => void;
 }
+
+const HSBC_PAYMENT_ACCOUNT = {
+  accountName: 'HongKong Henry Cutlery Co.Ltd.',
+  accountNumber: '147-6411161-838',
+  bankName: 'The Hongkong and Shanghai Banking Corporation Limited',
+  bankAddress: "1 Queen's Road Central, Hong Kong.",
+};
 
 export default function PaymentSelector({ selected, onSelect }: PaymentSelectorProps) {
   const [showQrCode, setShowQrCode] = useState(false);
+  const [copiedAccount, setCopiedAccount] = useState(false);
+
+  const copyHsbcAccount = () => {
+    navigator.clipboard.writeText(HSBC_PAYMENT_ACCOUNT.accountNumber);
+    setCopiedAccount(true);
+    setTimeout(() => setCopiedAccount(false), 2000);
+  };
 
   const paymentMethods = [
     {
@@ -34,9 +49,19 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
     },
     {
       id: 'card' as const,
-      name: 'Credit Card',
+      name: 'Bank Card',
       icon: <CreditCard className="w-6 h-6" />,
       color: 'text-steel',
+    },
+    {
+      id: 'bank_transfer' as const,
+      name: 'HSBC',
+      icon: (
+        <div className="flex h-8 w-12 items-center justify-center rounded bg-red-600 text-[10px] font-bold tracking-wide text-white">
+          HSBC
+        </div>
+      ),
+      color: 'text-red-500',
     },
   ];
 
@@ -51,6 +76,15 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
                 setShowQrCode(true);
               } else {
                 setShowQrCode(false);
+              }
+              if (method.id === 'bank_transfer') {
+                window.setTimeout(() => {
+                  document.getElementById('hsbc-payment-account-147-6411161-838')?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                  });
+                  copyHsbcAccount();
+                }, 100);
               }
             }}
             className={`w-full flex items-center justify-between p-4 border rounded-lg transition-all ${
@@ -81,6 +115,58 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
                 <p className="text-xs text-gray-400 mt-2">
                   Page will redirect automatically after payment
                 </p>
+              </div>
+            </div>
+          )}
+
+          {selected === method.id && method.id === 'bank_transfer' && (
+            <div
+              id="hsbc-payment-account-147-6411161-838"
+              className="mt-4 rounded-lg border border-red-500/30 bg-red-500/5 p-6 animate-fade-in"
+            >
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-14 items-center justify-center rounded bg-red-600 text-xs font-bold tracking-wide text-white">
+                  HSBC
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">HSBC Bank Transfer</p>
+                  <p className="text-xs text-gray-400">Click HSBC to copy the account and complete payment by bank transfer.</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex items-start gap-3 rounded bg-surfaceLight p-3">
+                  <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-gray-400">Payment account</p>
+                    <p className="font-medium text-foreground">{HSBC_PAYMENT_ACCOUNT.accountName}</p>
+                  </div>
+                </div>
+
+                <div className="rounded bg-surfaceLight p-3">
+                  <p className="text-gray-400">Account</p>
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <p className="font-mono text-lg font-semibold text-gold">{HSBC_PAYMENT_ACCOUNT.accountNumber}</p>
+                    <button
+                      type="button"
+                      onClick={copyHsbcAccount}
+                      className="flex shrink-0 items-center gap-1 rounded border border-border px-3 py-2 text-xs text-gray-300 hover:border-gold hover:text-gold"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      {copiedAccount ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded bg-surfaceLight p-3">
+                  <p className="text-gray-400">Bank</p>
+                  <p className="font-medium text-foreground">{HSBC_PAYMENT_ACCOUNT.bankName}</p>
+                </div>
+
+                <div className="rounded bg-surfaceLight p-3">
+                  <p className="text-gray-400">Bank address</p>
+                  <p className="text-foreground">{HSBC_PAYMENT_ACCOUNT.bankAddress}</p>
+                </div>
               </div>
             </div>
           )}
