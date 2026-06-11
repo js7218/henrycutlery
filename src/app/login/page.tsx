@@ -82,8 +82,8 @@ function sanitizeInput(input: string, fieldName: string): { sanitized: string; e
     sanitized = sanitized.substring(0, 255);
   }
   
-  // Check for dangerous characters
-  if (DANGEROUS_CHARS.test(sanitized)) {
+  const isFreeFormField = ['email', 'password'].includes(fieldName);
+  if (!isFreeFormField && DANGEROUS_CHARS.test(sanitized)) {
     errors.push({ field: fieldName, message: 'Dangerous characters detected', code: 'DANGEROUS_CHARS' });
     sanitized = sanitized.replace(DANGEROUS_CHARS, '');
   }
@@ -117,15 +117,32 @@ function sanitizeInput(input: string, fieldName: string): { sanitized: string; e
     }
   }
   
-  // HTML entity encoding for remaining content
-  sanitized = sanitized
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;');
+  if (!isFreeFormField) {
+    sanitized = sanitized
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  }
   
   return { sanitized, errors };
+}
+
+function getSafeReturnPath() {
+  const nextPath = new URLSearchParams(window.location.search).get('next');
+  if (nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')) return nextPath;
+
+  try {
+    const referrer = new URL(document.referrer);
+    if (referrer.origin === window.location.origin && !['/login', '/register', '/forgot-password'].includes(referrer.pathname)) {
+      return `${referrer.pathname}${referrer.search}`;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 // ============================================================================
@@ -421,8 +438,7 @@ export default function LoginPage() {
       if (success) {
         // SECURITY: Reset attempts on successful login
         resetLoginAttempts();
-        const nextPath = new URLSearchParams(window.location.search).get('next');
-        router.push(nextPath && nextPath.startsWith('/') ? nextPath : '/profile');
+        router.push(getSafeReturnPath() || '/profile');
       } else {
         const rateCheck = recordLoginFailure();
         if (!rateCheck.allowed) {

@@ -42,7 +42,7 @@ const CMD_BLACKLIST = [
 const DANGEROUS_CHARS = /[;'"`\|&$<>{}\[\]\(\)\*\?\^\~\!\#\%\@]/;
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const PHONE_REGEX = /^1[3-9]\d{9}$/;
+const PHONE_REGEX = /^[0-9+\-\s()]{6,20}$/;
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -74,7 +74,8 @@ function sanitizeInput(input: string, fieldName: string): { sanitized: string; e
     sanitized = sanitized.substring(0, 255);
   }
   
-  if (DANGEROUS_CHARS.test(sanitized)) {
+  const isFreeFormField = ['email', 'password', 'confirmPassword', 'phone'].includes(fieldName);
+  if (!isFreeFormField && DANGEROUS_CHARS.test(sanitized)) {
     errors.push({ field: fieldName, message: 'Dangerous characters detected', code: 'DANGEROUS_CHARS' });
     sanitized = sanitized.replace(DANGEROUS_CHARS, '');
   }
@@ -104,14 +105,32 @@ function sanitizeInput(input: string, fieldName: string): { sanitized: string; e
     }
   }
   
-  sanitized = sanitized
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;');
+  if (!isFreeFormField) {
+    sanitized = sanitized
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  }
   
   return { sanitized, errors };
+}
+
+function getSafeReturnPath() {
+  const nextPath = new URLSearchParams(window.location.search).get('next');
+  if (nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')) return nextPath;
+
+  try {
+    const referrer = new URL(document.referrer);
+    if (referrer.origin === window.location.origin && !['/login', '/register', '/forgot-password'].includes(referrer.pathname)) {
+      return `${referrer.pathname}${referrer.search}`;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function validateEmailStrict(email: string): { valid: boolean; error?: string } {
@@ -498,8 +517,7 @@ export default function RegisterPage() {
       
       if (success) {
         localStorage.removeItem('register_attempts');
-        const nextPath = new URLSearchParams(window.location.search).get('next');
-        router.push(nextPath && nextPath.startsWith('/') ? nextPath : '/profile');
+        router.push(getSafeReturnPath() || '/profile');
       } else {
         const rateCheck = recordRegisterFailure();
         if (!rateCheck.allowed) {
