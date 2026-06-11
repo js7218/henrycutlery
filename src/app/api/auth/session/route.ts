@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { createJWT, setAuthCookies, clearAuthCookies, getAuthUser } from '@/lib/auth';
+import { getUserById } from '@/lib/db';
 
 type SessionPayload = {
   userId?: string;
@@ -54,18 +55,20 @@ export async function GET() {
     return response;
   }
 
+  const dbUser = await getUserById(authUser.id);
+  if (!dbUser) {
+    await clearAuthCookies();
+    const response = NextResponse.json(
+      { success: false, error: 'User not found', code: 'USER_NOT_FOUND' },
+      { status: 401 }
+    );
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
+  }
+
   const response = NextResponse.json({
     success: true,
-    user: {
-      id: authUser.id,
-      email: authUser.email,
-      name: authUser.email.split('@')[0],
-      role: authUser.role === 'admin' ? 'admin' : 'user',
-      addresses: [],
-      orders: [],
-      favorites: [],
-      createdAt: new Date().toISOString(),
-    },
+    user: dbUser,
   });
   response.headers.set('Cache-Control', 'no-store');
   return response;

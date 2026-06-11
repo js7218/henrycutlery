@@ -26,24 +26,6 @@ const BUSINESS_LIMITS = {
   maxItemsPerCart: 50,
 };
 
-// Per-account address storage. Addresses are namespaced by lowercase email
-// so account A never sees account B's saved shipping addresses, and a
-// returning user finds the same list they saved last time.
-function addressStorageKey(email: string): string {
-  return `knife-addresses:${email.trim().toLowerCase()}`;
-}
-
-function loadSavedAddresses(email: string): Address[] {
-  try {
-    const raw = localStorage.getItem(addressStorageKey(email));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Address[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 interface AppState {
   cart: CartItem[];
   user: User | null;
@@ -297,22 +279,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (!cancelled && data?.success && data.user) {
-          // SECURITY/UX: Restore the per-account address book from local
-          // storage so that "saved" shipping addresses survive page reloads
-          // and re-logins. Addresses are isolated per email key.
-          let savedAddresses: Address[] = [];
-          try {
-            const raw = localStorage.getItem(addressStorageKey(data.user.email));
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed)) savedAddresses = parsed;
-            }
-          } catch { /* ignore */ }
-
-          dispatch({
-            type: 'SET_USER',
-            user: { ...data.user, addresses: savedAddresses },
-          });
+          dispatch({ type: 'SET_USER', user: data.user });
         }
       })
       .catch(() => {});
@@ -327,17 +294,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem('knife-cart', JSON.stringify(state.cart)); } catch { /* */ }
   }, [state.cart]);
 
-  // Persist per-account addresses. Whenever the signed-in user's address
-  // book changes, write it back to localStorage keyed by email so the next
-  // session for the same account loads the same list.
+  // 收货地址按账号保存到 Postgres。新增、编辑、删除、设默认后都会同步到服务端。
   useEffect(() => {
     if (!state.user?.email) return;
-    try {
-      localStorage.setItem(
-        addressStorageKey(state.user.email),
-        JSON.stringify(state.user.addresses || [])
-      );
-    } catch { /* ignore quota errors */ }
+    fetch('/api/user/addresses', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ addresses: state.user.addresses || [] }),
+    }).catch(() => {});
   }, [state.user?.email, state.user?.addresses]);
 
   const addToCart = (product: Product, quantity?: number) => {
@@ -365,58 +329,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const createBrowserSession = async (user: User): Promise<boolean> => {
-    try {
-      const response = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          email: user.email,
-          role: user.role || 'user',
-        }),
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  };
-
   // ============================================================================
   // SECURITY: Login with Full Protection
   // ============================================================================
   const login = async (email: string, password: string): Promise<boolean> => {
     await new Promise((resolve) => setTimeout(resolve, 80));
 
-    const ADMIN_EMAILS = ['admin@adamcutlery.com'];
-    const isAdmin = ADMIN_EMAILS.includes(email.toLowerCase().trim());
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const userId = `u${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-    const sessionToken = `st_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      if (!response.ok) {
+        securityLogger.log('LOGIN_FAILURE', `Login failed: ${email.toLowerCase().trim()}`);
+        return false;
+      }
 
-    const mockUser: User = {
-      id: userId,
-      email: email.toLowerCase().trim(),
-      name: email.split('@')[0],
-      phone: '',
-      role: isAdmin ? 'admin' : 'user',
-      // Restore the user's previously saved addresses from local storage.
-      addresses: loadSavedAddresses(email),
-      orders: [],
-      favorites: [],
-      createdAt: new Date().toISOString(),
-      sessionToken,
-    };
+      const data = await response.json();
+      if (!data?.success || !data.user) return false;
 
-    const sessionCreated = await createBrowserSession(mockUser);
-    if (!sessionCreated) {
-      securityLogger.log('LOGIN_FAILURE', `Failed to create browser session: ${mockUser.email}`, { userId });
+      dispatch({ type: 'SET_USER', user: data.user });
+      securityLogger.log('LOGIN_SUCCESS', `User logged in: ${data.user.email}`, { userId: data.user.id, isAdmin: data.user.role === 'admin' });
+      return true;
+    } catch {
+      securityLogger.log('LOGIN_FAILURE', `Login request failed: ${email.toLowerCase().trim()}`);
       return false;
     }
-
-    dispatch({ type: 'SET_USER', user: mockUser });
-    securityLogger.log('LOGIN_SUCCESS', `User logged in: ${mockUser.email}`, { userId, isAdmin });
-    return true;
   };
 
   // ============================================================================
@@ -439,33 +379,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const userId = `u${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-    const sessionToken = `st_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email: normalizedEmail, password, phone }),
+      });
 
-    const mockUser: User = {
-      id: userId,
-      email: normalizedEmail,
-      name: name.trim(),
-      phone: phone?.trim() || '',
-      role: 'user',
-      // New accounts usually have nothing saved, but if this email registered
-      // before and addresses were left behind on the same device, keep them.
-      addresses: loadSavedAddresses(normalizedEmail),
-      orders: [],
-      favorites: [],
-      createdAt: new Date().toISOString(),
-      sessionToken,
-    };
+      if (!response.ok) {
+        securityLogger.log('REGISTER_FAILURE', `Register failed: ${normalizedEmail}`);
+        return false;
+      }
 
-    const sessionCreated = await createBrowserSession(mockUser);
-    if (!sessionCreated) {
-      securityLogger.log('REGISTER_FAILURE', `Failed to create browser session: ${normalizedEmail}`, { userId });
+      const data = await response.json();
+      if (!data?.success || !data.user) return false;
+
+      dispatch({ type: 'SET_USER', user: data.user });
+      securityLogger.log('REGISTER_SUCCESS', `User registered: ${normalizedEmail}`, { userId: data.user.id });
+      return true;
+    } catch {
+      securityLogger.log('REGISTER_FAILURE', `Register request failed: ${normalizedEmail}`);
       return false;
     }
-
-    dispatch({ type: 'SET_USER', user: mockUser });
-    securityLogger.log('REGISTER_SUCCESS', `User registered: ${normalizedEmail}`, { userId });
-    return true;
   };
 
   const logout = () => {

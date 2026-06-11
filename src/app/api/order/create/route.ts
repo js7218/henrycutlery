@@ -12,6 +12,7 @@ import { generateOrderNumber } from '@/lib/utils';
 import { findUnsafeUrl } from '@/lib/ssrfProtection';
 import { sendOrderNotificationEmail } from '@/lib/orderEmail';
 import { getAuthUser } from '@/lib/auth';
+import { ensureDatabaseSchema, getPool } from '@/lib/db';
 
 // In production, this would be a database lookup
 function getProductById(productId: string) {
@@ -131,6 +132,37 @@ export async function POST(request: NextRequest) {
       verified: true,
       verifiedAt: new Date().toISOString(),
     };
+
+    try {
+      await ensureDatabaseSchema();
+      await getPool().query(
+        `
+          INSERT INTO orders (
+            id, user_id, order_number, items, total_amount, status,
+            shipping_address, payment_method, created_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb, $8, $9, $10)
+          ON CONFLICT (id) DO NOTHING
+        `,
+        [
+          order.id,
+          authUser.id,
+          order.orderNumber,
+          JSON.stringify(order.items),
+          order.totalAmount,
+          order.status,
+          JSON.stringify(order.shippingAddress),
+          order.paymentMethod,
+          order.createdAt,
+          order.updatedAt,
+        ]
+      );
+    } catch {
+      return NextResponse.json(
+        { error: 'Failed to save order', code: 'ORDER_SAVE_FAILED' },
+        { status: 500 }
+      );
+    }
 
     let emailStatus: { sent: boolean; skipped: boolean; reason?: string } = {
       sent: false,
