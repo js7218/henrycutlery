@@ -453,7 +453,7 @@ export default function CheckoutPage() {
             </div>
             {copied && <p className="text-xs text-green-400 mt-2">Copied</p>}
             <p className="text-sm text-gray-500 mt-4">
-              We will ship your order as soon as possible. Please check SMS notifications.
+              We will ship your order as soon as possible. Please check email notifications.
             </p>
           </div>
 

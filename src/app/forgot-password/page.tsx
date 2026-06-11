@@ -45,11 +45,11 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email: cleanEmail, phone: cleanPhone }),
       });
 
-      setMessage('If the email and phone match a customer account, reset instructions will be sent by email and SMS.');
+      setMessage('If the email and phone match a customer account, reset instructions will be sent by email.');
       setEmail('');
       setPhone('');
     } catch {
-      setMessage('If the email and phone match a customer account, reset instructions will be sent by email and SMS.');
+      setMessage('If the email and phone match a customer account, reset instructions will be sent by email.');
     } finally {
       setIsLoading(false);
     }

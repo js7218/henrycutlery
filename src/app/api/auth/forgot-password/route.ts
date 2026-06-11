@@ -66,26 +66,6 @@ async function sendRecoveryEmail(email: string, recoveryCode: string) {
   });
 }
 
-async function sendRecoverySms(phone: string, recoveryCode: string) {
-  const webhookUrl = process.env.SMS_RECOVERY_WEBHOOK_URL;
-  if (!webhookUrl) return;
-
-  await fetch(webhookUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(process.env.SMS_RECOVERY_WEBHOOK_SECRET
-        ? { Authorization: `Bearer ${process.env.SMS_RECOVERY_WEBHOOK_SECRET}` }
-        : {}),
-    },
-    body: JSON.stringify({
-      phone,
-      code: recoveryCode,
-      message: `Adam Cutlery password reset code: ${recoveryCode}. It expires in 15 minutes.`,
-    }),
-  });
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -109,7 +89,6 @@ export async function POST(request: NextRequest) {
 
     const recoveryCode = randomBytes(3).toString('hex').toUpperCase();
     await sendRecoveryEmail(email, recoveryCode);
-    await sendRecoverySms(phone, recoveryCode);
 
     return genericResponse;
   } catch {
