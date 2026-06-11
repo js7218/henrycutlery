@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { QrCode, CreditCard, Check, Landmark, Copy } from 'lucide-react';
+import { QrCode, CreditCard, Check, Copy } from 'lucide-react';
 import { PaymentMethod } from '@/types';
 
 interface PaymentSelectorProps {
@@ -10,10 +10,7 @@ interface PaymentSelectorProps {
 }
 
 const HSBC_PAYMENT_ACCOUNT = {
-  accountName: 'HongKong Henry Cutlery Co.Ltd.',
   accountNumber: '147-6411161-838',
-  bankName: 'The Hongkong and Shanghai Banking Corporation Limited',
-  bankAddress: "1 Queen's Road Central, Hong Kong.",
 };
 
 export default function PaymentSelector({ selected, onSelect }: PaymentSelectorProps) {
@@ -130,21 +127,13 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
                 </div>
                 <div>
                   <p className="font-semibold text-foreground">HSBC Bank Transfer</p>
-                  <p className="text-xs text-gray-400">Click HSBC to copy the account and complete payment by bank transfer.</p>
+                  <p className="text-xs text-gray-400">Click HSBC to copy the receiving account and complete payment.</p>
                 </div>
               </div>
 
               <div className="space-y-3 text-sm">
-                <div className="flex items-start gap-3 rounded bg-surfaceLight p-3">
-                  <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-gray-400">Payment account</p>
-                    <p className="font-medium text-foreground">{HSBC_PAYMENT_ACCOUNT.accountName}</p>
-                  </div>
-                </div>
-
                 <div className="rounded bg-surfaceLight p-3">
-                  <p className="text-gray-400">Account</p>
+                  <p className="text-gray-400">Receiving account</p>
                   <div className="mt-1 flex items-center justify-between gap-3">
                     <p className="font-mono text-lg font-semibold text-gold">{HSBC_PAYMENT_ACCOUNT.accountNumber}</p>
                     <button
@@ -156,16 +145,6 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
                       {copiedAccount ? 'Copied' : 'Copy'}
                     </button>
                   </div>
-                </div>
-
-                <div className="rounded bg-surfaceLight p-3">
-                  <p className="text-gray-400">Bank</p>
-                  <p className="font-medium text-foreground">{HSBC_PAYMENT_ACCOUNT.bankName}</p>
-                </div>
-
-                <div className="rounded bg-surfaceLight p-3">
-                  <p className="text-gray-400">Bank address</p>
-                  <p className="text-foreground">{HSBC_PAYMENT_ACCOUNT.bankAddress}</p>
                 </div>
               </div>
             </div>
