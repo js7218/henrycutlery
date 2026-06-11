@@ -25,7 +25,7 @@ type OrderEmailPayload = {
   createdAt: string;
 };
 
-const ORDER_RECEIVER_EMAIL = 'RJYY_72882@outlook.com';
+const ORDER_RECEIVER_EMAIL = 'rjyy_88@qq.com';
 
 const HSBC_ACCOUNT = {
   accountName: 'HongKong Henry Cutlery Co.Ltd.',
