@@ -201,7 +201,12 @@ function getLoginAttempts(): LoginAttempt {
   return { count: 0, firstAttempt: Date.now(), lastAttempt: 0, lockedUntil: null, timestamps: [], lockDate: null };
 }
 
-function recordLoginAttempt(): { allowed: boolean; lockedUntil?: number; attemptsLeft: number; reason?: string } {
+function getActiveLoginLock(): number | null {
+  const attempts = getLoginAttempts();
+  return attempts.lockedUntil && Date.now() < attempts.lockedUntil ? attempts.lockedUntil : null;
+}
+
+function recordLoginFailure(): { allowed: boolean; lockedUntil?: number; attemptsLeft: number; reason?: string } {
   const now = Date.now();
   const attempts = getLoginAttempts();
   const today = new Date().toISOString().split('T')[0];
@@ -235,22 +240,24 @@ function recordLoginAttempt(): { allowed: boolean; lockedUntil?: number; attempt
     attempts.timestamps = attempts.timestamps.slice(-10);
   }
   
-  // ================================================================
-  // 检测是否为爆破工具/字典攻击
-  // 判断标准：连续请求之间间隔 < 2秒，视为自动化工具
-  // ================================================================
   let isBotAttack = false;
   if (attempts.timestamps.length >= 3) {
     const recentTimestamps = attempts.timestamps.slice(-5);
     let consecutiveFastRequests = 0;
+    const gaps: number[] = [];
     for (let i = 1; i < recentTimestamps.length; i++) {
       const gap = recentTimestamps[i] - recentTimestamps[i - 1];
-      if (gap < 2000) { // 间隔 < 2秒
+      gaps.push(gap);
+      if (gap < 800) {
         consecutiveFastRequests++;
       }
     }
-    // 如果最近5次中有3次以上间隔<2秒，判定为爆破工具
-    if (consecutiveFastRequests >= 3) {
+    const avgGap = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
+    const variance = gaps.reduce((sum, gap) => sum + Math.pow(gap - avgGap, 2), 0) / gaps.length;
+    const stdDev = Math.sqrt(variance);
+    const fixedRhythmAttack = gaps.length >= 4 && avgGap >= 1000 && avgGap <= 15000 && stdDev < 350;
+
+    if (consecutiveFastRequests >= 2 || fixedRhythmAttack) {
       isBotAttack = true;
     }
   }
@@ -326,7 +333,7 @@ export default function LoginPage() {
   
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
-  const submitCount = useRef(0);
+  const submittingRef = useRef(false);
 
   // Check lock status on mount
   useEffect(() => {
@@ -358,27 +365,18 @@ export default function LoginPage() {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current || isLoading) return;
+
     setError('');
     setSecurityErrors([]);
-    
-    // SECURITY: Rate limiting check
-    const rateCheck = recordLoginAttempt();
-    if (!rateCheck.allowed) {
-      if (rateCheck.lockedUntil) {
-        setIsLocked(true);
-        setLockCountdown(Math.ceil((rateCheck.lockedUntil - Date.now()) / 1000));
-      }
-      setError(rateCheck.reason || `Too many failed attempts. Account locked.`);
+
+    const activeLock = getActiveLoginLock();
+    if (activeLock) {
+      setIsLocked(true);
+      setLockCountdown(Math.ceil((activeLock - Date.now()) / 1000));
+      setError('Account is temporarily locked. Please try again later.');
       return;
     }
-    
-    // SECURITY: Prevent rapid submissions
-    submitCount.current++;
-    if (submitCount.current > 3) {
-      setError('Too many submission attempts. Please wait.');
-      return;
-    }
-    setTimeout(() => { submitCount.current = 0; }, 5000);
 
     // SECURITY: Sanitize inputs
     const emailSanitized = sanitizeInput(email, 'email');
@@ -415,6 +413,7 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
+    submittingRef.current = true;
     
     try {
       const success = await login(cleanEmail, cleanPassword);
@@ -422,18 +421,27 @@ export default function LoginPage() {
       if (success) {
         // SECURITY: Reset attempts on successful login
         resetLoginAttempts();
-        submitCount.current = 0;
         const nextPath = new URLSearchParams(window.location.search).get('next');
         router.push(nextPath && nextPath.startsWith('/') ? nextPath : '/profile');
       } else {
-        setError(`Login failed. ${rateCheck.attemptsLeft} attempts remaining.`);
+        const rateCheck = recordLoginFailure();
+        if (!rateCheck.allowed) {
+          if (rateCheck.lockedUntil) {
+            setIsLocked(true);
+            setLockCountdown(Math.ceil((rateCheck.lockedUntil - Date.now()) / 1000));
+          }
+          setError(rateCheck.reason || 'Too many failed attempts. Account locked.');
+        } else {
+          setError(`Login failed. ${rateCheck.attemptsLeft} attempts remaining.`);
+        }
       }
     } catch (err) {
       setError('An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
+      submittingRef.current = false;
     }
-  }, [email, password, login, router]);
+  }, [email, password, login, router, isLoading]);
 
   const formatCountdown = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);

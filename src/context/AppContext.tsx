@@ -332,7 +332,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // SECURITY: Login with Full Protection
   // ============================================================================
   const login = async (email: string, password: string): Promise<boolean> => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 80));
 
     const ADMIN_EMAILS = ['admin@adamcutlery.com'];
     const isAdmin = ADMIN_EMAILS.includes(email.toLowerCase().trim());
@@ -368,7 +368,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // SECURITY: Register with Full Protection
   // ============================================================================
   const register = async (name: string, email: string, password: string, phone?: string): Promise<boolean> => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 80));
 
     const normalizedEmail = email.toLowerCase().trim();
 

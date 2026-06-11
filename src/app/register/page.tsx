@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, Eye, EyeOff, User, Phone, UserPlus, Check, X } from 'lucide-react';
@@ -216,7 +216,12 @@ function getRegisterAttempts(): RegisterAttempt {
   return { count: 0, firstAttempt: Date.now(), lastAttempt: 0, lockedUntil: null, timestamps: [], lockDate: null };
 }
 
-function recordRegisterAttempt(): { allowed: boolean; lockedUntil?: number; attemptsLeft: number; reason?: string } {
+function getActiveRegisterLock(): number | null {
+  const attempts = getRegisterAttempts();
+  return attempts.lockedUntil && Date.now() < attempts.lockedUntil ? attempts.lockedUntil : null;
+}
+
+function recordRegisterFailure(): { allowed: boolean; lockedUntil?: number; attemptsLeft: number; reason?: string } {
   const now = Date.now();
   const attempts = getRegisterAttempts();
   const today = new Date().toISOString().split('T')[0];
@@ -248,27 +253,30 @@ function recordRegisterAttempt(): { allowed: boolean; lockedUntil?: number; atte
     attempts.timestamps = attempts.timestamps.slice(-10);
   }
   
-  // ================================================================
-  // 检测是否为自动化工具（无间隔连续注册）
-  // 判断标准：连续请求之间间隔 < 2秒
-  // ================================================================
   let isBotAttack = false;
   if (attempts.timestamps.length >= 3) {
     const recentTimestamps = attempts.timestamps.slice(-5);
     let consecutiveFastRequests = 0;
+    const gaps: number[] = [];
     for (let i = 1; i < recentTimestamps.length; i++) {
       const gap = recentTimestamps[i] - recentTimestamps[i - 1];
-      if (gap < 2000) { // 间隔 < 2秒
+      gaps.push(gap);
+      if (gap < 800) {
         consecutiveFastRequests++;
       }
     }
-    if (consecutiveFastRequests >= 3) {
+    const avgGap = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
+    const variance = gaps.reduce((sum, gap) => sum + Math.pow(gap - avgGap, 2), 0) / gaps.length;
+    const stdDev = Math.sqrt(variance);
+    const fixedRhythmAttack = gaps.length >= 4 && avgGap >= 1000 && avgGap <= 15000 && stdDev < 350;
+
+    if (consecutiveFastRequests >= 2 || fixedRhythmAttack) {
       isBotAttack = true;
     }
   }
   
   // Lock thresholds
-  const LOCK_THRESHOLD = 6; // 6次失败触发锁定
+  const LOCK_THRESHOLD = 8;
   
   if (attempts.count >= LOCK_THRESHOLD) {
     if (isBotAttack) {
@@ -283,15 +291,15 @@ function recordRegisterAttempt(): { allowed: boolean; lockedUntil?: number; atte
         reason: 'Automated registration detected. Locked for 1 hour.' 
       };
     } else {
-      // 正常人：锁定30分钟
-      attempts.lockedUntil = now + 30 * 60 * 1000;
+      // 普通连续失败：锁定15分钟
+      attempts.lockedUntil = now + 15 * 60 * 1000;
       attempts.lockDate = today;
       localStorage.setItem('register_attempts', JSON.stringify(attempts));
       return { 
         allowed: false, 
         lockedUntil: attempts.lockedUntil, 
         attemptsLeft: 0, 
-        reason: 'Too many registration attempts. Locked for 30 minutes.' 
+        reason: 'Too many registration failures. Locked for 15 minutes.' 
       };
     }
   }
@@ -367,7 +375,7 @@ export default function RegisterPage() {
   const [lockCountdown, setLockCountdown] = useState(0);
   const [passwordStrength, setPasswordStrength] = useState(0);
   
-  const submitCount = useRef(0);
+  const submittingRef = useRef(false);
 
   const handlePasswordChange = (value: string) => {
     setPassword(value);
@@ -375,27 +383,44 @@ export default function RegisterPage() {
     setPasswordStrength(result.strength);
   };
 
+  useEffect(() => {
+    const activeLock = getActiveRegisterLock();
+    if (activeLock) {
+      setIsLocked(true);
+      setLockCountdown(Math.ceil((activeLock - Date.now()) / 1000));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isLocked) return;
+    const interval = setInterval(() => {
+      const activeLock = getActiveRegisterLock();
+      if (!activeLock) {
+        setIsLocked(false);
+        setLockCountdown(0);
+        clearInterval(interval);
+      } else {
+        setLockCountdown(Math.ceil((activeLock - Date.now()) / 1000));
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isLocked]);
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current || isLoading) return;
+
     setError('');
     setSecurityErrors([]);
-    
-    // SECURITY: Rate limiting check
-    const rateCheck = recordRegisterAttempt();
-    if (!rateCheck.allowed) {
+
+    const activeLock = getActiveRegisterLock();
+    if (activeLock) {
       setIsLocked(true);
-      setLockCountdown(Math.ceil((rateCheck.lockedUntil! - Date.now()) / 1000));
-      setError(rateCheck.reason || `Too many registration attempts.`);
+      setLockCountdown(Math.ceil((activeLock - Date.now()) / 1000));
+      setError('Registration is temporarily locked. Please try again later.');
       return;
     }
-    
-    // SECURITY: Prevent rapid submissions
-    submitCount.current++;
-    if (submitCount.current > 2) {
-      setError('Too many submission attempts. Please wait.');
-      return;
-    }
-    setTimeout(() => { submitCount.current = 0; }, 10000);
 
     // SECURITY: Sanitize all inputs
     const nameSanitized = sanitizeInput(name, 'name');
@@ -466,23 +491,32 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true);
+    submittingRef.current = true;
     
     try {
       const success = await register(cleanName, cleanEmail, cleanPassword, cleanPhone);
       
       if (success) {
-        submitCount.current = 0;
+        localStorage.removeItem('register_attempts');
         const nextPath = new URLSearchParams(window.location.search).get('next');
         router.push(nextPath && nextPath.startsWith('/') ? nextPath : '/profile');
       } else {
-        setError(`Registration failed. ${rateCheck.attemptsLeft} attempts remaining.`);
+        const rateCheck = recordRegisterFailure();
+        if (!rateCheck.allowed) {
+          setIsLocked(true);
+          setLockCountdown(Math.ceil((rateCheck.lockedUntil! - Date.now()) / 1000));
+          setError(rateCheck.reason || 'Too many registration failures.');
+        } else {
+          setError(`Registration failed. ${rateCheck.attemptsLeft} attempts remaining.`);
+        }
       }
     } catch (err) {
       setError('An error occurred during registration. Please try again.');
     } finally {
       setIsLoading(false);
+      submittingRef.current = false;
     }
-  }, [name, email, phone, password, confirmPassword, agreeTerms, register, router]);
+  }, [name, email, phone, password, confirmPassword, agreeTerms, register, router, isLoading]);
 
   const formatCountdown = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
