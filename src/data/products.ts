@@ -1,34 +1,6 @@
 import { Product } from '@/types';
 
 export const products: Product[] = [
-  // Test product
-  {
-    id: 'test-product-001',
-    name: 'Test Product',
-    brand: 'Adam Cutlery',
-    price: 1,
-    description: '测试',
-    longDescription: '测试\n\nPrice: $1/pc\nMOQ: 1pc',
-    category: 'fixed',
-    images: [
-      '/products/test-product-placeholder.png',
-    ],
-    specs: {
-      bladeLength: 'TBD',
-      totalLength: 'TBD',
-      bladeMaterial: 'TBD',
-      handleMaterial: 'TBD',
-      weight: 'TBD',
-      hardness: 'TBD',
-    },
-    stock: 999999,
-    featured: false,
-    isNew: true,
-    tags: ['test', 'fixed'],
-    moq: 1,
-    freeShipping: true,
-  },
-
   // Titanium Alloy + Damascus folder (custom OEM)
   {
     id: 'titanium-alloy-001',
