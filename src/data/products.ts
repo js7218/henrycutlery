@@ -1,6 +1,34 @@
 import { Product } from '@/types';
 
 export const products: Product[] = [
+  // Titanium Alloy + Damascus folder (custom OEM)
+  {
+    id: 'titanium-alloy-001',
+    name: 'Titanium alloy',
+    brand: 'Adam Cutlery',
+    price: 95,
+    description: 'Titanium alloy handle + Damascus blade, accepting small batch customized bearing mechanism folding knives. Essential for brand expansion in the market. Price: $95/pc. MOQ: 300pcs.',
+    longDescription: 'Titanium alloy handle + Damascus blade, accepting small batch customized bearing mechanism folding knives. Essential for brand expansion in the market.\n\nPrice: $95/pc\nMOQ: 300pcs\n\nMinimum order quantity is strictly 300 pieces. Orders below 300 pcs cannot be placed.',
+    category: 'folding',
+    images: [
+      '/products/titanium-alloy-1.jpeg',
+      '/products/titanium-alloy-2.jpeg',
+    ],
+    specs: {
+      bladeLength: 'Custom',
+      totalLength: 'Custom',
+      bladeMaterial: 'Damascus Steel',
+      handleMaterial: 'Titanium Alloy',
+      weight: 'TBD',
+      hardness: 'TBD',
+    },
+    stock: 999999,
+    featured: true,
+    isNew: true,
+    tags: ['titanium', 'damascus', 'folding', 'bearing', 'OEM'],
+    moq: 300,
+  },
+
   // Buck Knives
   {
     id: 'buck-001',
