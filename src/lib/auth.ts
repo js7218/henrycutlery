@@ -7,8 +7,10 @@ import { cookies } from 'next/headers';
 import { createHash, randomBytes } from 'crypto';
 
 const JWT_SECRET = process.env.JWT_SECRET || randomBytes(32).toString('hex');
-const ACCESS_TOKEN_EXPIRY = 60 * 60;
-const REFRESH_TOKEN_EXPIRY = 60 * 60 * 24 * 7;
+// SECURITY: Access token lives 15 minutes. After 15 minutes of inactivity
+// the cookie expires and the user is forced to sign in again.
+const ACCESS_TOKEN_EXPIRY = 15 * 60;
+const REFRESH_TOKEN_EXPIRY = 15 * 60;
 
 function base64URLEncode(str: string): string {
   return Buffer.from(str, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');

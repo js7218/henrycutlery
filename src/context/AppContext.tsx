@@ -6,10 +6,15 @@ import { generateOrderNumber } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
 
 // ============================================================================
-// SECURITY: Session Management (rebuild trigger)
+// SECURITY: Session Management
+// - Inactive timeout: 15 minutes. As long as the user keeps interacting with
+//   the page (click / keydown / scroll / mousemove) within any 15-minute
+//   window, the session is kept alive. After 15 minutes of zero activity the
+//   user is automatically signed out.
+// - Absolute timeout acts as a hard cap regardless of activity.
 // ============================================================================
 const SESSION_CONFIG = {
-  inactiveTimeoutMs: 30 * 60 * 1000,      // 30 minutes
+  inactiveTimeoutMs: 15 * 60 * 1000,       // 15 minutes
   absoluteTimeoutMs: 24 * 60 * 60 * 1000,  // 24 hours
   maxConcurrentSessions: 3,
 };
@@ -20,6 +25,24 @@ const SESSION_CONFIG = {
 const BUSINESS_LIMITS = {
   maxItemsPerCart: 50,
 };
+
+// Per-account address storage. Addresses are namespaced by lowercase email
+// so account A never sees account B's saved shipping addresses, and a
+// returning user finds the same list they saved last time.
+function addressStorageKey(email: string): string {
+  return `knife-addresses:${email.trim().toLowerCase()}`;
+}
+
+function loadSavedAddresses(email: string): Address[] {
+  try {
+    const raw = localStorage.getItem(addressStorageKey(email));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Address[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 interface AppState {
   cart: CartItem[];
@@ -207,9 +230,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const inactiveMs = now - state.lastActivity;
       const absoluteMs = now - state.sessionCreatedAt;
 
-      // Inactive timeout
+      // Inactive timeout (15 minutes of no interaction)
       if (state.user && inactiveMs > SESSION_CONFIG.inactiveTimeoutMs) {
         securityLogger.log('SESSION_EXPIRED', `Session expired due to inactivity (${Math.round(inactiveMs / 60000)} min)`, { userId: state.user.id });
+        // Also revoke the server-side cookie so the next request is anonymous
+        fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
         dispatch({ type: 'SET_USER', user: null });
         return;
       }
@@ -217,6 +242,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Absolute timeout
       if (state.user && absoluteMs > SESSION_CONFIG.absoluteTimeoutMs) {
         securityLogger.log('SESSION_EXPIRED', `Session expired (absolute timeout ${Math.round(absoluteMs / 3600000)} hr)`, { userId: state.user.id });
+        fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
         dispatch({ type: 'SET_USER', user: null });
         return;
       }
@@ -271,7 +297,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (!cancelled && data?.success && data.user) {
-          dispatch({ type: 'SET_USER', user: data.user });
+          // SECURITY/UX: Restore the per-account address book from local
+          // storage so that "saved" shipping addresses survive page reloads
+          // and re-logins. Addresses are isolated per email key.
+          let savedAddresses: Address[] = [];
+          try {
+            const raw = localStorage.getItem(addressStorageKey(data.user.email));
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) savedAddresses = parsed;
+            }
+          } catch { /* ignore */ }
+
+          dispatch({
+            type: 'SET_USER',
+            user: { ...data.user, addresses: savedAddresses },
+          });
         }
       })
       .catch(() => {});
@@ -285,6 +326,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try { localStorage.setItem('knife-cart', JSON.stringify(state.cart)); } catch { /* */ }
   }, [state.cart]);
+
+  // Persist per-account addresses. Whenever the signed-in user's address
+  // book changes, write it back to localStorage keyed by email so the next
+  // session for the same account loads the same list.
+  useEffect(() => {
+    if (!state.user?.email) return;
+    try {
+      localStorage.setItem(
+        addressStorageKey(state.user.email),
+        JSON.stringify(state.user.addresses || [])
+      );
+    } catch { /* ignore quota errors */ }
+  }, [state.user?.email, state.user?.addresses]);
 
   const addToCart = (product: Product, quantity?: number) => {
     const moq = product.moq || 1;
@@ -346,7 +400,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       name: email.split('@')[0],
       phone: '',
       role: isAdmin ? 'admin' : 'user',
-      addresses: [],
+      // Restore the user's previously saved addresses from local storage.
+      addresses: loadSavedAddresses(email),
       orders: [],
       favorites: [],
       createdAt: new Date().toISOString(),
@@ -393,7 +448,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       name: name.trim(),
       phone: phone?.trim() || '',
       role: 'user',
-      addresses: [],
+      // New accounts usually have nothing saved, but if this email registered
+      // before and addresses were left behind on the same device, keep them.
+      addresses: loadSavedAddresses(normalizedEmail),
       orders: [],
       favorites: [],
       createdAt: new Date().toISOString(),
