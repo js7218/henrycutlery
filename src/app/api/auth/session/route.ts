@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
-import { createJWT, setAuthCookies, clearAuthCookies } from '@/lib/auth';
+import { createJWT, setAuthCookies, clearAuthCookies, getAuthUser } from '@/lib/auth';
 
 type SessionPayload = {
   userId?: string;
@@ -30,16 +30,50 @@ export async function POST(request: Request) {
     const refreshToken = randomBytes(32).toString('hex');
     await setAuthCookies(accessToken, refreshToken);
 
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   } catch {
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: 'Failed to create login session', code: 'SESSION_FAILED' },
       { status: 500 }
     );
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   }
+}
+
+export async function GET() {
+  const authUser = await getAuthUser();
+  if (!authUser) {
+    const response = NextResponse.json(
+      { success: false, error: 'Not authenticated', code: 'NOT_AUTHENTICATED' },
+      { status: 401 }
+    );
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
+  }
+
+  const response = NextResponse.json({
+    success: true,
+    user: {
+      id: authUser.id,
+      email: authUser.email,
+      name: authUser.email.split('@')[0],
+      role: authUser.role === 'admin' ? 'admin' : 'user',
+      addresses: [],
+      orders: [],
+      favorites: [],
+      createdAt: new Date().toISOString(),
+    },
+  });
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
 }
 
 export async function DELETE() {
   await clearAuthCookies();
-  return NextResponse.json({ success: true });
+  const response = NextResponse.json({ success: true });
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
 }

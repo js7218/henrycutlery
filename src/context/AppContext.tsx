@@ -246,27 +246,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem('knife-cart');
-      const savedUser = localStorage.getItem('knife-user');
-      const savedOrders = localStorage.getItem('knife-orders');
       const savedAge = localStorage.getItem('knife-age-verified');
+      localStorage.removeItem('knife-user');
+      localStorage.removeItem('knife-orders');
 
       if (savedCart) {
         const cart = JSON.parse(savedCart);
         cart.forEach((item: CartItem) => {
           dispatch({ type: 'ADD_TO_CART', product: item.product, quantity: item.quantity - 1 });
         });
-      }
-      if (savedUser) {
-        const user = JSON.parse(savedUser);
-        // SECURITY: Validate session on restore
-        if (user.sessionToken && user.createdAt) {
-          dispatch({ type: 'SET_USER', user });
-        } else {
-          localStorage.removeItem('knife-user');
-        }
-      }
-      if (savedOrders) {
-        dispatch({ type: 'SET_ORDERS', orders: JSON.parse(savedOrders) });
       }
       if (savedAge) {
         dispatch({ type: 'SET_AGE_VERIFIED', verified: true });
@@ -276,22 +264,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.success && data.user) {
+          dispatch({ type: 'SET_USER', user: data.user });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Persist state
   useEffect(() => {
     try { localStorage.setItem('knife-cart', JSON.stringify(state.cart)); } catch { /* */ }
   }, [state.cart]);
-
-  useEffect(() => {
-    if (state.user) {
-      try { localStorage.setItem('knife-user', JSON.stringify(state.user)); } catch { /* */ }
-    } else {
-      localStorage.removeItem('knife-user');
-    }
-  }, [state.user]);
-
-  useEffect(() => {
-    try { localStorage.setItem('knife-orders', JSON.stringify(state.orders)); } catch { /* */ }
-  }, [state.orders]);
 
   const addToCart = (product: Product, quantity?: number) => {
     const moq = product.moq || 1;
@@ -351,18 +344,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       id: userId,
       email: email.toLowerCase().trim(),
       name: email.split('@')[0],
-      phone: '138****8888',
+      phone: '',
       role: isAdmin ? 'admin' : 'user',
-      addresses: [{
-        id: 'a001',
-        name: 'John Smith',
-        phone: '13812345678',
-        province: 'Guangdong',
-        city: 'Yangjiang',
-        district: 'Jiangcheng',
-        detail: 'No.42 Jianglang Road',
-        isDefault: true,
-      }],
+      addresses: [],
       orders: [],
       favorites: [],
       createdAt: new Date().toISOString(),
@@ -431,6 +415,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       securityLogger.log('LOGOUT', `User logged out: ${state.user.email}`, { userId: state.user.id });
     }
     fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
+    localStorage.removeItem('knife-user');
+    localStorage.removeItem('knife-orders');
     dispatch({ type: 'SET_USER', user: null });
   };
 

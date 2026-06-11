@@ -6,7 +6,7 @@
 import { cookies } from 'next/headers';
 import { createHash, randomBytes } from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || randomBytes(32).toString('hex');
 const ACCESS_TOKEN_EXPIRY = 60 * 60;
 const REFRESH_TOKEN_EXPIRY = 60 * 60 * 24 * 7;
 
@@ -49,6 +49,7 @@ export async function setAuthCookies(accessToken: string, refreshToken: string):
     sameSite: 'strict',
     maxAge: ACCESS_TOKEN_EXPIRY,
     path: '/',
+    priority: 'high',
   });
   cookieStore.set('refresh_token', refreshToken, {
     httpOnly: true,
@@ -56,6 +57,7 @@ export async function setAuthCookies(accessToken: string, refreshToken: string):
     sameSite: 'strict',
     maxAge: REFRESH_TOKEN_EXPIRY,
     path: '/',
+    priority: 'high',
   });
 }
 

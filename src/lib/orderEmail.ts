@@ -25,14 +25,27 @@ type OrderEmailPayload = {
   createdAt: string;
 };
 
-const ORDER_RECEIVER_EMAIL = 'rjyy_88@qq.com';
+function getOrderReceiverEmail() {
+  return process.env.ORDER_RECEIVER_EMAIL || '';
+}
 
-const HSBC_ACCOUNT = {
-  accountName: 'HongKong Henry Cutlery Co.Ltd.',
-  accountNumber: '147-6411161-838',
-  bankName: 'The Hongkong and Shanghai Banking Corporation Limited',
-  bankAddress: "1 Queen's Road Central, Hong Kong.",
-};
+function getPrivateBankDetails() {
+  return {
+    accountName: process.env.BANK_ACCOUNT_NAME || '',
+    accountNumber: process.env.BANK_ACCOUNT_NUMBER || '',
+    bankName: process.env.BANK_NAME || '',
+    bankAddress: process.env.BANK_ADDRESS || '',
+  };
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 function paymentLabel(method: string) {
   switch (method) {
@@ -50,7 +63,7 @@ function paymentLabel(method: string) {
 }
 
 function smtpReady() {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS && getOrderReceiverEmail());
 }
 
 function buildOrderEmail(order: OrderEmailPayload) {
@@ -59,13 +72,34 @@ function buildOrderEmail(order: OrderEmailPayload) {
     return `
       <tr>
         <td style="padding:8px;border-bottom:1px solid #eee;">${index + 1}</td>
-        <td style="padding:8px;border-bottom:1px solid #eee;">${item.productName.toUpperCase()}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;">${escapeHtml(item.productName.toUpperCase())}</td>
         <td style="padding:8px;border-bottom:1px solid #eee;">${item.quantity}</td>
         <td style="padding:8px;border-bottom:1px solid #eee;">${formatPrice(item.price)}</td>
         <td style="padding:8px;border-bottom:1px solid #eee;">${formatPrice(lineTotal)}</td>
       </tr>
     `;
   }).join('');
+  const bankDetails = getPrivateBankDetails();
+  const hasBankDetails = Boolean(bankDetails.accountName || bankDetails.accountNumber || bankDetails.bankName || bankDetails.bankAddress);
+  const textBankLines = hasBankDetails
+    ? [
+        'Private Payment Account:',
+        bankDetails.accountName,
+        bankDetails.accountNumber ? `Account: ${bankDetails.accountNumber}` : '',
+        bankDetails.bankName ? `Bank: ${bankDetails.bankName}` : '',
+        bankDetails.bankAddress ? `Bank address: ${bankDetails.bankAddress}` : '',
+        '',
+      ].filter(Boolean)
+    : [];
+  const htmlBankBlock = hasBankDetails
+    ? `
+      <h3 style="margin-top:24px;">Private Payment Account</h3>
+      ${bankDetails.accountName ? `<p><strong>Payment account:</strong> ${escapeHtml(bankDetails.accountName)}</p>` : ''}
+      ${bankDetails.accountNumber ? `<p><strong>Account:</strong> ${escapeHtml(bankDetails.accountNumber)}</p>` : ''}
+      ${bankDetails.bankName ? `<p><strong>Bank:</strong> ${escapeHtml(bankDetails.bankName)}</p>` : ''}
+      ${bankDetails.bankAddress ? `<p><strong>Bank address:</strong> ${escapeHtml(bankDetails.bankAddress)}</p>` : ''}
+    `
+    : '';
 
   const text = [
     'New Adam Cutlery order submitted.',
@@ -75,12 +109,7 @@ function buildOrderEmail(order: OrderEmailPayload) {
     `Total Amount: ${formatPrice(order.totalAmount)}`,
     `Created At: ${order.createdAt}`,
     '',
-    'HSBC Payment Account:',
-    HSBC_ACCOUNT.accountName,
-    `Account: ${HSBC_ACCOUNT.accountNumber}`,
-    `Bank: ${HSBC_ACCOUNT.bankName}`,
-    `Bank address: ${HSBC_ACCOUNT.bankAddress}`,
-    '',
+    ...textBankLines,
     'Shipping Address:',
     `Name: ${order.shippingAddress.name}`,
     `Phone: ${order.shippingAddress.phone}`,
@@ -93,21 +122,17 @@ function buildOrderEmail(order: OrderEmailPayload) {
   const html = `
     <div style="font-family:Arial,sans-serif;color:#222;line-height:1.5;">
       <h2 style="margin:0 0 12px;">New Adam Cutlery Order</h2>
-      <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-      <p><strong>Payment Method:</strong> ${paymentLabel(order.paymentMethod)}</p>
+      <p><strong>Order Number:</strong> ${escapeHtml(order.orderNumber)}</p>
+      <p><strong>Payment Method:</strong> ${escapeHtml(paymentLabel(order.paymentMethod))}</p>
       <p><strong>Total Amount:</strong> ${formatPrice(order.totalAmount)}</p>
-      <p><strong>Created At:</strong> ${order.createdAt}</p>
+      <p><strong>Created At:</strong> ${escapeHtml(order.createdAt)}</p>
 
-      <h3 style="margin-top:24px;">HSBC Payment Account</h3>
-      <p><strong>Payment account:</strong> ${HSBC_ACCOUNT.accountName}</p>
-      <p><strong>Account:</strong> ${HSBC_ACCOUNT.accountNumber}</p>
-      <p><strong>Bank:</strong> ${HSBC_ACCOUNT.bankName}</p>
-      <p><strong>Bank address:</strong> ${HSBC_ACCOUNT.bankAddress}</p>
+      ${htmlBankBlock}
 
       <h3 style="margin-top:24px;">Shipping Address</h3>
-      <p><strong>Name:</strong> ${order.shippingAddress.name}</p>
-      <p><strong>Phone:</strong> ${order.shippingAddress.phone}</p>
-      <p><strong>Address:</strong> ${order.shippingAddress.province || ''} ${order.shippingAddress.city || ''} ${order.shippingAddress.district || ''} ${order.shippingAddress.detail}</p>
+      <p><strong>Name:</strong> ${escapeHtml(order.shippingAddress.name)}</p>
+      <p><strong>Phone:</strong> ${escapeHtml(order.shippingAddress.phone)}</p>
+      <p><strong>Address:</strong> ${escapeHtml(`${order.shippingAddress.province || ''} ${order.shippingAddress.city || ''} ${order.shippingAddress.district || ''} ${order.shippingAddress.detail}`)}</p>
 
       <h3 style="margin-top:24px;">Items</h3>
       <table style="border-collapse:collapse;width:100%;font-size:14px;">
@@ -147,7 +172,7 @@ export async function sendOrderNotificationEmail(order: OrderEmailPayload) {
   const { text, html } = buildOrderEmail(order);
   await transporter.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: ORDER_RECEIVER_EMAIL,
+    to: getOrderReceiverEmail(),
     subject: `Adam Cutlery Order ${order.orderNumber}`,
     text,
     html,

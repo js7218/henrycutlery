@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, Eye, EyeOff, LogIn, Shield } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 
 // ============================================================================
@@ -452,12 +452,6 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="bg-surface border border-border rounded-xl p-8">
-          {/* Security Badge */}
-          <div className="flex items-center justify-center gap-2 mb-6 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
-            <Shield className="w-4 h-4 text-green-400" />
-            <span className="text-xs text-green-400">Protected against SQL Injection, XSS & Privilege Escalation</span>
-          </div>
-
           {/* Lockout Warning */}
           {isLocked && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
@@ -508,7 +502,6 @@ export default function LoginPage() {
                 className="w-full pl-12 pr-4 py-3 bg-surfaceLight border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">Max 254 characters. No special characters allowed.</p>
           </div>
 
           {/* Password */}
@@ -538,7 +531,6 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-1">8-128 characters. No SQL/XSS commands allowed.</p>
           </div>
 
           {/* Remember & Forgot */}
