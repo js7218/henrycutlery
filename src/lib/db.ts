@@ -6,6 +6,19 @@ const connectionString =
   process.env.POSTGRES_PRISMA_URL ||
   process.env.POSTGRES_URL;
 
+function requireTlsConnectionString(url: string): string {
+  const parsed = new URL(url);
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) {
+    throw new Error('Invalid database URL protocol');
+  }
+
+  if (!parsed.searchParams.has('sslmode')) {
+    parsed.searchParams.set('sslmode', 'require');
+  }
+
+  return parsed.toString();
+}
+
 let pool: Pool | null = null;
 let schemaReady: Promise<void> | null = null;
 
@@ -16,9 +29,19 @@ export function getPool(): Pool {
 
   if (!pool) {
     pool = new Pool({
-      connectionString,
-      ssl: { rejectUnauthorized: false },
+      connectionString: requireTlsConnectionString(connectionString),
+      ssl: true,
       max: 5,
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 10000,
+      maxLifetimeSeconds: 60,
+      allowExitOnIdle: true,
+      application_name: 'henrycutlery-web',
+      options: [
+        '-c statement_timeout=10000',
+        '-c idle_in_transaction_session_timeout=10000',
+        '-c lock_timeout=5000',
+      ].join(' '),
     });
   }
 
