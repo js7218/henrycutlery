@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { QrCode, CreditCard, Check, Copy } from 'lucide-react';
+import { QrCode, CreditCard, Check } from 'lucide-react';
 import { PaymentMethod } from '@/types';
 
 interface PaymentSelectorProps {
@@ -9,19 +9,8 @@ interface PaymentSelectorProps {
   onSelect: (method: PaymentMethod) => void;
 }
 
-const HSBC_PAYMENT_ACCOUNT = {
-  accountNumber: '147-6411161-838',
-};
-
 export default function PaymentSelector({ selected, onSelect }: PaymentSelectorProps) {
   const [showQrCode, setShowQrCode] = useState(false);
-  const [copiedAccount, setCopiedAccount] = useState(false);
-
-  const copyHsbcAccount = () => {
-    navigator.clipboard.writeText(HSBC_PAYMENT_ACCOUNT.accountNumber);
-    setCopiedAccount(true);
-    setTimeout(() => setCopiedAccount(false), 2000);
-  };
 
   const paymentMethods = [
     {
@@ -74,15 +63,6 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
               } else {
                 setShowQrCode(false);
               }
-              if (method.id === 'bank_transfer') {
-                window.setTimeout(() => {
-                  document.getElementById('hsbc-payment-account-147-6411161-838')?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center',
-                  });
-                  copyHsbcAccount();
-                }, 100);
-              }
             }}
             className={`w-full flex items-center justify-between p-4 border rounded-lg transition-all ${
               selected === method.id
@@ -103,49 +83,20 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
           {selected === method.id && showQrCode && (
             <div className="mt-4 p-6 bg-white rounded-lg animate-fade-in">
               <div className="flex flex-col items-center">
-                <div className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-                  <QrCode className="w-32 h-32 text-gray-800" />
-                </div>
-                <p className="text-sm text-gray-600 text-center">
-                  Please use {method.id === 'wechat' ? 'WeChat' : 'Alipay'} to scan the QR code to complete payment
-                </p>
-                <p className="text-xs text-gray-400 mt-2">
-                  Page will redirect automatically after payment
-                </p>
-              </div>
-            </div>
-          )}
-
-          {selected === method.id && method.id === 'bank_transfer' && (
-            <div
-              id="hsbc-payment-account-147-6411161-838"
-              className="mt-4 rounded-lg border border-red-500/30 bg-red-500/5 p-6 animate-fade-in"
-            >
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-14 items-center justify-center rounded bg-red-600 text-xs font-bold tracking-wide text-white">
-                  HSBC
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">HSBC Bank Transfer</p>
-                  <p className="text-xs text-gray-400">Click HSBC to copy the receiving account and complete payment.</p>
-                </div>
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <div className="rounded bg-surfaceLight p-3">
-                  <p className="text-gray-400">Receiving account</p>
-                  <div className="mt-1 flex items-center justify-between gap-3">
-                    <p className="font-mono text-lg font-semibold text-gold">{HSBC_PAYMENT_ACCOUNT.accountNumber}</p>
-                    <button
-                      type="button"
-                      onClick={copyHsbcAccount}
-                      className="flex shrink-0 items-center gap-1 rounded border border-border px-3 py-2 text-xs text-gray-300 hover:border-gold hover:text-gold"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      {copiedAccount ? 'Copied' : 'Copy'}
-                    </button>
+                {method.id === 'wechat' ? (
+                  <img
+                    src="/images/wechat-payment.jpeg"
+                    alt="WeChat payment code"
+                    className="mb-4 h-auto w-56 max-w-full rounded-lg border border-gray-200 object-contain"
+                  />
+                ) : (
+                  <div className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+                    <QrCode className="w-32 h-32 text-gray-800" />
                   </div>
-                </div>
+                )}
+                <p className="text-sm text-gray-600 text-center">
+                  Please use {method.id === 'wechat' ? 'WeChat' : 'Alipay'} to scan and complete payment
+                </p>
               </div>
             </div>
           )}
