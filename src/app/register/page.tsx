@@ -324,6 +324,28 @@ function PasswordStrength({ strength }: { strength: number }) {
   );
 }
 
+function PasswordRequirement({ met, label }: { met: boolean; label: string }) {
+  return (
+    <div className={`flex items-center gap-1 text-xs ${met ? 'text-green-400' : 'text-gray-500'}`}>
+      {met ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function PasswordRequirements({ password }: { password: string }) {
+  return (
+    <div className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">
+      <PasswordRequirement met={password.length >= 8} label="At least 8 characters" />
+      <PasswordRequirement met={/[a-z]/.test(password)} label="Lowercase letter" />
+      <PasswordRequirement met={/[A-Z]/.test(password)} label="Uppercase letter" />
+      <PasswordRequirement met={/[0-9]/.test(password)} label="Number" />
+      <PasswordRequirement met={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)} label="Special character" />
+      <PasswordRequirement met={validatePasswordStrict(password).valid} label="Password strength qualified" />
+    </div>
+  );
+}
+
 // ============================================================================
 // Main Register Page Component
 // ============================================================================
@@ -446,7 +468,7 @@ export default function RegisterPage() {
     setIsLoading(true);
     
     try {
-      const success = await register(cleanName, cleanEmail, cleanPassword);
+      const success = await register(cleanName, cleanEmail, cleanPassword, cleanPhone);
       
       if (success) {
         submitCount.current = 0;
@@ -591,6 +613,7 @@ export default function RegisterPage() {
               </button>
             </div>
             <PasswordStrength strength={passwordStrength} />
+            <PasswordRequirements password={password} />
           </div>
 
           {/* Confirm Password */}
