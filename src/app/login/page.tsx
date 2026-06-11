@@ -423,7 +423,8 @@ export default function LoginPage() {
         // SECURITY: Reset attempts on successful login
         resetLoginAttempts();
         submitCount.current = 0;
-        router.push('/profile');
+        const nextPath = new URLSearchParams(window.location.search).get('next');
+        router.push(nextPath && nextPath.startsWith('/') ? nextPath : '/profile');
       } else {
         setError(`Login failed. ${rateCheck.attemptsLeft} attempts remaining.`);
       }

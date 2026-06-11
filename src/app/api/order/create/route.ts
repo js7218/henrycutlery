@@ -11,6 +11,7 @@ import { products } from '@/data/products';
 import { generateOrderNumber } from '@/lib/utils';
 import { findUnsafeUrl } from '@/lib/ssrfProtection';
 import { sendOrderNotificationEmail } from '@/lib/orderEmail';
+import { getAuthUser } from '@/lib/auth';
 
 // In production, this would be a database lookup
 function getProductById(productId: string) {
@@ -20,6 +21,14 @@ function getProductById(productId: string) {
 // POST /api/order/create - Create order with server-side price verification
 export async function POST(request: NextRequest) {
   try {
+    const authUser = await getAuthUser();
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Please log in before placing an order', code: 'LOGIN_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const unsafeUrl = findUnsafeUrl(body);
     if (unsafeUrl) {
@@ -116,6 +125,8 @@ export async function POST(request: NextRequest) {
       paymentMethod,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      userId: authUser.id,
+      customerEmail: authUser.email,
       // SECURITY: Server verification metadata
       verified: true,
       verifiedAt: new Date().toISOString(),

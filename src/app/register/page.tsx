@@ -450,7 +450,8 @@ export default function RegisterPage() {
       
       if (success) {
         submitCount.current = 0;
-        router.push('/profile');
+        const nextPath = new URLSearchParams(window.location.search).get('next');
+        router.push(nextPath && nextPath.startsWith('/') ? nextPath : '/profile');
       } else {
         setError(`Registration failed. ${rateCheck.attemptsLeft} attempts remaining.`);
       }

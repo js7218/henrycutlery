@@ -96,12 +96,17 @@ export default function CartPage() {
                 <span className="text-2xl font-bold text-gold">{formatPrice(totalAmount)}</span>
               </div>
 
-              <Link href="/checkout" className="block">
+              <Link href={state.user ? '/checkout' : '/login?next=/checkout'} className="block">
                 <button className="w-full py-4 bg-gold text-background font-medium rounded-lg hover:bg-goldLight transition-colors flex items-center justify-center gap-2">
-                  Checkout
+                  {state.user ? 'Checkout' : 'Sign In to Checkout'}
                   <ArrowRight className="w-5 h-5" />
                 </button>
               </Link>
+              {!state.user && (
+                <p className="mt-3 text-xs text-center text-gray-500">
+                  Please log in or register before placing an order.
+                </p>
+              )}
             </div>
 
             {/* Guarantees */}

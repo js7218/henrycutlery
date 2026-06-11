@@ -318,6 +318,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  const createBrowserSession = async (user: User): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          role: user.role || 'user',
+        }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  };
+
   // ============================================================================
   // SECURITY: Login with Full Protection
   // ============================================================================
@@ -351,6 +368,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
       sessionToken,
     };
+
+    const sessionCreated = await createBrowserSession(mockUser);
+    if (!sessionCreated) {
+      securityLogger.log('LOGIN_FAILURE', `Failed to create browser session: ${mockUser.email}`, { userId });
+      return false;
+    }
 
     dispatch({ type: 'SET_USER', user: mockUser });
     securityLogger.log('LOGIN_SUCCESS', `User logged in: ${mockUser.email}`, { userId, isAdmin });
@@ -392,6 +415,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sessionToken,
     };
 
+    const sessionCreated = await createBrowserSession(mockUser);
+    if (!sessionCreated) {
+      securityLogger.log('REGISTER_FAILURE', `Failed to create browser session: ${normalizedEmail}`, { userId });
+      return false;
+    }
+
     dispatch({ type: 'SET_USER', user: mockUser });
     securityLogger.log('REGISTER_SUCCESS', `User registered: ${normalizedEmail}`, { userId });
     return true;
@@ -401,6 +430,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (state.user) {
       securityLogger.log('LOGOUT', `User logged out: ${state.user.email}`, { userId: state.user.id });
     }
+    fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
     dispatch({ type: 'SET_USER', user: null });
   };
 

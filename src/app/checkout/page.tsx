@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice } from '@/lib/utils';
@@ -15,6 +16,7 @@ type CheckoutStep = 'confirm' | 'payment' | 'complete';
 
 export default function CheckoutPage() {
   const { state, dispatch, cartTotal } = useApp();
+  const router = useRouter();
 
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('confirm');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wechat');
@@ -39,6 +41,37 @@ export default function CheckoutPage() {
 
   const shippingFee = cartTotal >= 500 ? 0 : 50;
   const totalAmount = cartTotal + shippingFee;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (!state.user && currentStep !== 'complete') {
+        router.replace('/login?next=/checkout');
+      }
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [state.user, currentStep, router]);
+
+  if (!state.user && currentStep !== 'complete') {
+    return (
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-20">
+        <CheckoutSteps currentStep={2} />
+        <div className="text-center py-20">
+          <h2 className="text-2xl font-bold text-gray-400 mb-4">Please Sign In to Checkout</h2>
+          <p className="text-gray-500 mb-8">You need to log in or register before placing an order.</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/login?next=/checkout" className="btn-primary">
+              Sign In
+            </Link>
+            <Link href="/register?next=/checkout" className="px-6 py-3 border border-gold text-gold rounded-lg hover:bg-gold/10 transition-colors">
+              Register
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (state.cart.length === 0 && currentStep !== 'complete') {
     return (
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-20">
@@ -90,6 +123,10 @@ export default function CheckoutPage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
+        if (response.status === 401 || result.code === 'LOGIN_REQUIRED') {
+          router.replace('/login?next=/checkout');
+          return;
+        }
         securityLogger.log('PRICE_TAMPERING_ATTEMPT', `Order API rejected: ${result.error || result.code}`);
         setIsProcessing(false);
         return;
