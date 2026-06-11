@@ -3,14 +3,20 @@
 import Link from 'next/link';
 import { ShoppingBag, Truck, ArrowRight } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, calculateShippingFee, FREE_SHIPPING_THRESHOLD } from '@/lib/utils';
 import CartItem from '@/components/cart/CartItem';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
 
 export default function CartPage() {
   const { state, cartTotal, clearCart } = useApp();
-  const shippingFee = cartTotal >= 500 ? 0 : 50;
+  const shippingFee = calculateShippingFee(state.cart);
   const totalAmount = cartTotal + shippingFee;
+  const chargeableSubtotal = state.cart.reduce(
+    (sum, item) => (item.product.freeShipping ? sum : sum + item.product.price * item.quantity),
+    0
+  );
+  const showFreeShippingProgress =
+    chargeableSubtotal > 0 && chargeableSubtotal < FREE_SHIPPING_THRESHOLD;
 
   if (state.cart.length === 0) {
     return (
@@ -75,15 +81,15 @@ export default function CartPage() {
                   )}
                 </span>
               </div>
-              {cartTotal < 500 && (
+              {showFreeShippingProgress && (
                 <div className="p-3 bg-surfaceLight rounded-lg">
                   <p className="text-xs text-gray-400">
-                    Add <span className="text-gold font-medium">{formatPrice(500 - cartTotal)}</span> more for free shipping
+                    Add <span className="text-gold font-medium">{formatPrice(FREE_SHIPPING_THRESHOLD - chargeableSubtotal)}</span> more for free shipping
                   </p>
                   <div className="mt-2 h-2 bg-border rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gold rounded-full transition-all"
-                      style={{ width: `${Math.min(100, (cartTotal / 500) * 100)}%` }}
+                      style={{ width: `${Math.min(100, (chargeableSubtotal / FREE_SHIPPING_THRESHOLD) * 100)}%` }}
                     />
                   </div>
                 </div>

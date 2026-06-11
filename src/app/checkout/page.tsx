@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, calculateShippingFee } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
 import { Address, PaymentMethod } from '@/types';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
@@ -39,7 +39,7 @@ export default function CheckoutPage() {
     isDefault: false,
   });
 
-  const shippingFee = cartTotal >= 500 ? 0 : 50;
+  const shippingFee = calculateShippingFee(state.cart);
   const totalAmount = cartTotal + shippingFee;
 
   useEffect(() => {

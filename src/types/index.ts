@@ -15,6 +15,9 @@ export interface Product {
   isNew: boolean;
   tags: string[];
   moq?: number;
+  // Per-product free-shipping flag. When true, this item contributes $0 to the
+  // shipping fee calculation regardless of cart subtotal.
+  freeShipping?: boolean;
 }
 
 export type ProductCategory = 
