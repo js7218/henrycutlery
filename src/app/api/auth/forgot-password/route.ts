@@ -61,9 +61,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     const email = String(body?.email || '').trim().toLowerCase();
     const phone = String(body?.phone || '').trim();
-    if (!email) {
+    if (!email || !phone) {
       return NextResponse.json(
-        { success: false, error: '请输入邮箱' },
+        { success: false, error: 'Please enter both email and phone number.' },
         { status: 400 }
       );
     }
@@ -81,10 +81,9 @@ export async function POST(request: NextRequest) {
     );
     const user = userResult.rows[0];
 
-    // If we have a user AND (the user supplied no phone OR the phone matches),
-    // proceed. Phone is optional but, when given, must match the saved one.
-    const phoneOk =
-      !phone || (user && user.phone && user.phone.trim() === phone);
+    // Phone is mandatory and must exactly match the registered phone for the
+    // account; otherwise we silently respond success to avoid leaking info.
+    const phoneOk = !!(user && user.phone && user.phone.trim() === phone);
 
     if (user && phoneOk) {
       // Invalidate any previous active reset tokens for this user.

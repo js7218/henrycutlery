@@ -97,7 +97,7 @@ export default function AdminPage() {
       const data = await fetchJson<{ customers: Customer[] }>(`/api/admin/customers?q=${encodeURIComponent(search)}&limit=50`);
       setCustomers(data.customers);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '客户查询失败');
+      setError(err instanceof Error ? err.message : 'Failed to load customers.');
     }
   }, [query]);
 
@@ -107,7 +107,7 @@ export default function AdminPage() {
       const data = await fetchJson<CustomerDetail>(`/api/admin/customers/${customerId}`);
       setSelected(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '客户详情加载失败');
+      setError(err instanceof Error ? err.message : 'Failed to load customer detail.');
     }
   };
 
@@ -117,7 +117,7 @@ export default function AdminPage() {
       const data = await fetchJson<{ reviews: Review[] }>(`/api/admin/reviews?status=${status}`);
       setReviews(data.reviews);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '评论加载失败');
+      setError(err instanceof Error ? err.message : 'Failed to load reviews.');
     }
   }, [reviewStatus]);
 
@@ -131,7 +131,7 @@ export default function AdminPage() {
       });
       await loadReviews();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '评论更新失败');
+      setError(err instanceof Error ? err.message : 'Failed to update review.');
     }
   };
 
@@ -214,10 +214,11 @@ export default function AdminPage() {
               <StatCard label="Pending Reviews" value={pendingReviews} />
             </div>
             <div className="bg-surface border border-border rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-foreground mb-3">管理员可以看什么</h2>
-              <p className="text-gray-400 text-sm leading-6">
-                在 Customers 里可以按邮箱、姓名、手机号、订单号、地址关键词搜索客户；点客户后可以查看该账号的收货地址和订单摘要。
-                在 Reviews 里可以审核评论，恶意评论不会公开展示。
+              <h2 className="text-lg font-semibold text-foreground mb-3">What admins can do here</h2>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                In <strong>Customers</strong> you can search by email, name, phone, order number, or address keyword,
+                and click a customer to see their saved addresses and order summary.
+                In <strong>Reviews</strong> you can moderate product reviews; flagged or malicious comments stay hidden until approved.
               </p>
             </div>
           </div>
@@ -360,17 +361,17 @@ export default function AdminPage() {
 
         {activeTab === 'security' && (
           <div className="bg-surface border border-border rounded-xl p-6 space-y-5">
-            <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'Playfair Display, serif' }}>Neon 密码轮换流程</h1>
-            <p className="text-gray-400">如果怀疑数据库连接串、Vercel 环境变量或 GitHub token 泄漏，就按这个流程轮换。</p>
+            <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'Playfair Display, serif' }}>Neon Password Rotation</h1>
+            <p className="text-gray-400">If you suspect the database URL, Vercel environment variables, or your GitHub token may be leaked, rotate the password using the steps below.</p>
             <ol className="list-decimal pl-6 space-y-3 text-gray-300">
-              <li>进入 Neon 控制台，打开 `henrycutlery-db`。</li>
-              <li>进入 `Roles`，选择网站正在使用的数据库 role。</li>
-              <li>点击 `Reset password` 或 `Rotate password`，生成新密码。</li>
-              <li>回到 Vercel 项目，确认 Neon Integration 已把新的 `DATABASE_URL` / `DATABASE_URL_UNPOOLED` 同步到环境变量。</li>
-              <li>重新部署一次 Vercel，让新连接串生效。</li>
-              <li>旧密码失效后，用网站注册/登录测试数据库是否正常。</li>
+              <li>Open the Neon console and select the <code>henrycutlery-db</code> project.</li>
+              <li>Go to <strong>Roles</strong> and pick the database role used by the site.</li>
+              <li>Click <strong>Reset password</strong> or <strong>Rotate password</strong> to generate a new credential.</li>
+              <li>Back in the Vercel project, confirm that the Neon integration synced the new <code>DATABASE_URL</code> and <code>DATABASE_URL_UNPOOLED</code>.</li>
+              <li>Trigger a fresh Vercel deployment so the new connection string takes effect.</li>
+              <li>Once the old password is invalidated, test by registering and signing in on the live site.</li>
             </ol>
-            <p className="text-sm text-yellow-300">不要把 `DATABASE_URL`、`PGPASSWORD`、GitHub token 发给别人，也不要写进源码。</p>
+            <p className="text-sm text-yellow-300">Never share <code>DATABASE_URL</code>, <code>PGPASSWORD</code>, or GitHub tokens with anyone, and never commit them to source code.</p>
           </div>
         )}
       </div>
