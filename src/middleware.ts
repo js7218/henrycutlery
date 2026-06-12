@@ -628,7 +628,7 @@ const SENSITIVE_PATTERNS = [
 // PATTERNS: Honeypot Paths
 // ============================================================================
 const HONEYPOT_PATHS = [
-  '/api/admin', '/api/phpmyadmin', '/api/database', '/api/debug',
+  '/api/phpmyadmin', '/api/database', '/api/debug',
   '/.env', '/.git/config', '/.git/HEAD', '/.git/logs/',
   '/wp-login.php', '/xmlrpc.php', '/wp-config.php',
   '/config.php', '/setup.php', '/admin.php', '/administrator',
@@ -1168,7 +1168,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Skip internal API routes from WAF (they have their own server-side validation)
-  const isInternalAPI = path.startsWith('/api/order') || path.startsWith('/api/user');
+  const isInternalAPI = path.startsWith('/api/');
   if (isInternalAPI) {
     return addSecurityHeaders(NextResponse.next());
   }
