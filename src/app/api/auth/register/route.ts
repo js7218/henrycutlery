@@ -46,9 +46,10 @@ export async function POST(request: Request) {
           u.password_hash,
           COALESCE((SELECT COUNT(*)::int FROM addresses a WHERE a.user_id = u.id), 0) AS address_count,
           COALESCE((SELECT COUNT(*)::int FROM orders o WHERE o.user_id = u.id), 0) AS order_count,
-          COALESCE(jsonb_array_length(u.favorites), 0) AS favorite_count
+          COALESCE(jsonb_array_length(u.favorites), 0) AS favorite_count,
+          u.deleted_at
         FROM users u
-        WHERE u.email = $1 AND u.deleted_at IS NULL
+        WHERE LOWER(u.email) = LOWER($1)
         LIMIT 1
       `,
       [email]
@@ -79,10 +80,10 @@ export async function POST(request: Request) {
         await getPool().query(
           `
             UPDATE users
-            SET name = $1, phone = $2, password_hash = $3, updated_at = NOW()
-            WHERE id = $4
+            SET email = $1, name = $2, phone = $3, password_hash = $4, deleted_at = NULL, updated_at = NOW()
+            WHERE id = $5
           `,
-          [name, phone, passwordHash, existingUser.id]
+          [email, name, phone, passwordHash, existingUser.id]
         );
 
         const dbUser = await getUserById(existingUser.id);

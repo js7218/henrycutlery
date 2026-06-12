@@ -68,6 +68,21 @@ export async function ensureDatabaseSchema(): Promise<void> {
         );
       `);
 
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user';`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS favorites JSONB NOT NULL DEFAULT '[]'::jsonb;`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS users_email_lookup_idx
+        ON users (LOWER(email))
+        WHERE deleted_at IS NULL AND email IS NOT NULL;
+      `);
+
       await db.query(`
         CREATE TABLE IF NOT EXISTS addresses (
           id TEXT PRIMARY KEY,
@@ -83,6 +98,17 @@ export async function ensureDatabaseSchema(): Promise<void> {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
+
+      await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS user_id TEXT;`);
+      await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS province TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS city TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS district TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS detail TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT FALSE;`);
+      await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+      await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
 
       await db.query(`
         CREATE INDEX IF NOT EXISTS addresses_user_id_idx ON addresses(user_id);
@@ -101,6 +127,21 @@ export async function ensureDatabaseSchema(): Promise<void> {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+      `);
+
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id TEXT;`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number TEXT;`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB NOT NULL DEFAULT '[]'::jsonb;`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0;`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_address JSONB NOT NULL DEFAULT '{}'::jsonb;`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS orders_order_number_lookup_idx
+        ON orders (order_number)
+        WHERE order_number IS NOT NULL;
       `);
     })();
   }

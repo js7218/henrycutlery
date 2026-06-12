@@ -186,7 +186,7 @@ interface AppContextType {
   cartTotal: number;
   cartCount: number;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string, phone?: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string, phone?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   createOrder: (address: Address, paymentMethod: PaymentMethod) => Order | null;
   // SECURITY: Session check
@@ -362,7 +362,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ============================================================================
   // SECURITY: Register with Full Protection
   // ============================================================================
-  const register = async (name: string, email: string, password: string, phone?: string): Promise<boolean> => {
+  const register = async (name: string, email: string, password: string, phone?: string): Promise<{ success: boolean; error?: string }> => {
     await new Promise((resolve) => setTimeout(resolve, 80));
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -375,7 +375,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     for (const pattern of blockedPatterns) {
       if (normalizedEmail.startsWith(pattern)) {
         securityLogger.log('VERTICAL_PRIVILEGE_ATTEMPT', `Blocked admin email registration: ${normalizedEmail}`);
-        return false;
+        return { success: false, error: 'This email cannot be used for customer registration.' };
       }
     }
 
@@ -386,20 +386,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ name, email: normalizedEmail, password, phone }),
       });
 
+      const data = await response.json().catch(() => null);
+
       if (!response.ok) {
         securityLogger.log('REGISTER_FAILURE', `Register failed: ${normalizedEmail}`);
-        return false;
+        return { success: false, error: data?.error || 'Registration failed. Please try again.' };
       }
 
-      const data = await response.json();
-      if (!data?.success || !data.user) return false;
+      if (!data?.success || !data.user) {
+        return { success: false, error: data?.error || 'Registration failed. Please try again.' };
+      }
 
       dispatch({ type: 'SET_USER', user: data.user });
       securityLogger.log('REGISTER_SUCCESS', `User registered: ${normalizedEmail}`, { userId: data.user.id });
-      return true;
+      return { success: true };
     } catch {
       securityLogger.log('REGISTER_FAILURE', `Register request failed: ${normalizedEmail}`);
-      return false;
+      return { success: false, error: 'Network or server error. Please try again.' };
     }
   };
 

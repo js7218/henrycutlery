@@ -514,14 +514,14 @@ export default function RegisterPage() {
     submittingRef.current = true;
     
     try {
-      const success = await register(cleanName, cleanEmail, cleanPassword, cleanPhone);
+      const result = await register(cleanName, cleanEmail, cleanPassword, cleanPhone);
       
-      if (success) {
+      if (result.success) {
         localStorage.removeItem(OLD_REGISTER_ATTEMPTS_KEY);
         localStorage.removeItem(REGISTER_ATTEMPTS_KEY);
         router.push(getSafeReturnPath() || '/profile');
       } else {
-        setError('Registration failed. If this email is already registered, please sign in directly.');
+        setError(result.error || 'Registration failed. Please try again.');
       }
     } catch (err) {
       setError('An error occurred during registration. Please try again.');
