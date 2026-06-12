@@ -48,6 +48,8 @@ const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 const NAME_MIN_LENGTH = 2;
 const NAME_MAX_LENGTH = 50;
+const REGISTER_ATTEMPTS_KEY = 'register_attempts_v2';
+const OLD_REGISTER_ATTEMPTS_KEY = 'register_attempts';
 
 interface SecurityError {
   field: string;
@@ -80,28 +82,31 @@ function sanitizeInput(input: string, fieldName: string): { sanitized: string; e
     sanitized = sanitized.replace(DANGEROUS_CHARS, '');
   }
   
+  const skipPatternScan = ['password', 'confirmPassword'].includes(fieldName);
   const upperInput = sanitized.toUpperCase();
-  for (const keyword of SQL_BLACKLIST) {
-    if (upperInput.includes(keyword)) {
-      errors.push({ field: fieldName, message: `SQL injection pattern detected`, code: 'SQL_INJECTION' });
-      const regex = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      sanitized = sanitized.replace(regex, '');
+  if (!skipPatternScan) {
+    for (const keyword of SQL_BLACKLIST) {
+      if (upperInput.includes(keyword)) {
+        errors.push({ field: fieldName, message: `SQL injection pattern detected`, code: 'SQL_INJECTION' });
+        const regex = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        sanitized = sanitized.replace(regex, '');
+      }
     }
-  }
-  
-  for (const pattern of XSS_BLACKLIST) {
-    if (upperInput.includes(pattern)) {
-      errors.push({ field: fieldName, message: `XSS pattern detected`, code: 'XSS_ATTEMPT' });
-      const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      sanitized = sanitized.replace(regex, '');
+
+    for (const pattern of XSS_BLACKLIST) {
+      if (upperInput.includes(pattern)) {
+        errors.push({ field: fieldName, message: `XSS pattern detected`, code: 'XSS_ATTEMPT' });
+        const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        sanitized = sanitized.replace(regex, '');
+      }
     }
-  }
-  
-  for (const cmd of CMD_BLACKLIST) {
-    if (upperInput.includes(cmd)) {
-      errors.push({ field: fieldName, message: `Command injection detected`, code: 'CMD_INJECTION' });
-      const regex = new RegExp(cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      sanitized = sanitized.replace(regex, '');
+
+    for (const cmd of CMD_BLACKLIST) {
+      if (upperInput.includes(cmd)) {
+        errors.push({ field: fieldName, message: `Command injection detected`, code: 'CMD_INJECTION' });
+        const regex = new RegExp(cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        sanitized = sanitized.replace(regex, '');
+      }
     }
   }
   
@@ -222,7 +227,8 @@ interface RegisterAttempt {
 }
 
 function getRegisterAttempts(): RegisterAttempt {
-  const stored = localStorage.getItem('register_attempts');
+  localStorage.removeItem(OLD_REGISTER_ATTEMPTS_KEY);
+  const stored = localStorage.getItem(REGISTER_ATTEMPTS_KEY);
   if (stored) {
     const parsed = JSON.parse(stored);
     // 每日解封：如果是新的一天，自动解封
@@ -294,15 +300,16 @@ function recordRegisterFailure(): { allowed: boolean; lockedUntil?: number; atte
     }
   }
   
-  // Lock thresholds
-  const LOCK_THRESHOLD = 8;
+  // Lock thresholds. Client-side lock is intentionally looser; server-side
+  // API rate limiting is the real protection against automated brute force.
+  const LOCK_THRESHOLD = 12;
   
   if (attempts.count >= LOCK_THRESHOLD) {
     if (isBotAttack) {
       // 自动化工具：锁定1小时
       attempts.lockedUntil = now + 60 * 60 * 1000;
       attempts.lockDate = today;
-      localStorage.setItem('register_attempts', JSON.stringify(attempts));
+      localStorage.setItem(REGISTER_ATTEMPTS_KEY, JSON.stringify(attempts));
       return { 
         allowed: false, 
         lockedUntil: attempts.lockedUntil, 
@@ -313,7 +320,7 @@ function recordRegisterFailure(): { allowed: boolean; lockedUntil?: number; atte
       // 普通连续失败：锁定15分钟
       attempts.lockedUntil = now + 15 * 60 * 1000;
       attempts.lockDate = today;
-      localStorage.setItem('register_attempts', JSON.stringify(attempts));
+      localStorage.setItem(REGISTER_ATTEMPTS_KEY, JSON.stringify(attempts));
       return { 
         allowed: false, 
         lockedUntil: attempts.lockedUntil, 
@@ -323,7 +330,7 @@ function recordRegisterFailure(): { allowed: boolean; lockedUntil?: number; atte
     }
   }
   
-  localStorage.setItem('register_attempts', JSON.stringify(attempts));
+  localStorage.setItem(REGISTER_ATTEMPTS_KEY, JSON.stringify(attempts));
   return { allowed: true, attemptsLeft: LOCK_THRESHOLD - attempts.count };
 }
 
@@ -516,7 +523,8 @@ export default function RegisterPage() {
       const success = await register(cleanName, cleanEmail, cleanPassword, cleanPhone);
       
       if (success) {
-        localStorage.removeItem('register_attempts');
+        localStorage.removeItem(OLD_REGISTER_ATTEMPTS_KEY);
+        localStorage.removeItem(REGISTER_ATTEMPTS_KEY);
         router.push(getSafeReturnPath() || '/profile');
       } else {
         const rateCheck = recordRegisterFailure();
@@ -632,7 +640,7 @@ export default function RegisterPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="138****8888"
-                maxLength={11}
+                maxLength={20}
                 disabled={isLocked || isLoading}
                 className="w-full pl-12 pr-4 py-3 bg-surfaceLight border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
               />

@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from 'crypto';
 import { createJWT, setAuthCookies } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool, getUserById } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
+import { checkAuthAllowed, getClientIp, recordAuthFailure, resetAuthFailures } from '@/lib/authRateLimit';
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
@@ -19,8 +20,18 @@ export async function POST(request: Request) {
     const email = safeText(body.email, 254).toLowerCase();
     const phone = safeText(body.phone, 40);
     const password = typeof body.password === 'string' ? body.password : '';
+    const rateKey = `register:${getClientIp(request)}:${email || 'unknown'}`;
+    const allowed = checkAuthAllowed(rateKey);
+
+    if (!allowed.allowed) {
+      return NextResponse.json(
+        { success: false, error: '注册尝试过多，请稍后再试', code: 'AUTH_LOCKED', retryAfterSeconds: allowed.retryAfterSeconds },
+        { status: 429 }
+      );
+    }
 
     if (!name || !isValidEmail(email) || password.length < 8) {
+      recordAuthFailure(rateKey);
       return NextResponse.json(
         { success: false, error: '注册信息不完整或格式不正确' },
         { status: 400 }
@@ -34,6 +45,7 @@ export async function POST(request: Request) {
     );
 
     if (existing.rowCount) {
+      recordAuthFailure(rateKey);
       return NextResponse.json(
         { success: false, error: '这个邮箱已经注册过，请直接登录' },
         { status: 409 }
@@ -57,6 +69,7 @@ export async function POST(request: Request) {
     const accessToken = createJWT({ userId: userRow.id, email: userRow.email, role: userRow.role });
     const refreshToken = randomBytes(32).toString('hex');
     await setAuthCookies(accessToken, refreshToken);
+    resetAuthFailures(rateKey);
 
     const response = NextResponse.json({
       success: true,

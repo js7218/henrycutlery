@@ -51,6 +51,8 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 // Password strength regex
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
+const LOGIN_ATTEMPTS_KEY = 'login_attempts_v2';
+const OLD_LOGIN_ATTEMPTS_KEY = 'login_attempts';
 
 interface SecurityError {
   field: string;
@@ -88,32 +90,36 @@ function sanitizeInput(input: string, fieldName: string): { sanitized: string; e
     sanitized = sanitized.replace(DANGEROUS_CHARS, '');
   }
   
+  const skipPatternScan = ['password', 'confirmPassword'].includes(fieldName);
+
   // Check SQL injection keywords (case-insensitive)
   const upperInput = sanitized.toUpperCase();
-  for (const keyword of SQL_BLACKLIST) {
-    if (upperInput.includes(keyword)) {
-      errors.push({ field: fieldName, message: `SQL injection pattern detected: ${keyword}`, code: 'SQL_INJECTION' });
-      // Remove the dangerous keyword
-      const regex = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      sanitized = sanitized.replace(regex, '');
+  if (!skipPatternScan) {
+    for (const keyword of SQL_BLACKLIST) {
+      if (upperInput.includes(keyword)) {
+        errors.push({ field: fieldName, message: `SQL injection pattern detected: ${keyword}`, code: 'SQL_INJECTION' });
+        // Remove the dangerous keyword
+        const regex = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        sanitized = sanitized.replace(regex, '');
+      }
     }
-  }
-  
-  // Check XSS patterns
-  for (const pattern of XSS_BLACKLIST) {
-    if (upperInput.includes(pattern)) {
-      errors.push({ field: fieldName, message: `XSS pattern detected: ${pattern}`, code: 'XSS_ATTEMPT' });
-      const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      sanitized = sanitized.replace(regex, '');
+
+    // Check XSS patterns
+    for (const pattern of XSS_BLACKLIST) {
+      if (upperInput.includes(pattern)) {
+        errors.push({ field: fieldName, message: `XSS pattern detected: ${pattern}`, code: 'XSS_ATTEMPT' });
+        const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        sanitized = sanitized.replace(regex, '');
+      }
     }
-  }
-  
-  // Check command injection
-  for (const cmd of CMD_BLACKLIST) {
-    if (upperInput.includes(cmd)) {
-      errors.push({ field: fieldName, message: `Command injection detected: ${cmd}`, code: 'CMD_INJECTION' });
-      const regex = new RegExp(cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      sanitized = sanitized.replace(regex, '');
+
+    // Check command injection
+    for (const cmd of CMD_BLACKLIST) {
+      if (upperInput.includes(cmd)) {
+        errors.push({ field: fieldName, message: `Command injection detected: ${cmd}`, code: 'CMD_INJECTION' });
+        const regex = new RegExp(cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        sanitized = sanitized.replace(regex, '');
+      }
     }
   }
   
@@ -205,7 +211,8 @@ interface LoginAttempt {
 }
 
 function getLoginAttempts(): LoginAttempt {
-  const stored = localStorage.getItem('login_attempts');
+  localStorage.removeItem(OLD_LOGIN_ATTEMPTS_KEY);
+  const stored = localStorage.getItem(LOGIN_ATTEMPTS_KEY);
   if (stored) {
     const parsed = JSON.parse(stored);
     // 每日解封：如果是新的一天，自动解封
@@ -283,7 +290,7 @@ function recordLoginFailure(): { allowed: boolean; lockedUntil?: number; attempt
   const HUMAN_VERIFICATION_THRESHOLD = 10;
 
   if (attempts.count > HUMAN_VERIFICATION_THRESHOLD) {
-    localStorage.setItem('login_attempts', JSON.stringify(attempts));
+    localStorage.setItem(LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
     localStorage.setItem('human_verification_required', 'true');
     window.dispatchEvent(new Event('human-verification-required'));
     return {
@@ -303,7 +310,7 @@ function recordLoginFailure(): { allowed: boolean; lockedUntil?: number; attempt
       // 爆破工具/字典攻击：锁定1小时
       attempts.lockedUntil = now + 60 * 60 * 1000;
       attempts.lockDate = today;
-      localStorage.setItem('login_attempts', JSON.stringify(attempts));
+      localStorage.setItem(LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
       return { 
         allowed: false, 
         lockedUntil: attempts.lockedUntil, 
@@ -314,7 +321,7 @@ function recordLoginFailure(): { allowed: boolean; lockedUntil?: number; attempt
       // 正常人：锁定15分钟
       attempts.lockedUntil = now + 15 * 60 * 1000;
       attempts.lockDate = today;
-      localStorage.setItem('login_attempts', JSON.stringify(attempts));
+      localStorage.setItem(LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
       return { 
         allowed: false, 
         lockedUntil: attempts.lockedUntil, 
@@ -324,12 +331,13 @@ function recordLoginFailure(): { allowed: boolean; lockedUntil?: number; attempt
     }
   }
   
-  localStorage.setItem('login_attempts', JSON.stringify(attempts));
+  localStorage.setItem(LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
   return { allowed: true, attemptsLeft: Math.max(0, HUMAN_VERIFICATION_THRESHOLD - attempts.count) };
 }
 
 function resetLoginAttempts(): void {
-  localStorage.removeItem('login_attempts');
+  localStorage.removeItem(OLD_LOGIN_ATTEMPTS_KEY);
+  localStorage.removeItem(LOGIN_ATTEMPTS_KEY);
 }
 
 // ============================================================================
