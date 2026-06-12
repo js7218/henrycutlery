@@ -180,3 +180,38 @@ export async function sendOrderNotificationEmail(order: OrderEmailPayload) {
 
   return { sent: true, skipped: false };
 }
+
+/**
+ * Send a generic transactional email (e.g. password reset link). Uses the
+ * same SMTP credentials as order notifications, so a single configured
+ * mailer powers the whole site.
+ */
+export async function sendTransactionalEmail(payload: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}): Promise<{ sent: boolean; skipped: boolean; reason?: string }> {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return { sent: false, skipped: true, reason: 'SMTP_NOT_CONFIGURED' };
+  }
+  const port = Number(process.env.SMTP_PORT || '587');
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port,
+    secure: port === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: payload.to,
+    subject: payload.subject,
+    text: payload.text,
+    html: payload.html,
+  });
+  return { sent: true, skipped: false };
+}

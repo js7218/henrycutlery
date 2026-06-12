@@ -168,6 +168,45 @@ async function runSchemaMigration(): Promise<void> {
         ON orders (order_number)
         WHERE order_number IS NOT NULL;
       `);
+
+      // Password reset tokens. We never email plaintext passwords; the
+      // customer clicks a one-time link bound to a hashed token.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS password_resets (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token_hash TEXT NOT NULL UNIQUE,
+          expires_at TIMESTAMPTZ NOT NULL,
+          used_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          ip TEXT NOT NULL DEFAULT ''
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON password_resets(user_id);`);
+      await db.query(`CREATE INDEX IF NOT EXISTS password_resets_expires_idx ON password_resets(expires_at);`);
+
+      // Product reviews with moderation flow. All reviews start as "pending"
+      // and only become visible to other customers after admin approval, or
+      // after the auto-classifier marks them as clearly safe.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS product_reviews (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL,
+          user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+          author_name TEXT NOT NULL DEFAULT '',
+          rating INTEGER NOT NULL DEFAULT 5,
+          content TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'pending',
+          risk_score INTEGER NOT NULL DEFAULT 0,
+          risk_reason TEXT NOT NULL DEFAULT '',
+          ip_hash TEXT NOT NULL DEFAULT '',
+          user_agent TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS product_reviews_product_idx ON product_reviews(product_id);`);
+      await db.query(`CREATE INDEX IF NOT EXISTS product_reviews_status_idx ON product_reviews(status);`);
 }
 
 export async function getUserAddresses(userId: string): Promise<Address[]> {
