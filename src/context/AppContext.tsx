@@ -188,6 +188,7 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string, phone?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   createOrder: (address: Address, paymentMethod: PaymentMethod) => Order | null;
   // SECURITY: Session check
   isSessionValid: () => boolean;
@@ -416,6 +417,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_USER', user: null });
   };
 
+  const refreshUser = async () => {
+    const response = await fetch('/api/auth/session', { cache: 'no-store' });
+    const data = await response.json().catch(() => null);
+    if (response.ok && data?.success && data.user) {
+      dispatch({ type: 'SET_USER', user: data.user });
+    }
+  };
+
   // ============================================================================
   // SECURITY: Order Creation - Price Tampering Protection ONLY
   // ============================================================================
@@ -495,6 +504,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        refreshUser,
         createOrder,
         isSessionValid,
         canAccessResource,

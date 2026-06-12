@@ -252,12 +252,12 @@ export default function AdminPage() {
             onChange={(event) => setPin(event.target.value)}
             placeholder="Admin panel PIN"
             autoComplete="current-password"
-            disabled={pinSubmitting || !pinConfigured}
+            disabled={pinSubmitting}
             className="mb-4 w-full rounded-lg border border-border bg-surfaceLight px-4 py-3 text-foreground placeholder:text-gray-500 focus:border-gold focus:outline-none disabled:opacity-60"
           />
           <button
             type="submit"
-            disabled={pinSubmitting || !pinConfigured || !pin.trim()}
+            disabled={pinSubmitting || !pin.trim()}
             className="flex w-full items-center justify-center rounded-lg bg-gold py-3 font-medium text-background hover:bg-goldLight disabled:opacity-60"
           >
             {pinSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Unlock Admin Panel'}

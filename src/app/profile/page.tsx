@@ -41,7 +41,7 @@ export default function ProfilePage() {
 function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { state, logout, dispatch } = useApp();
+  const { state, logout, dispatch, refreshUser } = useApp();
 
   const [activeTab, setActiveTab] = useState<Tab>('orders');
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -55,6 +55,15 @@ function ProfileContent() {
     detail: '',
     isDefault: false,
   });
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [settingsError, setSettingsError] = useState('');
+  const [settingsMessage, setSettingsMessage] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
     const tab = searchParams.get('tab') as Tab;
@@ -68,6 +77,13 @@ function ProfileContent() {
       router.push('/login');
     }
   }, [state.user, router]);
+
+  useEffect(() => {
+    if (state.user) {
+      setProfileName(state.user.name || '');
+      setProfilePhone(state.user.phone || '');
+    }
+  }, [state.user]);
 
   if (!state.user) {
     return null;
@@ -121,6 +137,72 @@ function ProfileContent() {
 
   const handleSetDefaultAddress = (addressId: string) => {
     dispatch({ type: 'SET_DEFAULT_ADDRESS', addressId });
+  };
+
+  const saveProfile = async () => {
+    setSettingsError('');
+    setSettingsMessage('');
+    setSavingProfile(true);
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'profile',
+          name: profileName,
+          phone: profilePhone,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        setSettingsError(data.error || 'Failed to update account information.');
+        return;
+      }
+      if (data.user) {
+        dispatch({ type: 'SET_USER', user: data.user });
+      } else {
+        await refreshUser();
+      }
+      setSettingsMessage('Account information updated.');
+    } catch {
+      setSettingsError('Network error. Please try again.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const savePassword = async () => {
+    setSettingsError('');
+    setSettingsMessage('');
+    if (newPassword !== confirmPassword) {
+      setSettingsError('New passwords do not match.');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'password',
+          currentPassword,
+          newPassword,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        setSettingsError(data.error || 'Failed to update password.');
+        return;
+      }
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setSettingsMessage('Password updated successfully.');
+    } catch {
+      setSettingsError('Network error. Please try again.');
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   return (
@@ -443,34 +525,96 @@ function ProfileContent() {
                 Account Settings
               </h1>
 
-              <div className="bg-surface border border-border rounded-lg divide-y divide-border">
-                <div className="p-6 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium text-foreground">Username</h3>
-                    <p className="text-sm text-gray-400">{state.user.name}</p>
-                  </div>
-                  <button className="text-gold text-sm hover:underline">Edit</button>
+              {settingsError && (
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                  {settingsError}
                 </div>
-                <div className="p-6 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium text-foreground">Email</h3>
-                    <p className="text-sm text-gray-400">{state.user.email}</p>
-                  </div>
-                  <button className="text-gold text-sm hover:underline">Edit</button>
+              )}
+              {settingsMessage && (
+                <div className="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-300">
+                  {settingsMessage}
                 </div>
-                <div className="p-6 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium text-foreground">Phone Number</h3>
-                    <p className="text-sm text-gray-400">{state.user.phone || 'Not bound'}</p>
+              )}
+
+              <div className="space-y-6">
+                <div className="bg-surface border border-border rounded-lg p-6">
+                  <h3 className="font-medium text-foreground mb-4">Account Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Username</label>
+                      <input
+                        value={profileName}
+                        onChange={(event) => setProfileName(event.target.value)}
+                        className="input-field"
+                        maxLength={100}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Phone Number</label>
+                      <input
+                        value={profilePhone}
+                        onChange={(event) => setProfilePhone(event.target.value)}
+                        className="input-field"
+                        maxLength={20}
+                        placeholder="Phone number"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm text-gray-400 mb-2">Email</label>
+                      <input value={state.user.email} disabled className="input-field opacity-70" />
+                      <p className="mt-2 text-xs text-gray-500">Email cannot be changed for account security.</p>
+                    </div>
                   </div>
-                  <button className="text-gold text-sm hover:underline">Bind</button>
+                  <button
+                    onClick={saveProfile}
+                    disabled={savingProfile}
+                    className="mt-5 px-6 py-2 bg-gold text-background rounded-lg hover:bg-goldLight disabled:opacity-60"
+                  >
+                    {savingProfile ? 'Saving...' : 'Save Account Information'}
+                  </button>
                 </div>
-                <div className="p-6 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium text-foreground">Password</h3>
-                    <p className="text-sm text-gray-400">••••••••</p>
+
+                <div className="bg-surface border border-border rounded-lg p-6">
+                  <h3 className="font-medium text-foreground mb-4">Change Password</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Current Password</label>
+                      <input
+                        type="password"
+                        value={currentPassword}
+                        onChange={(event) => setCurrentPassword(event.target.value)}
+                        className="input-field"
+                        autoComplete="current-password"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">New Password</label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        className="input-field"
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Confirm New Password</label>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        className="input-field"
+                        autoComplete="new-password"
+                      />
+                    </div>
                   </div>
-                  <button className="text-gold text-sm hover:underline">Edit</button>
+                  <button
+                    onClick={savePassword}
+                    disabled={savingPassword}
+                    className="mt-5 px-6 py-2 bg-gold text-background rounded-lg hover:bg-goldLight disabled:opacity-60"
+                  >
+                    {savingPassword ? 'Saving...' : 'Update Password'}
+                  </button>
                 </div>
               </div>
             </div>

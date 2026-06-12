@@ -5,11 +5,15 @@ const ADMIN_PIN_COOKIE = 'admin_panel_verified';
 const ADMIN_PIN_MAX_AGE_SECONDS = 30 * 60;
 
 function getSigningSecret() {
-  return `${process.env.JWT_SECRET || 'dev-secret'}:${process.env.ADMIN_PANEL_PIN || ''}`;
+  return `${process.env.JWT_SECRET || 'dev-secret'}:${getConfiguredAdminPin() || ''}`;
+}
+
+export function getConfiguredAdminPin() {
+  return (process.env.ADMIN_PANEL_PIN || process.env.ADMIN_PANNEL_PIN || '').trim();
 }
 
 export function isAdminPinConfigured() {
-  return Boolean(process.env.ADMIN_PANEL_PIN?.trim());
+  return Boolean(getConfiguredAdminPin());
 }
 
 function sign(value: string) {
@@ -23,7 +27,7 @@ function safeEqual(a: string, b: string) {
 }
 
 export function verifyAdminPin(pin: string) {
-  const configuredPin = process.env.ADMIN_PANEL_PIN?.trim();
+  const configuredPin = getConfiguredAdminPin();
   return Boolean(configuredPin && safeEqual(pin.trim(), configuredPin));
 }
 
