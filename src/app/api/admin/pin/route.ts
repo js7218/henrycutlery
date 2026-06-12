@@ -8,6 +8,12 @@ import {
   setAdminPinCookie,
   verifyAdminPin,
 } from '@/lib/adminPin';
+import {
+  checkSensitiveAllowed,
+  getClientIp,
+  recordSensitiveFailure,
+  resetSensitiveFailures,
+} from '@/lib/sensitiveRateLimit';
 
 async function getAdminUser() {
   const session = await getAuthUser();
@@ -37,6 +43,16 @@ export async function GET() {
 export async function POST(request: Request) {
   const result = await getAdminUser();
   if ('response' in result) return result.response;
+  const ip = getClientIp(request);
+  const limitKey = `admin-pin:${result.user.id}:${ip}`;
+  const allowed = checkSensitiveAllowed(limitKey);
+
+  if (!allowed.allowed) {
+    return NextResponse.json(
+      { success: false, error: 'Too many failed PIN attempts. Please try again later.', retryAfterSeconds: allowed.retryAfterSeconds },
+      { status: 429 }
+    );
+  }
 
   if (!isAdminPinConfigured()) {
     return NextResponse.json(
@@ -50,6 +66,17 @@ export async function POST(request: Request) {
 
   if (!verifyAdminPin(pin)) {
     await clearAdminPinCookie();
+    const failure = recordSensitiveFailure(limitKey, {
+      maxFailures: 5,
+      windowMs: 10 * 60 * 1000,
+      lockMs: 30 * 60 * 1000,
+    });
+    if (!failure.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many failed PIN attempts. Please try again later.', retryAfterSeconds: failure.retryAfterSeconds },
+        { status: 429 }
+      );
+    }
     return NextResponse.json(
       { success: false, error: 'Invalid admin PIN.' },
       { status: 403 }
@@ -57,6 +84,7 @@ export async function POST(request: Request) {
   }
 
   await setAdminPinCookie(result.user.id);
+  resetSensitiveFailures(limitKey);
   return NextResponse.json({ success: true });
 }
 
