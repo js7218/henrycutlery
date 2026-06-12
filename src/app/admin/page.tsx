@@ -75,6 +75,11 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [pinChecking, setPinChecking] = useState(false);
+  const [pinVerified, setPinVerified] = useState(false);
+  const [pinConfigured, setPinConfigured] = useState(true);
+  const [pin, setPin] = useState('');
+  const [pinSubmitting, setPinSubmitting] = useState(false);
   const [query, setQuery] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selected, setSelected] = useState<CustomerDetail | null>(null);
@@ -90,6 +95,31 @@ export default function AdminPage() {
     };
     checkAuthorization();
   }, [hasRole]);
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    let cancelled = false;
+    setPinChecking(true);
+    fetch('/api/admin/pin', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setPinConfigured(Boolean(data.configured));
+        setPinVerified(Boolean(data.verified));
+        if (!data.configured) {
+          setError('ADMIN_PANEL_PIN is not configured in Vercel environment variables.');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPinVerified(false);
+      })
+      .finally(() => {
+        if (!cancelled) setPinChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthorized]);
 
   const loadCustomers = useCallback(async (search = query) => {
     setError('');
@@ -135,11 +165,33 @@ export default function AdminPage() {
     }
   };
 
+  const submitPin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setPinSubmitting(true);
+    try {
+      const data = await fetchJson<{ success: boolean }>('/api/admin/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+      if (data.success) {
+        setPinVerified(true);
+        setPin('');
+        await Promise.all([loadCustomers(''), loadReviews('pending')]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid admin PIN.');
+    } finally {
+      setPinSubmitting(false);
+    }
+  };
+
   useEffect(() => {
-    if (!isAuthorized) return;
+    if (!isAuthorized || !pinVerified) return;
     loadCustomers('');
     loadReviews('pending');
-  }, [isAuthorized, loadCustomers, loadReviews]);
+  }, [isAuthorized, pinVerified, loadCustomers, loadReviews]);
 
   if (!isLoading && !isAuthorized) {
     return (
@@ -162,6 +214,58 @@ export default function AdminPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-gold" />
+      </div>
+    );
+  }
+
+  if (pinChecking) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-gold" />
+      </div>
+    );
+  }
+
+  if (!pinVerified) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <form onSubmit={submitPin} className="w-full max-w-md rounded-xl border border-border bg-surface p-8">
+          <h1 className="mb-2 text-2xl font-bold text-foreground" style={{ fontFamily: 'Playfair Display, serif' }}>
+            Admin PIN Required
+          </h1>
+          <p className="mb-6 text-sm text-gray-400">
+            Your admin account is signed in. Enter the private admin panel PIN to continue.
+          </p>
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+              {error}
+            </div>
+          )}
+          {!pinConfigured && (
+            <div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-300">
+              Add <code>ADMIN_PANEL_PIN</code> in Vercel Environment Variables, then redeploy.
+            </div>
+          )}
+          <input
+            type="password"
+            value={pin}
+            onChange={(event) => setPin(event.target.value)}
+            placeholder="Admin panel PIN"
+            autoComplete="current-password"
+            disabled={pinSubmitting || !pinConfigured}
+            className="mb-4 w-full rounded-lg border border-border bg-surfaceLight px-4 py-3 text-foreground placeholder:text-gray-500 focus:border-gold focus:outline-none disabled:opacity-60"
+          />
+          <button
+            type="submit"
+            disabled={pinSubmitting || !pinConfigured || !pin.trim()}
+            className="flex w-full items-center justify-center rounded-lg bg-gold py-3 font-medium text-background hover:bg-goldLight disabled:opacity-60"
+          >
+            {pinSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Unlock Admin Panel'}
+          </button>
+          <Link href="/" className="mt-5 block text-center text-sm text-gray-400 hover:text-gold">
+            Back to Store
+          </Link>
+        </form>
       </div>
     );
   }

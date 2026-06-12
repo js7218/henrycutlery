@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { getUserById } from '@/lib/db';
+import { isAdminPinConfigured, isAdminPinVerified } from '@/lib/adminPin';
 
 /**
  * Server-side admin guard. We never trust the client role flag - the JWT in
@@ -26,6 +27,24 @@ export async function requireAdmin():
     return {
       response: NextResponse.json(
         { success: false, error: '没有管理员权限', code: 'FORBIDDEN' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  if (!isAdminPinConfigured()) {
+    return {
+      response: NextResponse.json(
+        { success: false, error: 'Admin PIN is not configured.', code: 'ADMIN_PIN_NOT_CONFIGURED' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  if (!(await isAdminPinVerified(dbUser.id))) {
+    return {
+      response: NextResponse.json(
+        { success: false, error: 'Admin PIN verification required.', code: 'ADMIN_PIN_REQUIRED' },
         { status: 403 }
       ),
     };
