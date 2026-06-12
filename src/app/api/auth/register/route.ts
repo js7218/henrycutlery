@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { randomBytes, randomUUID } from 'crypto';
 import { createJWT, setAuthCookies } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool, getUserById } from '@/lib/db';
-import { hashPassword } from '@/lib/password';
+import { hashPassword, verifyPassword } from '@/lib/password';
 import { checkAuthAllowed, getClientIp, recordAuthFailure, resetAuthFailures } from '@/lib/authRateLimit';
 
 function isValidEmail(email: string) {
@@ -40,12 +40,25 @@ export async function POST(request: Request) {
 
     await ensureDatabaseSchema();
     const existing = await getPool().query(
-      'SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1',
+      'SELECT id, password_hash FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1',
       [email]
     );
 
     if (existing.rowCount) {
-      recordAuthFailure(rateKey);
+      const existingUser = existing.rows[0];
+      if (existingUser && await verifyPassword(password, existingUser.password_hash)) {
+        const dbUser = await getUserById(existingUser.id);
+        if (dbUser) {
+          const accessToken = createJWT({ userId: dbUser.id, email: dbUser.email, role: dbUser.role || 'user' });
+          const refreshToken = randomBytes(32).toString('hex');
+          await setAuthCookies(accessToken, refreshToken);
+          resetAuthFailures(rateKey);
+          const response = NextResponse.json({ success: true, user: dbUser });
+          response.headers.set('Cache-Control', 'no-store');
+          return response;
+        }
+      }
+
       return NextResponse.json(
         { success: false, error: '这个邮箱已经注册过，请直接登录' },
         { status: 409 }

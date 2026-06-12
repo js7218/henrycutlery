@@ -410,11 +410,10 @@ export default function RegisterPage() {
   };
 
   useEffect(() => {
-    const activeLock = getActiveRegisterLock();
-    if (activeLock) {
-      setIsLocked(true);
-      setLockCountdown(Math.ceil((activeLock - Date.now()) / 1000));
-    }
+    localStorage.removeItem(OLD_REGISTER_ATTEMPTS_KEY);
+    localStorage.removeItem(REGISTER_ATTEMPTS_KEY);
+    setIsLocked(false);
+    setLockCountdown(0);
   }, []);
 
   useEffect(() => {
@@ -440,13 +439,8 @@ export default function RegisterPage() {
     setError('');
     setSecurityErrors([]);
 
-    const activeLock = getActiveRegisterLock();
-    if (activeLock) {
-      setIsLocked(true);
-      setLockCountdown(Math.ceil((activeLock - Date.now()) / 1000));
-      setError('Registration is temporarily locked. Please try again later.');
-      return;
-    }
+    localStorage.removeItem(OLD_REGISTER_ATTEMPTS_KEY);
+    localStorage.removeItem(REGISTER_ATTEMPTS_KEY);
 
     // SECURITY: Sanitize all inputs
     const nameSanitized = sanitizeInput(name, 'name');
@@ -527,14 +521,7 @@ export default function RegisterPage() {
         localStorage.removeItem(REGISTER_ATTEMPTS_KEY);
         router.push(getSafeReturnPath() || '/profile');
       } else {
-        const rateCheck = recordRegisterFailure();
-        if (!rateCheck.allowed) {
-          setIsLocked(true);
-          setLockCountdown(Math.ceil((rateCheck.lockedUntil! - Date.now()) / 1000));
-          setError(rateCheck.reason || 'Too many registration failures.');
-        } else {
-          setError(`Registration failed. ${rateCheck.attemptsLeft} attempts remaining.`);
-        }
+        setError('Registration failed. If this email is already registered, please sign in directly.');
       }
     } catch (err) {
       setError('An error occurred during registration. Please try again.');

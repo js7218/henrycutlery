@@ -6,9 +6,9 @@ type AttemptState = {
 };
 
 const WINDOW_MS = 15 * 60 * 1000;
-const NORMAL_LOCK_MS = 15 * 60 * 1000;
+const NORMAL_LOCK_MS = 10 * 60 * 1000;
 const BOT_LOCK_MS = 60 * 60 * 1000;
-const MAX_FAILURES = 10;
+const MAX_FAILURES = 20;
 
 const attempts = new Map<string, AttemptState>();
 

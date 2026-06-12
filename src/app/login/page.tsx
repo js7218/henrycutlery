@@ -180,21 +180,11 @@ function validatePasswordStrict(password: string): { valid: boolean; error?: str
   if (!password) {
     return { valid: false, error: 'Password is required' };
   }
-  
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    return { valid: false, error: `Password must be at least ${PASSWORD_MIN_LENGTH} characters` };
-  }
-  
+
   if (password.length > PASSWORD_MAX_LENGTH) {
     return { valid: false, error: `Password must not exceed ${PASSWORD_MAX_LENGTH} characters` };
   }
-  
-  // Check for common weak passwords
-  const weakPasswords = ['12345678', 'password', 'qwerty', 'admin123', 'letmein'];
-  if (weakPasswords.includes(password.toLowerCase())) {
-    return { valid: false, error: 'Password is too common, please choose a stronger one' };
-  }
-  
+
   return { valid: true };
 }
 
@@ -362,11 +352,9 @@ export default function LoginPage() {
 
   // Check lock status on mount
   useEffect(() => {
-    const attempts = getLoginAttempts();
-    if (attempts.lockedUntil && Date.now() < attempts.lockedUntil) {
-      setIsLocked(true);
-      setLockCountdown(Math.ceil((attempts.lockedUntil - Date.now()) / 1000));
-    }
+    resetLoginAttempts();
+    setIsLocked(false);
+    setLockCountdown(0);
   }, []);
 
   // Countdown timer for lock
@@ -395,13 +383,7 @@ export default function LoginPage() {
     setError('');
     setSecurityErrors([]);
 
-    const activeLock = getActiveLoginLock();
-    if (activeLock) {
-      setIsLocked(true);
-      setLockCountdown(Math.ceil((activeLock - Date.now()) / 1000));
-      setError('Account is temporarily locked. Please try again later.');
-      return;
-    }
+    resetLoginAttempts();
 
     // SECURITY: Sanitize inputs
     const emailSanitized = sanitizeInput(email, 'email');
@@ -448,16 +430,7 @@ export default function LoginPage() {
         resetLoginAttempts();
         router.push(getSafeReturnPath() || '/profile');
       } else {
-        const rateCheck = recordLoginFailure();
-        if (!rateCheck.allowed) {
-          if (rateCheck.lockedUntil) {
-            setIsLocked(true);
-            setLockCountdown(Math.ceil((rateCheck.lockedUntil - Date.now()) / 1000));
-          }
-          setError(rateCheck.reason || 'Too many failed attempts. Account locked.');
-        } else {
-          setError(`Login failed. ${rateCheck.attemptsLeft} attempts remaining.`);
-        }
+        setError('Login failed. Please check your email/password, or register first if this is a new database account.');
       }
     } catch (err) {
       setError('An error occurred during login. Please try again.');
