@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import type { Address, Order, User } from '@/types';
+import { isAdminEmail } from '@/lib/adminEmails';
 
 const connectionString =
   process.env.DATABASE_URL ||
@@ -279,7 +280,7 @@ export async function getUserById(userId: string): Promise<User | null> {
     email: row.email,
     name: row.name || row.email.split('@')[0],
     phone: row.phone || '',
-    role: row.role === 'admin' ? 'admin' : 'user',
+    role: row.role === 'admin' || isAdminEmail(row.email) ? 'admin' : 'user',
     addresses: await getUserAddresses(row.id),
     orders: await getUserOrders(row.id),
     favorites: Array.isArray(row.favorites) ? row.favorites : [],

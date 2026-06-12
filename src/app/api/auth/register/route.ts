@@ -4,6 +4,7 @@ import { createJWT, setAuthCookies } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool, getUserById } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { checkAuthAllowed, getClientIp, recordAuthFailure, resetAuthFailures } from '@/lib/authRateLimit';
+import { isAdminEmail } from '@/lib/adminEmails';
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
 
     const userId = randomUUID();
     const passwordHash = await hashPassword(password);
-    const role = email === 'admin@adamcutlery.com' ? 'admin' : 'user';
+    const role = isAdminEmail(email) ? 'admin' : 'user';
 
     const result = await getPool().query(
       `
