@@ -129,9 +129,16 @@ export async function POST(request: Request) {
     });
     response.headers.set('Cache-Control', 'no-store');
     return response;
-  } catch {
+  } catch (err) {
+    // Surface the real backend reason so the registration page can show it
+    // instead of the generic "Registration failed" message.
+    const message =
+      err instanceof Error && err.message
+        ? `注册失败: ${err.message}`
+        : '注册失败，请稍后再试';
+    console.error('[register] unhandled error', err);
     const response = NextResponse.json(
-      { success: false, error: '注册失败，请稍后再试' },
+      { success: false, error: message, code: 'REGISTER_ERROR' },
       { status: 500 }
     );
     response.headers.set('Cache-Control', 'no-store');

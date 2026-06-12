@@ -30,18 +30,16 @@ export function getPool(): Pool {
   if (!pool) {
     pool = new Pool({
       connectionString: requireTlsConnectionString(connectionString),
-      ssl: true,
+      ssl: { rejectUnauthorized: false },
       max: 5,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000,
       idleTimeoutMillis: 10000,
-      maxLifetimeSeconds: 60,
       allowExitOnIdle: true,
       application_name: 'henrycutlery-web',
-      options: [
-        '-c statement_timeout=10000',
-        '-c idle_in_transaction_session_timeout=10000',
-        '-c lock_timeout=5000',
-      ].join(' '),
+    });
+
+    pool.on('error', (err) => {
+      console.error('[db] idle client error', err);
     });
   }
 
@@ -51,6 +49,20 @@ export function getPool(): Pool {
 export async function ensureDatabaseSchema(): Promise<void> {
   if (!schemaReady) {
     schemaReady = (async () => {
+      try {
+        await runSchemaMigration();
+      } catch (err) {
+        // Reset so the next request can retry instead of being stuck.
+        schemaReady = null;
+        throw err;
+      }
+    })();
+  }
+
+  return schemaReady;
+}
+
+async function runSchemaMigration(): Promise<void> {
       const db = getPool();
 
       await db.query(`
@@ -69,13 +81,26 @@ export async function ensureDatabaseSchema(): Promise<void> {
       `);
 
       await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;`);
-      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';`);
-      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';`);
-      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';`);
-      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user';`);
-      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS favorites JSONB NOT NULL DEFAULT '[]'::jsonb;`);
-      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
-      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT;`);
+      await db.query(`UPDATE users SET name = '' WHERE name IS NULL;`);
+      await db.query(`ALTER TABLE users ALTER COLUMN name SET DEFAULT '';`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;`);
+      await db.query(`UPDATE users SET phone = '' WHERE phone IS NULL;`);
+      await db.query(`ALTER TABLE users ALTER COLUMN phone SET DEFAULT '';`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;`);
+      await db.query(`UPDATE users SET password_hash = '' WHERE password_hash IS NULL;`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT;`);
+      await db.query(`UPDATE users SET role = 'user' WHERE role IS NULL;`);
+      await db.query(`ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user';`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS favorites JSONB;`);
+      await db.query(`UPDATE users SET favorites = '[]'::jsonb WHERE favorites IS NULL;`);
+      await db.query(`ALTER TABLE users ALTER COLUMN favorites SET DEFAULT '[]'::jsonb;`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;`);
+      await db.query(`UPDATE users SET created_at = NOW() WHERE created_at IS NULL;`);
+      await db.query(`ALTER TABLE users ALTER COLUMN created_at SET DEFAULT NOW();`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;`);
+      await db.query(`UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL;`);
+      await db.query(`ALTER TABLE users ALTER COLUMN updated_at SET DEFAULT NOW();`);
       await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`);
       await db.query(`
         CREATE INDEX IF NOT EXISTS users_email_lookup_idx
@@ -143,10 +168,6 @@ export async function ensureDatabaseSchema(): Promise<void> {
         ON orders (order_number)
         WHERE order_number IS NOT NULL;
       `);
-    })();
-  }
-
-  return schemaReady;
 }
 
 export async function getUserAddresses(userId: string): Promise<Address[]> {
