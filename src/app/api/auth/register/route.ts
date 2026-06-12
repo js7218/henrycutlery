@@ -40,7 +40,17 @@ export async function POST(request: Request) {
 
     await ensureDatabaseSchema();
     const existing = await getPool().query(
-      'SELECT id, password_hash FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1',
+      `
+        SELECT
+          u.id,
+          u.password_hash,
+          COALESCE((SELECT COUNT(*)::int FROM addresses a WHERE a.user_id = u.id), 0) AS address_count,
+          COALESCE((SELECT COUNT(*)::int FROM orders o WHERE o.user_id = u.id), 0) AS order_count,
+          COALESCE(jsonb_array_length(u.favorites), 0) AS favorite_count
+        FROM users u
+        WHERE u.email = $1 AND u.deleted_at IS NULL
+        LIMIT 1
+      `,
       [email]
     );
 
@@ -59,8 +69,36 @@ export async function POST(request: Request) {
         }
       }
 
+      const hasCustomerData =
+        Number(existingUser.address_count || 0) > 0 ||
+        Number(existingUser.order_count || 0) > 0 ||
+        Number(existingUser.favorite_count || 0) > 0;
+
+      if (!hasCustomerData) {
+        const passwordHash = await hashPassword(password);
+        await getPool().query(
+          `
+            UPDATE users
+            SET name = $1, phone = $2, password_hash = $3, updated_at = NOW()
+            WHERE id = $4
+          `,
+          [name, phone, passwordHash, existingUser.id]
+        );
+
+        const dbUser = await getUserById(existingUser.id);
+        if (dbUser) {
+          const accessToken = createJWT({ userId: dbUser.id, email: dbUser.email, role: dbUser.role || 'user' });
+          const refreshToken = randomBytes(32).toString('hex');
+          await setAuthCookies(accessToken, refreshToken);
+          resetAuthFailures(rateKey);
+          const response = NextResponse.json({ success: true, user: dbUser });
+          response.headers.set('Cache-Control', 'no-store');
+          return response;
+        }
+      }
+
       return NextResponse.json(
-        { success: false, error: '这个邮箱已经注册过，请直接登录' },
+        { success: false, error: '这个邮箱已经注册过，请直接登录，避免覆盖真实客户资料' },
         { status: 409 }
       );
     }
