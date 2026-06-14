@@ -6,6 +6,8 @@ import {
   ShoppingCart, 
   Heart, 
   Share2, 
+  Mail,
+  Images,
   Truck, 
   Shield, 
   RotateCcw,
@@ -162,6 +164,23 @@ export default function ProductDetailPage() {
     const moq = product.moq || 1;
     const finalQty = quantity >= moq ? quantity : moq;
     addToCart(product, finalQty);
+  };
+
+  const buildMailtoLink = (type: 'contact' | 'photos') => {
+    const productUrl =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/product/${product.id}`
+        : `https://adamcutlery.com/product/${product.id}`;
+    const subject =
+      type === 'photos'
+        ? `More photos request: ${product.name}`
+        : `Product inquiry: ${product.name}`;
+    const body =
+      type === 'photos'
+        ? `Hello,\n\nI am interested in ${product.name}.\nCould you please send me more photos, details, and available packaging information?\n\nProduct link:\n${productUrl}\n\nThank you.`
+        : `Hello,\n\nI am interested in ${product.name}.\nCould you please send me more details about price, availability, MOQ, shipping, and lead time?\n\nProduct link:\n${productUrl}\n\nThank you.`;
+
+    return `mailto:admin@adamcutlery.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   const handleSubmitReview = async (event: React.FormEvent) => {
@@ -353,6 +372,22 @@ export default function ProductDetailPage() {
               <button className="p-4 border border-border rounded-lg text-gray-400 hover:text-gold hover:border-gold transition-colors">
                 <Share2 className="w-5 h-5" />
               </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <a
+                href={buildMailtoLink('contact')}
+                className="flex items-center justify-center gap-2 py-3 px-4 border border-gold/60 text-gold rounded-lg hover:bg-gold/10 transition-colors"
+              >
+                <Mail className="w-5 h-5" />
+                Contact Email
+              </a>
+              <a
+                href={buildMailtoLink('photos')}
+                className="flex items-center justify-center gap-2 py-3 px-4 border border-border text-gray-300 rounded-lg hover:border-gold hover:text-gold transition-colors"
+              >
+                <Images className="w-5 h-5" />
+                Ask for More Photos
+              </a>
             </div>
           </div>
 
