@@ -255,18 +255,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem('knife-cart');
-      const savedAge = localStorage.getItem('knife-age-verified');
       localStorage.removeItem('knife-user');
       localStorage.removeItem('knife-orders');
+      localStorage.removeItem('knife-age-verified');
+      localStorage.removeItem('knife-age-verified-at');
 
       if (savedCart) {
         const cart = JSON.parse(savedCart);
         cart.forEach((item: CartItem) => {
           dispatch({ type: 'ADD_TO_CART', product: item.product, quantity: item.quantity - 1 });
         });
-      }
-      if (savedAge) {
-        dispatch({ type: 'SET_AGE_VERIFIED', verified: true });
       }
     } catch {
       securityLogger.log('INPUT_VALIDATION_FAILURE', 'Failed to parse persisted state');

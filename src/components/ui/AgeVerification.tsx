@@ -17,8 +17,6 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
   const handleVerify = (isAdult: boolean) => {
     if (isAdult) {
       dispatch({ type: 'SET_AGE_VERIFIED', verified: true });
-      localStorage.setItem('knife-age-verified', 'true');
-      localStorage.setItem('knife-age-verified-at', new Date().toISOString());
       setShowModal(false);
     } else {
       // 不跳转到外部 referrer，避免开放重定向风险。

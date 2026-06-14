@@ -3,9 +3,7 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Ban, Loader2, ShieldCheck } from 'lucide-react';
 
-const WAF_PASS_MS = 30 * 60 * 1000;
 const WAF_MIN_CHECK_MS = 5000;
-const WAF_PASS_KEY = 'waf_browser_verified_until';
 
 type CheckState = 'checking' | 'blocked' | 'passed';
 
@@ -16,20 +14,6 @@ interface BrowserSignal {
 
 function now() {
   return Date.now();
-}
-
-function readStoredUntil(key: string): number {
-  if (typeof window === 'undefined') return 0;
-  const value = Number(localStorage.getItem(key) || '0');
-  return Number.isFinite(value) ? value : 0;
-}
-
-function markWafPassed() {
-  localStorage.setItem(WAF_PASS_KEY, String(now() + WAF_PASS_MS));
-}
-
-function hasFreshWafPass() {
-  return readStoredUntil(WAF_PASS_KEY) > now();
 }
 
 function getWindowFlagScore(): BrowserSignal[] {
@@ -144,9 +128,7 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
     const checkTimer = window.setTimeout(() => {
       if (stopped) return;
 
-      const result = hasFreshWafPass()
-        ? { suspicious: false, score: 0, signals: [] }
-        : runCloudflareStyleCheck();
+      const result = runCloudflareStyleCheck();
 
       const finishAfterMinimumWait = (nextState: CheckState) => {
         const elapsed = now() - startedAt;
@@ -161,7 +143,6 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
       };
 
       if (!result.suspicious) {
-        markWafPassed();
         finishAfterMinimumWait('passed');
         return;
       }
@@ -216,7 +197,6 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={() => {
-              localStorage.removeItem(WAF_PASS_KEY);
               setProgress(12);
               setState('checking');
             }}
