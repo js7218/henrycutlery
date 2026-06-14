@@ -215,7 +215,7 @@ export const searchSchema = z.object({
     .or(z.literal('')),
   
   category: z
-    .enum(['kitchen', 'folding', 'fixed', 'hunting', 'damascus', ''])
+    .enum(['kitchen', 'folding', 'collection', 'hunting', 'damascus', ''])
     .optional()
     .default(''),
   

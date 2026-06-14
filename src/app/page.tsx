@@ -101,7 +101,7 @@ export default function Home() {
             {[
               { name: 'Kitchen', desc: 'Professional chef knives', href: '/products?category=kitchen' },
               { name: 'Folding', desc: 'EDC & tactical folders', href: '/products?category=folding' },
-              { name: 'Fixed', desc: 'Camping & survival knives', href: '/products?category=fixed' },
+              { name: 'Collection', desc: 'High-end collected knives', href: '/products?category=collection' },
               { name: 'Hunting', desc: 'Field dressing & skinning', href: '/products?category=hunting' },
             ].map((cat) => (
               <Link

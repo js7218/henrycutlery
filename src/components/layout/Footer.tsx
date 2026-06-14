@@ -38,6 +38,7 @@ export default function Footer() {
               <li><Link href="/products" className="text-sm text-gray-400 hover:text-gold transition-colors">All Products</Link></li>
               <li><Link href="/products?category=kitchen" className="text-sm text-gray-400 hover:text-gold transition-colors">Kitchen Knives</Link></li>
               <li><Link href="/products?category=folding" className="text-sm text-gray-400 hover:text-gold transition-colors">Folding Knives</Link></li>
+              <li><Link href="/products?category=collection" className="text-sm text-gray-400 hover:text-gold transition-colors">Collection</Link></li>
               <li><Link href="/products?featured=true" className="text-sm text-gray-400 hover:text-gold transition-colors">Featured</Link></li>
             </ul>
           </div>

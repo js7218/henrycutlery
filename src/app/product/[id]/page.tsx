@@ -225,7 +225,7 @@ export default function ProductDetailPage() {
         <Link href={`/products?category=${product.category}`} className="hover:text-gold transition-colors capitalize">
           {product.category === 'kitchen' && 'Kitchen'}
           {product.category === 'folding' && 'Folding'}
-          {product.category === 'fixed' && 'Fixed'}
+          {product.category === 'collection' && 'Collection'}
           {product.category === 'hunting' && 'Hunting'}
           {product.category === 'damascus' && 'Damascus'}
         </Link>

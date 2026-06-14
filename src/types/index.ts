@@ -23,7 +23,7 @@ export interface Product {
 export type ProductCategory = 
   | 'kitchen' 
   | 'folding' 
-  | 'fixed' 
+  | 'collection' 
   | 'hunting' 
   | 'damascus' | 'multitool' | 'edc' | 'tactical' | 'boning';
 

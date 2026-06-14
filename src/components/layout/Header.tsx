@@ -54,7 +54,7 @@ export default function Header() {
     { href: '/products', label: 'All Products' },
     { href: '/products?category=kitchen', label: 'Kitchen' },
     { href: '/products?category=folding', label: 'Folding' },
-    { href: '/products?category=fixed', label: 'Fixed' },
+    { href: '/products?category=collection', label: 'Collection' },
     { href: '/products?category=hunting', label: 'Hunting' },
   ];
 
