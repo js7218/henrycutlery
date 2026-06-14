@@ -4,24 +4,15 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
 /**
- * OEM / ODM Manufacturing card.
+ * OEM / ODM Manufacturing 卡片。
  *
- * - The card itself is a button (not an <a>), so it can never be turned into
- *   an open redirect or a phishing target.
- * - The expanded content is rendered as a list of plain-text paragraphs/bullets
- *   via React text nodes only. No dangerouslySetInnerHTML, no user input, no
- *   external URLs, no inline event strings -> no stored / reflected / DOM XSS.
- * - The modal is closed on Escape or backdrop click, and locks body scroll
- *   while open; nothing is persisted to cookies / localStorage.
+ * - 卡片本身是 button，不是 a 标签，避免开放重定向或钓鱼跳转。
+ * - 展开内容只通过 React 文本节点渲染，不使用 dangerouslySetInnerHTML。
+ * - 弹窗支持 ESC 和遮罩关闭，打开期间只锁定页面滚动，不写入 cookie / localStorage。
  */
 
-const SUMMARY_BULLETS: readonly string[] = [
-  'OEM knife production with your design, logo and packaging.',
-  'Quality inspection as your on-site agent in China.',
-  'Sourcing of daily consumer goods on your behalf.',
-  'Factory tour planning across Guangdong as your broker.',
-  'Consulting for investing in China: finance, operations, legal, market.',
-];
+const SUMMARY_TEXT =
+  'Custom knife OEM / ODM service with design, logo, sample approval, quality control, and global shipment support.';
 
 const INTRO_PARAGRAPH =
   'We are working for many projects as below.';
@@ -73,12 +64,8 @@ export default function OemOdmCard() {
         className="text-left p-5 bg-background rounded-xl border border-border hover:border-gold/60 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/60"
       >
         <h3 className="text-gold font-semibold mb-2">OEM / ODM Manufacturing</h3>
-        <ul className="text-sm text-gray-400 list-disc pl-5 space-y-1">
-          {SUMMARY_BULLETS.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-        <p className="mt-3 text-xs text-gold/80">Click to view full OEM / ODM details</p>
+        <p className="text-sm text-gray-400">{SUMMARY_TEXT}</p>
+        <p className="mt-3 text-xs text-gold/80">Click to view full details</p>
       </button>
 
       {open && (

@@ -9,7 +9,7 @@ export default function Footer() {
   return (
     <footer className="bg-surface border-t border-border">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-[1.15fr_0.85fr_1.2fr] gap-10 md:gap-12">
           {/* Brand */}
           <div>
             <h3 className="text-2xl font-bold text-gold-gradient mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
@@ -32,7 +32,7 @@ export default function Footer() {
           </div>
 
           {/* Quick Links */}
-          <div>
+          <div className="md:justify-self-center">
             <h4 className="text-sm font-semibold text-gold mb-4">Quick Links</h4>
             <ul className="space-y-3">
               <li><Link href="/products" className="text-sm text-gray-400 hover:text-gold transition-colors">All Products</Link></li>
@@ -44,7 +44,7 @@ export default function Footer() {
           </div>
 
           {/* Contact */}
-          <div>
+          <div className="md:justify-self-end md:max-w-sm">
             <h4 className="text-sm font-semibold text-gold mb-4">Contact Us</h4>
             <ul className="space-y-4">
               <li className="flex items-start space-x-3">
