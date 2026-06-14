@@ -947,6 +947,38 @@ export const products: Product[] = [
     tags: ['kitchen', 'vegetable knife', 'Damascus', 'rosewood', 'gift'],
     moq: 200,
   },
+  {
+    id: 'sashimi-knife-001',
+    name: 'Sashimi knife',
+    brand: 'Adam Cutlery',
+    price: 45,
+    description: 'Satin VG10 steel blade, HRC: 58-62, cutting force 6.0-8.0, colored stable wooden handle. Price: $45.',
+    longDescription: 'Sashimi knife with satin VG10 steel blade, HRC: 58-62, cutting force 6.0-8.0, and colored stable wooden handle.\n\nPrice: $45.',
+    category: 'kitchen',
+    images: [
+      '/products/kitchen/sashimi-knife-1.jpeg',
+      '/products/kitchen/sashimi-knife-2.jpeg',
+      '/products/kitchen/sashimi-knife-3.jpeg',
+      '/products/kitchen/sashimi-knife-4.jpeg',
+      '/products/kitchen/sashimi-knife-5.jpeg',
+      '/products/kitchen/sashimi-knife-6.jpeg',
+      '/products/kitchen/sashimi-knife-7.jpeg',
+      '/products/kitchen/sashimi-knife-8.jpeg',
+      '/products/kitchen/sashimi-knife-9.jpeg',
+    ],
+    specs: {
+      bladeLength: 'TBD',
+      totalLength: 'TBD',
+      bladeMaterial: 'Satin VG10 Steel',
+      handleMaterial: 'Colored Stable Wooden Handle',
+      weight: 'TBD',
+      hardness: '58-62 HRC',
+    },
+    stock: 999999,
+    featured: true,
+    isNew: true,
+    tags: ['kitchen', 'sashimi knife', 'VG10', 'stable wood', 'satin blade'],
+  },
 
   // New Adam Cutlery Products
   {
