@@ -918,6 +918,8 @@ function auditRequestHeaders(request: NextRequest, ip: string): { passed: boolea
     const allowedOrigins = [
       'adamcutlery.com', 'www.adamcutlery.com',
       'vercel.app', 'localhost',
+      // Allow public page opens from Instagram / Meta in-app browsers and link shims.
+      'instagram.com', 'facebook.com', 'threads.net',
     ];
     if (origin) {
       const originValid = allowedOrigins.some(allowed => origin.includes(allowed));
