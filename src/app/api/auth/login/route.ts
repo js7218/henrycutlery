@@ -10,23 +10,39 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
 }
 
+function getRetryAfterSeconds(result: ReturnType<typeof checkAuthAllowed> | ReturnType<typeof recordAuthFailure>) {
+  return 'retryAfterSeconds' in result && result.retryAfterSeconds ? result.retryAfterSeconds : 0;
+}
+
+function failureReason(result: ReturnType<typeof recordAuthFailure>) {
+  return 'reason' in result ? result.reason : undefined;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const password = typeof body.password === 'string' ? body.password : '';
-    const rateKey = `login:${getClientIp(request)}:${email || 'unknown'}`;
-    const allowed = checkAuthAllowed(rateKey);
+    const clientIp = getClientIp(request);
+    const ipRateKey = `login-ip:${clientIp}`;
+    const emailRateKey = `login-email:${email || 'unknown'}`;
+    const ipAllowed = checkAuthAllowed(ipRateKey);
+    const emailAllowed = checkAuthAllowed(emailRateKey);
 
-    if (!allowed.allowed) {
+    if (!ipAllowed.allowed || !emailAllowed.allowed) {
+      const retryAfterSeconds = Math.max(
+        getRetryAfterSeconds(ipAllowed),
+        getRetryAfterSeconds(emailAllowed)
+      );
       return NextResponse.json(
-        { success: false, error: '尝试次数过多，请稍后再试', code: 'AUTH_LOCKED', retryAfterSeconds: allowed.retryAfterSeconds },
+        { success: false, error: '尝试次数过多，请稍后再试', code: 'AUTH_LOCKED', retryAfterSeconds },
         { status: 429 }
       );
     }
 
     if (!isValidEmail(email) || !password) {
-      recordAuthFailure(rateKey);
+      recordAuthFailure(ipRateKey);
+      recordAuthFailure(emailRateKey);
       return NextResponse.json(
         { success: false, error: '邮箱或密码不正确' },
         { status: 401 }
@@ -46,10 +62,15 @@ export async function POST(request: Request) {
 
     const userRow = result.rows[0];
     if (!userRow || !(await verifyPassword(password, userRow.password_hash))) {
-      const failure = recordAuthFailure(rateKey);
-      if (!failure.allowed) {
+      const ipFailure = recordAuthFailure(ipRateKey);
+      const emailFailure = recordAuthFailure(emailRateKey);
+      if (!ipFailure.allowed || !emailFailure.allowed) {
+        const retryAfterSeconds = Math.max(
+          getRetryAfterSeconds(ipFailure),
+          getRetryAfterSeconds(emailFailure)
+        );
         return NextResponse.json(
-          { success: false, error: '尝试次数过多，请稍后再试', code: failure.reason, retryAfterSeconds: failure.retryAfterSeconds },
+          { success: false, error: '尝试次数过多，请稍后再试', code: failureReason(ipFailure) || failureReason(emailFailure), retryAfterSeconds },
           { status: 429 }
         );
       }
@@ -64,7 +85,8 @@ export async function POST(request: Request) {
     const accessToken = createJWT({ userId: userRow.id, email: userRow.email, role });
     const refreshToken = randomBytes(32).toString('hex');
     await setAuthCookies(accessToken, refreshToken);
-    resetAuthFailures(rateKey);
+    resetAuthFailures(ipRateKey);
+    resetAuthFailures(emailRateKey);
 
     const response = NextResponse.json({
       success: true,
