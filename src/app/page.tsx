@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Shield, Truck, Award } from 'lucide-react';
+import OemOdmCard from '@/components/home/OemOdmCard';
 
 export default function Home() {
   return (
@@ -69,10 +70,7 @@ export default function Home() {
             We have a professional manufacturing team and technology to produce various types of cutting tool products. We can accept OEM customization services. As long as you send us your design drawings and plans, we can provide you with preferential quotations and high-quality production plans according to your needs, and customize products specifically for you to help you explore a wider market.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-            <div className="p-5 bg-background rounded-xl border border-border">
-              <h3 className="text-gold font-semibold mb-2">OEM / ODM Manufacturing</h3>
-              <p className="text-sm text-gray-400">Custom blade shape, handle material, logo engraving, packaging, and batch production are available.</p>
-            </div>
+            <OemOdmCard />
             <div className="p-5 bg-background rounded-xl border border-border">
               <h3 className="text-gold font-semibold mb-2">Wholesale Supply</h3>
               <p className="text-sm text-gray-400">MOQ-based pricing, sample confirmation, and production planning for international buyers.</p>
