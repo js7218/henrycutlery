@@ -180,7 +180,7 @@ export default function ProductDetailPage() {
         ? `Hello,\n\nI am interested in ${product.name}.\nCould you please send me more photos, details, and available packaging information?\n\nProduct link:\n${productUrl}\n\nThank you.`
         : `Hello,\n\nI am interested in ${product.name}.\nCould you please send me more details about price, availability, MOQ, shipping, and lead time?\n\nProduct link:\n${productUrl}\n\nThank you.`;
 
-    return `mailto:admin@adamcutlery.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    return `mailto:845117447@qq.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   const handleSubmitReview = async (event: React.FormEvent) => {
