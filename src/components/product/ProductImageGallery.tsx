@@ -23,7 +23,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
   return (
     <div className="space-y-4">
       {/* Main Image */}
-      <div className="relative aspect-square bg-surfaceLight rounded-lg overflow-hidden">
+      <div className="relative aspect-[4/3] bg-surfaceLight rounded-lg overflow-hidden">
         <Image
           src={images[currentIndex]}
           alt={`${productName} - 图片 ${currentIndex + 1}`}
@@ -63,7 +63,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}
-              className={`relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+              className={`relative w-24 h-[72px] flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
                 index === currentIndex ? 'border-gold' : 'border-transparent hover:border-gray-600'
               }`}
             >

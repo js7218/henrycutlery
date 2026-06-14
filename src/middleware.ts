@@ -1147,6 +1147,11 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // 隐藏旧后台入口，私有后台只允许通过 /hc-control-2026 访问。
+  if (path === '/admin' || path.startsWith('/admin/')) {
+    return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
+  }
+
   // Skip static assets (but NOT protected paths above)
   if (
     path.startsWith('/_next/static') ||
@@ -1243,7 +1248,7 @@ export function middleware(request: NextRequest) {
   if (path.startsWith('/api/')) limitType = 'api';
   if (path.includes('/login')) limitType = 'login';
   if (path.includes('/register')) limitType = 'register';
-  if (path.startsWith('/admin')) limitType = 'admin';
+  if (path.startsWith('/hc-control-2026')) limitType = 'admin';
   if (path.includes('/checkout')) limitType = 'checkout';
   if (path.includes('/upload')) limitType = 'upload';
   if (path.includes('/download')) limitType = 'download';

@@ -295,7 +295,7 @@ export const AuthSecurity = {
       admin: { level: 2, permissions: ['all'] },
     },
     // Admin paths - only accessible by admin role
-    adminPaths: ['/admin', '/api/admin'],
+    adminPaths: ['/hc-control-2026', '/api/admin'],
     // Strict role assignment - role is NEVER derived from user input
     roleAssignment: 'server_only',
     // Admin email whitelist (only these can be admin)
