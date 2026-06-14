@@ -167,10 +167,7 @@ export default function ProductDetailPage() {
   };
 
   const buildMailtoLink = (type: 'contact' | 'photos') => {
-    const productUrl =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}/product/${product.id}`
-        : `https://adamcutlery.com/product/${product.id}`;
+    const productUrl = `https://adamcutlery.com/product/${encodeURIComponent(product.id)}`;
     const subject =
       type === 'photos'
         ? `More photos request: ${product.name}`

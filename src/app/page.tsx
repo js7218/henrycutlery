@@ -6,33 +6,55 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative h-[80vh] flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
+        <Image
+          src="/products/collection/the-best-collection-1.jpeg"
+          alt="Premium collector knife"
+          fill
+          priority
+          className="object-cover opacity-20"
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/90 to-background" />
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <h1 className="text-5xl md:text-7xl font-bold text-gold-gradient mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>
-            ADAM CUTLERY
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-300 mb-4">
-            Premium Knives & Professional Cutlery
-          </p>
-          <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Crafting excellence since 2024. We specialize in high-quality folding knives, 
-            hunting knives, and kitchen cutlery with precision engineering and premium materials.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/products"
-              className="inline-flex items-center justify-center px-8 py-4 bg-gold text-background font-semibold rounded-lg hover:bg-goldLight transition-colors"
-            >
-              Browse Products
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Link>
-            <Link
-              href="/products?category=folding"
-              className="inline-flex items-center justify-center px-8 py-4 border border-gold text-gold font-semibold rounded-lg hover:bg-gold/10 transition-colors"
-            >
-              Folding Knives
-            </Link>
+        <div className="relative z-10 px-4 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+          <div className="text-center lg:text-left">
+            <h1 className="text-5xl md:text-7xl font-bold text-gold-gradient mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>
+              ADAM CUTLERY
+            </h1>
+            <p className="text-xl md:text-2xl text-gray-300 mb-4">
+              Premium Knives & Professional Cutlery
+            </p>
+            <p className="text-gray-400 mb-4 max-w-2xl mx-auto lg:mx-0">
+              Crafting excellence since 2024. We specialize in high-quality folding knives, 
+              hunting knives, and kitchen cutlery with precision engineering and premium materials.
+            </p>
+            <p className="text-gray-300 mb-8 max-w-2xl mx-auto lg:mx-0">
+              Premium knife manufacturing, OEM wholesale, and high-end collectible cutlery for global buyers.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <Link
+                href="/products"
+                className="inline-flex items-center justify-center px-8 py-4 bg-gold text-background font-semibold rounded-lg hover:bg-goldLight transition-colors"
+              >
+                Browse Products
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Link>
+              <Link
+                href="/products?category=folding"
+                className="inline-flex items-center justify-center px-8 py-4 border border-gold text-gold font-semibold rounded-lg hover:bg-gold/10 transition-colors"
+              >
+                Folding Knives
+              </Link>
+            </div>
+          </div>
+          <div className="hidden lg:block">
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-gold/30 shadow-2xl">
+              <Image
+                src="/products/collection/the-best-collection-1.jpeg"
+                alt="The best collection knife"
+                fill
+                className="object-cover"
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -46,6 +68,20 @@ export default function Home() {
           <p className="text-center text-gray-400 max-w-4xl mx-auto mb-12 text-lg leading-relaxed">
             We have a professional manufacturing team and technology to produce various types of cutting tool products. We can accept OEM customization services. As long as you send us your design drawings and plans, we can provide you with preferential quotations and high-quality production plans according to your needs, and customize products specifically for you to help you explore a wider market.
           </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+            <div className="p-5 bg-background rounded-xl border border-border">
+              <h3 className="text-gold font-semibold mb-2">OEM / ODM Manufacturing</h3>
+              <p className="text-sm text-gray-400">Custom blade shape, handle material, logo engraving, packaging, and batch production are available.</p>
+            </div>
+            <div className="p-5 bg-background rounded-xl border border-border">
+              <h3 className="text-gold font-semibold mb-2">Wholesale Supply</h3>
+              <p className="text-sm text-gray-400">MOQ-based pricing, sample confirmation, and production planning for international buyers.</p>
+            </div>
+            <div className="p-5 bg-background rounded-xl border border-border">
+              <h3 className="text-gold font-semibold mb-2">Quality Control</h3>
+              <p className="text-sm text-gray-400">Material selection, machining, polishing, inspection, and secure packing before shipment.</p>
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               '/images/factory1.jpg',

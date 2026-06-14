@@ -122,6 +122,10 @@ export default function CartPage() {
                 <span>Free Shipping Nationwide</span>
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-400">
+                <Truck className="w-4 h-4 text-gold" />
+                <span>International Shipping Available</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-gray-400">
                 <svg className="w-4 h-4 text-gold" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
@@ -129,9 +133,22 @@ export default function CartPage() {
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-400">
                 <svg className="w-4 h-4 text-gold" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v.35l-8 5-8-5V5z" />
+                  <path d="M2 7.7V15a2 2 0 002 2h12a2 2 0 002-2V7.7l-7.47 4.67a1 1 0 01-1.06 0L2 7.7z" />
+                </svg>
+                <span>Order Confirmation by Email</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-gray-400">
+                <svg className="w-4 h-4 text-gold" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                 </svg>
                 <span>Secure Payment</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-gray-400">
+                <svg className="w-4 h-4 text-gold" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10A8 8 0 112 10a8 8 0 0116 0zm-7-4a1 1 0 10-2 0v5a1 1 0 00.45.83l3 2a1 1 0 101.1-1.66L11 10.46V6z" clipRule="evenodd" />
+                </svg>
+                <span>Secure Payment Arrangement</span>
               </div>
             </div>
           </div>

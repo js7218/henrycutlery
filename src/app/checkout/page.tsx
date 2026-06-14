@@ -342,6 +342,9 @@ export default function CheckoutPage() {
                   <span>Shipping</span>
                   <span>{shippingFee === 0 ? <span className="text-green-400">Free Shipping</span> : formatPrice(shippingFee)}</span>
                 </div>
+                <p className="text-xs text-gray-500">
+                  International shipping is available. Final delivery details will be confirmed by email.
+                </p>
               </div>
               <div className="pt-4 border-t border-border">
                 <div className="flex justify-between items-center mb-6">
@@ -395,6 +398,9 @@ export default function CheckoutPage() {
                   <span>Shipping</span>
                   <span>{shippingFee === 0 ? <span className="text-green-400">Free Shipping</span> : formatPrice(shippingFee)}</span>
                 </div>
+                <p className="text-xs text-gray-500 pt-2">
+                  Order confirmation and secure payment arrangement will be handled by email.
+                </p>
               </div>
             </div>
           </div>
@@ -454,6 +460,9 @@ export default function CheckoutPage() {
             {copied && <p className="text-xs text-green-400 mt-2">Copied</p>}
             <p className="text-sm text-gray-500 mt-4">
               We will ship your order as soon as possible. Please check email notifications.
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              For international orders, delivery and payment details will be confirmed by email before shipment.
             </p>
           </div>
 

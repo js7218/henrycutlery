@@ -21,21 +21,7 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
       localStorage.setItem('knife-age-verified-at', new Date().toISOString());
       setShowModal(false);
     } else {
-      const referrer = document.referrer;
-      const currentHost = window.location.host;
-
-      if (referrer) {
-        try {
-          const referrerUrl = new URL(referrer);
-          if (referrerUrl.host !== currentHost) {
-            window.location.replace(referrer);
-            return;
-          }
-        } catch {
-          // 如果 referrer 无法解析，就继续尝试浏览器返回。
-        }
-      }
-
+      // 不跳转到外部 referrer，避免开放重定向风险。
       if (window.history.length > 1) {
         window.history.back();
         return;
