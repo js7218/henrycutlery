@@ -9,7 +9,7 @@ export default function Footer() {
   return (
     <footer className="bg-surface border-t border-border">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           {/* Brand */}
           <div>
             <h3 className="text-2xl font-bold text-gold-gradient mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
@@ -40,16 +40,6 @@ export default function Footer() {
               <li><Link href="/products?category=folding" className="text-sm text-gray-400 hover:text-gold transition-colors">Folding Knives</Link></li>
               <li><Link href="/products?category=collection" className="text-sm text-gray-400 hover:text-gold transition-colors">Collection</Link></li>
               <li><Link href="/products?featured=true" className="text-sm text-gray-400 hover:text-gold transition-colors">Featured</Link></li>
-            </ul>
-          </div>
-
-          {/* Customer Service */}
-          <div>
-            <h4 className="text-sm font-semibold text-gold mb-4">Customer Service</h4>
-            <ul className="space-y-3">
-              <li><Link href="#" className="text-sm text-gray-400 hover:text-gold transition-colors">Help Center</Link></li>
-              <li><Link href="#" className="text-sm text-gray-400 hover:text-gold transition-colors">Shipping Info</Link></li>
-              <li><Link href="#" className="text-sm text-gray-400 hover:text-gold transition-colors">Care Guide</Link></li>
             </ul>
           </div>
 
