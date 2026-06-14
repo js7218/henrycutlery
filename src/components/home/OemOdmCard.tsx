@@ -31,7 +31,7 @@ const DETAIL_PARAGRAPHS: readonly string[] = [
   'Our philosophy of a knife is to save the lives of men, special operators, law enforcement officers, professional adventurers and father-to-son collection.',
   'Our customers are mostly brand operators, retailers, exporters, agents, foreign customers and producers. And we will ship all our knives by sea or air to you.',
   'Please send us your blueprint, drawing design and samples if possible to build this progress. If you place your knife orders to us with your design paper and logo, we will be fast to make a knife sample for your approval.',
-  'Our payment term is to be T/T to Bank of China (Hong Kong). And we may request deposit, project fee or mould charge to start your program.',
+  'Our payment term is to be T/T to Bank-HSBC(Hong Kong). And we may request deposit, project fee or mould charge to start your program.',
   'Accordingly, we supply you with high quality knife, low cost and delivery in a safe way.',
   'Are you still looking for a good knife factory? Do not hesitate to contact us now.',
   'We will have a good solution and project for your market!',
