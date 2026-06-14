@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { getSafeReturnPathFromBrowser } from '@/lib/safeNavigation';
 
 // ============================================================================
 // SECURITY: Input Sanitization & Validation
@@ -133,22 +134,6 @@ function sanitizeInput(input: string, fieldName: string): { sanitized: string; e
   }
   
   return { sanitized, errors };
-}
-
-function getSafeReturnPath() {
-  const nextPath = new URLSearchParams(window.location.search).get('next');
-  if (nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')) return nextPath;
-
-  try {
-    const referrer = new URL(document.referrer);
-    if (referrer.origin === window.location.origin && !['/login', '/register', '/forgot-password'].includes(referrer.pathname)) {
-      return `${referrer.pathname}${referrer.search}`;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
 }
 
 // ============================================================================
@@ -428,7 +413,7 @@ export default function LoginPage() {
       if (success) {
         // SECURITY: Reset attempts on successful login
         resetLoginAttempts();
-        router.push(getSafeReturnPath() || '/profile');
+        router.push(getSafeReturnPathFromBrowser() || '/profile');
       } else {
         setError('Login failed. Please check your email/password, or register first if this is a new database account.');
       }

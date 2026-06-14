@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, Eye, EyeOff, User, Phone, UserPlus, Check, X } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { getSafeReturnPathFromBrowser } from '@/lib/safeNavigation';
 
 // ============================================================================
 // SECURITY: Input Sanitization & Validation (Same as Login)
@@ -120,22 +121,6 @@ function sanitizeInput(input: string, fieldName: string): { sanitized: string; e
   }
   
   return { sanitized, errors };
-}
-
-function getSafeReturnPath() {
-  const nextPath = new URLSearchParams(window.location.search).get('next');
-  if (nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')) return nextPath;
-
-  try {
-    const referrer = new URL(document.referrer);
-    if (referrer.origin === window.location.origin && !['/login', '/register', '/forgot-password'].includes(referrer.pathname)) {
-      return `${referrer.pathname}${referrer.search}`;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
 }
 
 function validateEmailStrict(email: string): { valid: boolean; error?: string } {
@@ -519,7 +504,7 @@ export default function RegisterPage() {
       if (result.success) {
         localStorage.removeItem(OLD_REGISTER_ATTEMPTS_KEY);
         localStorage.removeItem(REGISTER_ATTEMPTS_KEY);
-        router.push(getSafeReturnPath() || '/profile');
+        router.push(getSafeReturnPathFromBrowser() || '/profile');
       } else {
         setError(result.error || 'Registration failed. Please try again.');
       }

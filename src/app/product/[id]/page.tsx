@@ -21,6 +21,7 @@ import {
 import { getProductById, products } from '@/data/products';
 import { useApp } from '@/context/AppContext';
 import { formatPrice, cn } from '@/lib/utils';
+import { buildSafeMailtoLink, getSafeCategoryPath } from '@/lib/safeNavigation';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import ProductCard from '@/components/product/ProductCard';
 
@@ -177,7 +178,11 @@ export default function ProductDetailPage() {
         ? `Hello,\n\nI am interested in ${product.name}.\nCould you please send me more photos, details, and available packaging information?\n\nProduct link:\n${productUrl}\n\nThank you.`
         : `Hello,\n\nI am interested in ${product.name}.\nCould you please send me more details about price, availability, MOQ, shipping, and lead time?\n\nProduct link:\n${productUrl}\n\nThank you.`;
 
-    return `mailto:845117447@qq.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    return buildSafeMailtoLink({
+      to: '845117447@qq.com',
+      subject,
+      body,
+    });
   };
 
   const handleSubmitReview = async (event: React.FormEvent) => {
@@ -238,7 +243,7 @@ export default function ProductDetailPage() {
         <ChevronRight className="w-4 h-4" />
         <Link href="/products" className="hover:text-gold transition-colors">All Products</Link>
         <ChevronRight className="w-4 h-4" />
-        <Link href={`/products?category=${product.category}`} className="hover:text-gold transition-colors capitalize">
+        <Link href={getSafeCategoryPath(product.category)} className="hover:text-gold transition-colors capitalize">
           {product.category === 'kitchen' && 'Kitchen'}
           {product.category === 'folding' && 'Folding'}
           {product.category === 'collection' && 'Collection'}

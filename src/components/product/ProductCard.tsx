@@ -5,6 +5,7 @@ import { Heart, ShoppingCart, Sparkles, Tag } from 'lucide-react';
 import { Product } from '@/types';
 import { formatPrice, cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
+import { getSafeProductPath } from '@/lib/safeNavigation';
 
 interface ProductCardProps {
   product: Product;
@@ -21,7 +22,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Link href={`/product/${product.id}`} className="group block">
+    <Link href={getSafeProductPath(product.id)} className="group block">
       <div className="bg-surface border border-border rounded-lg overflow-hidden card-hover">
         {/* Image Container */}
         <div className="relative aspect-[4/3] overflow-hidden bg-surfaceLight">

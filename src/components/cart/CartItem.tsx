@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice } from '@/lib/utils';
+import { getSafeProductPath } from '@/lib/safeNavigation';
 import { useCallback, useRef, useEffect } from 'react';
 
 export default function CartItem({ item }: { item: { product: any; quantity: number } }) {
@@ -82,7 +83,7 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
   return (
     <div className="flex flex-col sm:flex-row gap-4 p-4 bg-surface border border-border rounded-lg">
       {/* Product Image */}
-      <Link href={`/product/${item.product.id}`} className="flex-shrink-0">
+      <Link href={getSafeProductPath(item.product.id)} className="flex-shrink-0">
         <div className="relative w-full sm:w-28 h-28 rounded-lg overflow-hidden bg-surfaceLight">
           <Image
             src={item.product.images[0]}
@@ -97,7 +98,7 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start">
           <div>
-            <Link href={`/product/${item.product.id}`} className="block">
+            <Link href={getSafeProductPath(item.product.id)} className="block">
               <h3 className="text-foreground font-medium hover:text-gold transition-colors line-clamp-1">
                 {item.product.name.toUpperCase()}
               </h3>
