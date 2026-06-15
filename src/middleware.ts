@@ -925,6 +925,14 @@ function auditRequestHeaders(request: NextRequest, ip: string): { passed: boolea
   const contentType = request.headers.get('content-type') || '';
   const method = request.method;
 
+  if (
+    !SAFE_METHODS.includes(method) &&
+    isPublicPagePath(request.nextUrl.pathname) &&
+    isSocialInAppOpen(request)
+  ) {
+    return { passed: true, reason: '' };
+  }
+
   // 1. Host header validation - must be valid domain
   if (host && !/^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9](:\d+)?$/.test(host)) {
     return { passed: false, reason: 'INVALID_HOST_HEADER' };
@@ -1152,7 +1160,6 @@ export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const method = request.method;
   const isSocialPublicPageOpen =
-    SAFE_METHODS.includes(method) &&
     isPublicPagePath(path) &&
     isSocialInAppOpen(request);
 
@@ -1209,6 +1216,12 @@ export function middleware(request: NextRequest) {
   // 1. HTTP method validation
   if (!ALLOWED_METHODS.includes(method)) {
     return NextResponse.json({ error: 'Method Not Allowed', code: 'INVALID_METHOD' }, { status: 405 });
+  }
+
+  if (isSocialPublicPageOpen && !SAFE_METHODS.includes(method)) {
+    const cleanUrl = request.nextUrl.clone();
+    cleanUrl.search = '';
+    return NextResponse.redirect(cleanUrl, 303);
   }
 
   // 2. Sensitive paths → 404
