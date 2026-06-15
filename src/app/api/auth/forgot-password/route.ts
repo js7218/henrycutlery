@@ -28,6 +28,20 @@ function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+function normalizePhone(value: string): string {
+  return value.replace(/[^\d+]/g, '').replace(/^00/, '+');
+}
+
+function phoneMatches(registered: string, submitted: string): boolean {
+  const a = normalizePhone(registered);
+  const b = normalizePhone(submitted);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const aDigits = a.replace(/\D/g, '');
+  const bDigits = b.replace(/\D/g, '');
+  return aDigits.length >= 6 && bDigits.length >= 6 && aDigits.slice(-10) === bDigits.slice(-10);
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -54,6 +68,7 @@ export async function POST(request: NextRequest) {
   try {
     await ensureDatabaseSchema();
     const ip =
+      request.headers.get('cf-connecting-ip') ||
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       request.headers.get('x-real-ip') ||
       'unknown';
@@ -83,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     // Phone is mandatory and must exactly match the registered phone for the
     // account; otherwise we silently respond success to avoid leaking info.
-    const phoneOk = !!(user && user.phone && user.phone.trim() === phone);
+    const phoneOk = !!(user && user.phone && phoneMatches(user.phone, phone));
 
     if (user && phoneOk) {
       // Invalidate any previous active reset tokens for this user.

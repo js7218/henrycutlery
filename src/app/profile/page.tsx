@@ -30,6 +30,27 @@ const tabs = [
   { id: 'settings' as Tab, label: 'Account Settings', icon: Settings },
 ];
 
+function validAddressPart(value?: string, min = 2, max = 100) {
+  const clean = (value || '').trim();
+  return clean.length >= min &&
+    clean.length <= max &&
+    !/^(n\/a|na|none|null|undefined|省份|城市|地区|province|city|district)$/i.test(clean);
+}
+
+function validInternationalPhone(phone?: string) {
+  return /^\+[1-9]\d{0,3}\s?[0-9][0-9\s().-]{5,30}$/.test((phone || '').trim());
+}
+
+function getAddressError(address: { name: string; phone: string; province: string; city: string; district: string; detail: string }) {
+  if (!validAddressPart(address.name, 2, 100)) return 'Please enter a valid name.';
+  if (!validInternationalPhone(address.phone)) return 'Please enter phone number with country code, e.g. +86 13800138000.';
+  if (!validAddressPart(address.province)) return 'Please enter a valid province/state.';
+  if (!validAddressPart(address.city)) return 'Please enter a valid city.';
+  if (!validAddressPart(address.district)) return 'Please enter a valid district/area.';
+  if (!validAddressPart(address.detail, 5, 300)) return 'Please enter a complete detailed address.';
+  return '';
+}
+
 export default function ProfilePage() {
   return (
     <Suspense fallback={<div className="max-w-7xl mx-auto px-4 py-20 text-center text-gray-400">Loading...</div>}>
@@ -62,6 +83,7 @@ function ProfileContent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [settingsMessage, setSettingsMessage] = useState('');
+  const [addressError, setAddressError] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
@@ -101,6 +123,12 @@ function ProfileContent() {
   };
 
   const handleSaveAddress = () => {
+    const error = getAddressError(addressForm);
+    if (error) {
+      setAddressError(error);
+      return;
+    }
+    setAddressError('');
     if (editingAddress) {
       dispatch({
         type: 'UPDATE_ADDRESS',
@@ -395,13 +423,13 @@ function ProfileContent() {
                   </h3>
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <input
-                      placeholder="Recipient Name"
+                      placeholder="Name"
                       value={addressForm.name}
                       onChange={e => setAddressForm({ ...addressForm, name: e.target.value })}
                       className="input-field col-span-2 md:col-span-1"
                     />
                     <input
-                      placeholder="Phone Number"
+                      placeholder="Phone Number, e.g. +86 13800138000"
                       value={addressForm.phone}
                       onChange={e => setAddressForm({ ...addressForm, phone: e.target.value })}
                       className="input-field col-span-2 md:col-span-1"
@@ -431,6 +459,11 @@ function ProfileContent() {
                       className="input-field col-span-2"
                     />
                   </div>
+                  {addressError && (
+                    <p className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+                      {addressError}
+                    </p>
+                  )}
                   <label className="flex items-center gap-2 mb-6 cursor-pointer">
                     <input
                       type="checkbox"

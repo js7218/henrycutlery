@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ProductImageGalleryProps {
@@ -11,13 +11,23 @@ interface ProductImageGalleryProps {
 
 export default function ProductImageGallery({ images, productName }: ProductImageGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const safeImages = images.length > 0 ? images : ['/products/test-product-placeholder.png'];
+  const currentSrc = failedImages[safeImages[currentIndex]]
+    ? '/products/test-product-placeholder.png'
+    : safeImages[currentIndex];
+
+  useEffect(() => {
+    setCurrentIndex(0);
+    setFailedImages({});
+  }, [images.join('|')]);
 
   const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    setCurrentIndex((prev) => (prev === 0 ? safeImages.length - 1 : prev - 1));
   };
 
   const goToNext = () => {
-    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    setCurrentIndex((prev) => (prev === safeImages.length - 1 ? 0 : prev + 1));
   };
 
   return (
@@ -25,15 +35,17 @@ export default function ProductImageGallery({ images, productName }: ProductImag
       {/* Main Image */}
       <div className="relative aspect-[4/3] bg-surfaceLight rounded-lg overflow-hidden">
         <Image
-          src={images[currentIndex]}
+          src={currentSrc}
           alt={`${productName} - 图片 ${currentIndex + 1}`}
           fill
           className="object-cover"
           priority
+          sizes="(max-width: 1024px) 100vw, 50vw"
+          onError={() => setFailedImages((prev) => ({ ...prev, [safeImages[currentIndex]]: true }))}
         />
         
         {/* Navigation Arrows */}
-        {images.length > 1 && (
+        {safeImages.length > 1 && (
           <>
             <button
               onClick={goToPrevious}
@@ -52,14 +64,14 @@ export default function ProductImageGallery({ images, productName }: ProductImag
 
         {/* Image Counter */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-background/80 backdrop-blur-sm rounded-full text-sm text-gray-400">
-          {currentIndex + 1} / {images.length}
+          {currentIndex + 1} / {safeImages.length}
         </div>
       </div>
 
       {/* Thumbnails */}
-      {images.length > 1 && (
+      {safeImages.length > 1 && (
         <div className="flex space-x-3 overflow-x-auto pb-2">
-          {images.map((image, index) => (
+          {safeImages.map((image, index) => (
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}
@@ -72,6 +84,8 @@ export default function ProductImageGallery({ images, productName }: ProductImag
                 alt={`${productName} - 缩略图 ${index + 1}`}
                 fill
                 className="object-cover"
+                sizes="96px"
+                onError={() => setFailedImages((prev) => ({ ...prev, [image]: true }))}
               />
             </button>
           ))}

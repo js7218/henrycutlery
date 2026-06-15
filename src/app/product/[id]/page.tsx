@@ -31,9 +31,10 @@ export default function ProductDetailPage() {
   const productId = params.id as string;
   const product = getProductById(productId);
   
-  const { addToCart, state } = useApp();
+  const { addToCart, state, toggleFavorite } = useApp();
   const [quantity, setQuantity] = useState(product?.moq || 1);
-  const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
+  const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('reviews');
+  const [shareMessage, setShareMessage] = useState('');
   const [reviews, setReviews] = useState<Array<{ id: string; author: string; rating: number; content: string; createdAt: string }>>([]);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewContent, setReviewContent] = useState('');
@@ -165,6 +166,38 @@ export default function ProductDetailPage() {
     const moq = product.moq || 1;
     const finalQty = quantity >= moq ? quantity : moq;
     addToCart(product, finalQty);
+  };
+
+  const handleShare = async () => {
+    if (!product) return;
+    const productUrl = `${window.location.origin}/product/${encodeURIComponent(product.id)}`;
+    setShareMessage('');
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: product.name,
+          text: `${product.name} - ${formatPrice(product.price)}`,
+          url: productUrl,
+        });
+        setShareMessage('Share sheet opened.');
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(productUrl);
+        setShareMessage('Product link copied.');
+      } else {
+        const input = document.createElement('input');
+        input.value = productUrl;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        setShareMessage('Product link copied.');
+      }
+    } catch {
+      setShareMessage('Copy failed. Please copy the browser address manually.');
+    }
+
+    window.setTimeout(() => setShareMessage(''), 2500);
   };
 
   const buildMailtoLink = (type: 'contact' | 'photos') => {
@@ -368,13 +401,32 @@ export default function ProductDetailPage() {
                 <ShoppingCart className="w-5 h-5" />
                 Add to Cart
               </button>
-              <button className="p-4 border border-border rounded-lg text-gray-400 hover:text-red-400 hover:border-red-400 transition-colors">
+              <button
+                onClick={() => toggleFavorite(product.id)}
+                disabled={!state.user}
+                title={state.user ? (isFavorite ? 'Remove from favorites' : 'Add to favorites') : 'Sign in to favorite'}
+                className="p-4 border border-border rounded-lg text-gray-400 hover:text-red-400 hover:border-red-400 transition-colors disabled:opacity-60"
+              >
                 <Heart className={cn("w-5 h-5", isFavorite && "fill-red-400 text-red-400")} />
               </button>
-              <button className="p-4 border border-border rounded-lg text-gray-400 hover:text-gold hover:border-gold transition-colors">
+              <button
+                onClick={handleShare}
+                className="p-4 border border-border rounded-lg text-gray-400 hover:text-gold hover:border-gold transition-colors"
+              >
                 <Share2 className="w-5 h-5" />
               </button>
             </div>
+            {shareMessage && (
+              <p className="rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-sm text-gold">
+                {shareMessage}
+              </p>
+            )}
+            <button
+              onClick={() => setActiveTab('reviews')}
+              className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-left text-gray-300 hover:border-gold hover:text-gold transition-colors"
+            >
+              Customer Reviews / Write a Review
+            </button>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <a
                 href={buildMailtoLink('contact')}
@@ -417,7 +469,7 @@ export default function ProductDetailPage() {
           {[
             { id: 'description', label: 'Product Details' },
             { id: 'specs', label: 'Specifications' },
-            { id: 'reviews', label: 'Reviews' },
+            { id: 'reviews', label: `Reviews / Write a Review${reviews.length ? ` (${reviews.length})` : ''}` },
           ].map(tab => (
             <button
               key={tab.id}

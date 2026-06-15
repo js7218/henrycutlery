@@ -1,6 +1,7 @@
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useState } from 'react';
 import { Heart, ShoppingCart, Sparkles, Tag } from 'lucide-react';
 import { Product } from '@/types';
 import { formatPrice, cn } from '@/lib/utils';
@@ -12,7 +13,8 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addToCart, state } = useApp();
+  const { addToCart, state, toggleFavorite } = useApp();
+  const [imageSrc, setImageSrc] = useState(product.images[0] || '/products/test-product-placeholder.png');
   const isFavorite = state.user?.favorites.includes(product.id) || false;
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -27,10 +29,12 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Image Container */}
         <div className="relative aspect-[4/3] overflow-hidden bg-surfaceLight">
           <Image
-            src={product.images[0]}
+            src={imageSrc}
             alt={product.name}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-110"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            onError={() => setImageSrc('/products/test-product-placeholder.png')}
           />
           
           {/* Badges */}
@@ -50,13 +54,16 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {/* Quick Actions */}
-          <div className="absolute top-3 right-3 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute top-3 right-3 flex flex-col space-y-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <button
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                toggleFavorite(product.id);
               }}
-              className="p-2 bg-background/80 backdrop-blur-sm rounded-full text-gray-400 hover:text-gold transition-colors"
+              disabled={!state.user}
+              title={state.user ? (isFavorite ? 'Remove from favorites' : 'Add to favorites') : 'Sign in to favorite'}
+              className="p-2 bg-background/80 backdrop-blur-sm rounded-full text-gray-400 hover:text-gold transition-colors disabled:opacity-60"
             >
               <Heart className={cn("w-5 h-5", isFavorite && "fill-gold text-gold")} />
             </button>

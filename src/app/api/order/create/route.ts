@@ -15,7 +15,7 @@ import { getAuthUser } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 
 const MAX_ORDER_ITEMS = 50;
-const MAX_ITEM_QUANTITY = 99;
+const MAX_ITEM_QUANTITY = 5000;
 
 // In production, this would be a database lookup
 function getProductById(productId: string) {
@@ -24,6 +24,16 @@ function getProductById(productId: string) {
 
 function cleanText(value: unknown, max: number) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+function validAddressPart(value: string, min = 2, max = 100) {
+  return value.length >= min &&
+    value.length <= max &&
+    !/^(n\/a|na|none|null|undefined|省份|城市|地区|province|city|district)$/i.test(value);
+}
+
+function validInternationalPhone(phone: string) {
+  return /^\+[1-9]\d{0,3}\s?[0-9][0-9\s().-]{5,30}$/.test(phone);
 }
 
 function normalizeAddress(value: unknown) {
@@ -38,8 +48,12 @@ function normalizeAddress(value: unknown) {
     detail: cleanText(raw.detail, 300),
   };
 
-  if (!normalized.name || !normalized.phone || !normalized.detail) return null;
-  if (!/^[0-9+\-\s()]{6,40}$/.test(normalized.phone)) return null;
+  if (!validAddressPart(normalized.name, 2, 100)) return null;
+  if (!validInternationalPhone(normalized.phone)) return null;
+  if (!validAddressPart(normalized.province)) return null;
+  if (!validAddressPart(normalized.city)) return null;
+  if (!validAddressPart(normalized.district)) return null;
+  if (!validAddressPart(normalized.detail, 5, 300)) return null;
   return normalized;
 }
 
@@ -103,19 +117,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // SECURITY: Quantity must be positive integer
-      if (quantity <= 0 || quantity > MAX_ITEM_QUANTITY || !Number.isInteger(quantity)) {
-        return NextResponse.json(
-          { error: `Invalid quantity for product ${productId}`, code: 'INVALID_QUANTITY' },
-          { status: 400 }
-        );
-      }
-
       // SECURITY: Look up product from SERVER-SIDE data source (NOT from client)
       const product = getProductById(productId);
       if (!product) {
         return NextResponse.json(
           { error: `Product not found: ${productId}`, code: 'PRODUCT_NOT_FOUND' },
+          { status: 400 }
+        );
+      }
+
+      const moq = product.moq || 1;
+
+      // SECURITY: Quantity must be positive integer and meet product MOQ.
+      if (quantity < moq || quantity > MAX_ITEM_QUANTITY || !Number.isInteger(quantity)) {
+        return NextResponse.json(
+          { error: `Invalid quantity for product ${productId}. MOQ is ${moq}.`, code: 'INVALID_QUANTITY' },
           { status: 400 }
         );
       }

@@ -169,7 +169,7 @@ const RATE_LIMITS = {
   login: { windowMs: 60000, maxRequests: 5 },
   register: { windowMs: 60000, maxRequests: 3 },
   admin: { windowMs: 60000, maxRequests: 30 },
-  checkout: { windowMs: 60000, maxRequests: 10 },
+  checkout: { windowMs: 60000, maxRequests: 60 },
   upload: { windowMs: 60000, maxRequests: 5 },
   download: { windowMs: 60000, maxRequests: 20 },
 };
@@ -1331,7 +1331,9 @@ export function middleware(request: NextRequest) {
 
   const rl = checkRateLimit(ip, limitType);
   if (!rl.allowed) {
-    blockIP(ip, `Rate limit exceeded (${limitType})`, 300000);
+    if (limitType !== 'checkout' && limitType !== 'api') {
+      blockIP(ip, `Rate limit exceeded (${limitType})`, 300000);
+    }
     return NextResponse.json({
       error: 'Too Many Requests', code: 'RATE_LIMITED', retryAfter: 60,
     }, { status: 429, headers: { 'Retry-After': '60', 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': String(Math.floor(rl.resetAt / 1000)) } });

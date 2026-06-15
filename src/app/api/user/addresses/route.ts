@@ -7,6 +7,16 @@ function clean(value: unknown, max = 120) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
+function validAddressPart(value: string, min = 2, max = 100) {
+  return value.length >= min &&
+    value.length <= max &&
+    !/^(n\/a|na|none|null|undefined|省份|城市|地区|province|city|district)$/i.test(value);
+}
+
+function validPhone(phone: string) {
+  return /^\+[1-9]\d{0,3}\s?[0-9][0-9\s().-]{5,30}$/.test(phone);
+}
+
 function normalizeAddress(address: unknown): Address | null {
   if (!address || typeof address !== 'object') return null;
   const value = address as Record<string, unknown>;
@@ -21,7 +31,12 @@ function normalizeAddress(address: unknown): Address | null {
     isDefault: Boolean(value.isDefault),
   };
 
-  if (!normalized.name || !normalized.phone || !normalized.detail) return null;
+  if (!validAddressPart(normalized.name, 2, 100)) return null;
+  if (!validPhone(normalized.phone)) return null;
+  if (!validAddressPart(normalized.province)) return null;
+  if (!validAddressPart(normalized.city)) return null;
+  if (!validAddressPart(normalized.district)) return null;
+  if (!validAddressPart(normalized.detail, 5, 300)) return null;
   return normalized;
 }
 

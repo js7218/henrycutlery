@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -14,6 +14,50 @@ import PaymentSelector from '@/components/checkout/PaymentSelector';
 
 type CheckoutStep = 'confirm' | 'payment' | 'complete';
 
+const COUNTRY_CODES = [
+  { code: '+86', label: 'China +86' },
+  { code: '+1', label: 'US/Canada +1' },
+  { code: '+44', label: 'UK +44' },
+  { code: '+61', label: 'Australia +61' },
+  { code: '+49', label: 'Germany +49' },
+  { code: '+33', label: 'France +33' },
+  { code: '+39', label: 'Italy +39' },
+  { code: '+34', label: 'Spain +34' },
+  { code: '+81', label: 'Japan +81' },
+  { code: '+82', label: 'Korea +82' },
+  { code: '+65', label: 'Singapore +65' },
+  { code: '+60', label: 'Malaysia +60' },
+  { code: '+66', label: 'Thailand +66' },
+  { code: '+971', label: 'UAE +971' },
+  { code: '+966', label: 'Saudi Arabia +966' },
+  { code: '+91', label: 'India +91' },
+  { code: '+52', label: 'Mexico +52' },
+  { code: '+55', label: 'Brazil +55' },
+  { code: '+27', label: 'South Africa +27' },
+];
+
+function validAddressPart(value?: string, min = 2, max = 100) {
+  const clean = (value || '').trim();
+  return clean.length >= min &&
+    clean.length <= max &&
+    !/^(n\/a|na|none|null|undefined|省份|城市|地区|province|city|district)$/i.test(clean);
+}
+
+function validInternationalPhone(phone?: string) {
+  return /^\+[1-9]\d{0,3}\s?[0-9][0-9\s().-]{5,30}$/.test((phone || '').trim());
+}
+
+function validateAddress(address: Address | null): string {
+  if (!address) return 'Please add a shipping address.';
+  if (!validAddressPart(address.name, 2, 100)) return 'Please enter a valid name.';
+  if (!validInternationalPhone(address.phone)) return 'Please enter a valid phone number with country code, e.g. +86 13800138000.';
+  if (!validAddressPart(address.province)) return 'Please enter a valid province/state.';
+  if (!validAddressPart(address.city)) return 'Please enter a valid city.';
+  if (!validAddressPart(address.district)) return 'Please enter a valid district/area.';
+  if (!validAddressPart(address.detail, 5, 300)) return 'Please enter a complete detailed address.';
+  return '';
+}
+
 export default function CheckoutPage() {
   const { state, dispatch, cartTotal } = useApp();
   const router = useRouter();
@@ -26,6 +70,9 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
   const [copied, setCopied] = useState(false);
+  const [addressError, setAddressError] = useState('');
+  const [countryCode, setCountryCode] = useState('+86');
+  const lastPaymentAttemptRef = useRef(0);
 
   // New address form
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
@@ -87,16 +134,26 @@ export default function CheckoutPage() {
   }
 
   const handleConfirmOrder = () => {
-    if (!selectedAddress) return;
+    const error = validateAddress(selectedAddress);
+    if (error) {
+      setAddressError(error);
+      return;
+    }
+    setAddressError('');
     setCurrentStep('payment');
   };
 
   const handlePayment = async () => {
     if (!selectedAddress) return;
+    if (isProcessing) return;
+    const now = Date.now();
+    if (now - lastPaymentAttemptRef.current < 3000) return;
+    lastPaymentAttemptRef.current = now;
 
-    // SECURITY: Validate address fields (rebuild trigger)
-    if (!selectedAddress.name || !selectedAddress.phone || !selectedAddress.detail) {
+    const addressValidation = validateAddress(selectedAddress);
+    if (addressValidation) {
       securityLogger.log('INPUT_VALIDATION_FAILURE', 'Checkout: incomplete address');
+      setAddressError(addressValidation);
       return;
     }
 
@@ -199,17 +256,28 @@ export default function CheckoutPage() {
                 <div className="space-y-4 p-4 bg-surfaceLight rounded-lg">
                   <div className="grid grid-cols-2 gap-4">
                     <input
-                      placeholder="Recipient Name"
+                      placeholder="Name"
                       value={newAddress.name}
                       onChange={e => setNewAddress({ ...newAddress, name: e.target.value })}
                       className="input-field"
                     />
-                    <input
-                      placeholder="Phone Number"
-                      value={newAddress.phone}
-                      onChange={e => setNewAddress({ ...newAddress, phone: e.target.value })}
-                      className="input-field"
-                    />
+                    <div className="grid grid-cols-[140px_1fr] gap-2">
+                      <select
+                        value={countryCode}
+                        onChange={e => setCountryCode(e.target.value)}
+                        className="input-field"
+                      >
+                        {COUNTRY_CODES.map((item) => (
+                          <option key={item.code} value={item.code}>{item.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        placeholder="Phone Number"
+                        value={newAddress.phone}
+                        onChange={e => setNewAddress({ ...newAddress, phone: e.target.value })}
+                        className="input-field"
+                      />
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <input
@@ -246,17 +314,24 @@ export default function CheckoutPage() {
                     </button>
                     <button
                       onClick={() => {
+                        const cleanPhone = `${countryCode} ${String(newAddress.phone || '').replace(/^\+\d{1,4}\s*/, '').trim()}`;
                         const addr: Address = {
                           id: `a${Date.now()}`,
-                          name: newAddress.name || '',
-                          phone: newAddress.phone || '',
-                          province: newAddress.province || '',
-                          city: newAddress.city || '',
-                          district: newAddress.district || '',
-                          detail: newAddress.detail || '',
+                          name: String(newAddress.name || '').trim(),
+                          phone: cleanPhone.trim(),
+                          province: String(newAddress.province || '').trim(),
+                          city: String(newAddress.city || '').trim(),
+                          district: String(newAddress.district || '').trim(),
+                          detail: String(newAddress.detail || '').trim(),
                           isDefault: newAddress.isDefault || false,
                         };
+                        const error = validateAddress(addr);
+                        if (error) {
+                          setAddressError(error);
+                          return;
+                        }
                         setSelectedAddress(addr);
+                        setAddressError('');
                         setShowNewAddressForm(false);
                         setNewAddress({
                           name: '',
@@ -298,6 +373,11 @@ export default function CheckoutPage() {
                     <p className="text-gray-400 text-center py-8">No shipping address</p>
                   )}
                 </div>
+              )}
+              {addressError && (
+                <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+                  {addressError}
+                </p>
               )}
             </div>
 
@@ -353,7 +433,7 @@ export default function CheckoutPage() {
                 </div>
                 <button
                   onClick={handleConfirmOrder}
-                  disabled={!selectedAddress}
+                  disabled={!selectedAddress || Boolean(validateAddress(selectedAddress))}
                   className="w-full py-4 bg-gold text-background font-medium rounded-lg hover:bg-goldLight transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Confirm Order

@@ -190,6 +190,7 @@ interface AppContextType {
   logout: () => void;
   refreshUser: () => Promise<void>;
   createOrder: (address: Address, paymentMethod: PaymentMethod) => Order | null;
+  toggleFavorite: (productId: string) => Promise<void>;
   // SECURITY: Session check
   isSessionValid: () => boolean;
   // SECURITY: Horizontal privilege check
@@ -423,6 +424,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const toggleFavorite = async (productId: string) => {
+    if (!state.user) return;
+    const isFavorite = state.user.favorites.includes(productId);
+    const nextFavorites = isFavorite
+      ? state.user.favorites.filter((id) => id !== productId)
+      : [...state.user.favorites, productId];
+
+    dispatch({ type: 'TOGGLE_FAVORITE', productId });
+
+    try {
+      const response = await fetch('/api/user/favorites', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ favorites: nextFavorites }),
+      });
+      const data = await response.json().catch(() => null);
+      if (response.ok && data?.success && data.user) {
+        dispatch({ type: 'SET_USER', user: data.user });
+      }
+    } catch {
+      dispatch({ type: 'TOGGLE_FAVORITE', productId });
+    }
+  };
+
   // ============================================================================
   // SECURITY: Order Creation - Price Tampering Protection ONLY
   // ============================================================================
@@ -503,6 +528,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         refreshUser,
+        toggleFavorite,
         createOrder,
         isSessionValid,
         canAccessResource,
