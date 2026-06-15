@@ -67,6 +67,28 @@ function isProtectedPath(path: string): boolean {
   });
 }
 
+function isPublicPagePath(path: string): boolean {
+  return path === '/' ||
+    path === '/products' ||
+    path.startsWith('/product/');
+}
+
+function isSocialInAppOpen(request: NextRequest): boolean {
+  const origin = request.headers.get('origin') || '';
+  const referer = request.headers.get('referer') || '';
+  const ua = request.headers.get('user-agent') || '';
+  const source = `${origin} ${referer} ${ua}`.toLowerCase();
+
+  return [
+    'instagram.com',
+    'facebook.com',
+    'threads.net',
+    'fb_iab',
+    'fban',
+    'instagram',
+  ].some(marker => source.includes(marker));
+}
+
 // ============================================================================
 // In-Memory Stores
 // ============================================================================
@@ -1129,6 +1151,10 @@ export function middleware(request: NextRequest) {
   const ip = getClientIP(request);
   const path = request.nextUrl.pathname;
   const method = request.method;
+  const isSocialPublicPageOpen =
+    SAFE_METHODS.includes(method) &&
+    isPublicPagePath(path) &&
+    isSocialInAppOpen(request);
 
   // SECURITY: Block direct access to protected paths (config files, source maps, build output internals)
   // This prevents information disclosure and unauthorized access to sensitive files
@@ -1219,8 +1245,12 @@ export function middleware(request: NextRequest) {
 
   // 6. IP blocking check
   if (isIPBlocked(ip)) {
-    const block = blockedIPs[ip];
-    return NextResponse.json({ error: 'Forbidden', code: 'IP_BLOCKED', reason: block?.reason }, { status: 403 });
+    if (isSocialPublicPageOpen) {
+      delete blockedIPs[ip];
+    } else {
+      const block = blockedIPs[ip];
+      return NextResponse.json({ error: 'Forbidden', code: 'IP_BLOCKED', reason: block?.reason }, { status: 403 });
+    }
   }
 
   // 7. Request Header Audit (请求头严格审核)
@@ -1284,8 +1314,13 @@ export function middleware(request: NextRequest) {
   if (query) {
     const threat = detectThreat(query);
     if (threat.detected) {
+      if (isSocialPublicPageOpen) {
+        const cleanUrl = request.nextUrl.clone();
+        cleanUrl.search = '';
+        return NextResponse.redirect(cleanUrl);
+      }
+
       blockIP(ip, threat.type, 3600000);
-      
       return NextResponse.json({ error: 'Forbidden', code: threat.type }, { status: 403 });
     }
   }
@@ -1300,6 +1335,12 @@ export function middleware(request: NextRequest) {
   // Analyze full URL
   const urlThreat = detectThreat(fullUrl);
   if (urlThreat.detected) {
+    if (isSocialPublicPageOpen && query) {
+      const cleanUrl = request.nextUrl.clone();
+      cleanUrl.search = '';
+      return NextResponse.redirect(cleanUrl);
+    }
+
     blockIP(ip, urlThreat.type, 3600000);
     return NextResponse.json({ error: 'Forbidden', code: urlThreat.type }, { status: 403 });
   }
