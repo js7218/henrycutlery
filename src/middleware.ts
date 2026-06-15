@@ -175,6 +175,15 @@ const RATE_LIMITS = {
 };
 
 // ============================================================================
+// SAFE PATHS: never block or rate-limit these legitimate user actions
+// ============================================================================
+const SAFE_PATHS_FOR_CHECKOUT = [
+  '/api/order/create',
+  '/api/auth/session',
+  '/api/user/addresses',
+];
+
+// ============================================================================
 // CONFIG: DDoS Protection (Maximum)
 // ============================================================================
 const DDOS_CONFIG = {
@@ -1282,18 +1291,20 @@ export function middleware(request: NextRequest) {
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
 
-  // 5. DDoS Protection
-  const ddosCheck = checkDDoS(ip, request);
-  if (ddosCheck.detected) {
-    let blockDuration = DDOS_CONFIG.warningBlockMs;
-    if (ddosCheck.level === 'medium') blockDuration = DDOS_CONFIG.mediumBlockMs;
-    if (ddosCheck.level === 'severe') blockDuration = DDOS_CONFIG.severeBlockMs;
-    if (ddosCheck.level === 'critical') blockDuration = DDOS_CONFIG.criticalBlockMs;
-    blockIP(ip, ddosCheck.reason, blockDuration);
-    return NextResponse.json({
-      error: 'Too Many Requests', code: 'DDOS_DETECTED', reason: ddosCheck.reason,
-      retryAfter: Math.ceil(blockDuration / 1000),
-    }, { status: 429, headers: { 'Retry-After': String(Math.ceil(blockDuration / 1000)) } });
+  // 5. DDoS Protection (skip safe paths)
+  if (!SAFE_PATHS_FOR_CHECKOUT.some(p => path.includes(p))) {
+    const ddosCheck = checkDDoS(ip, request);
+    if (ddosCheck.detected) {
+      let blockDuration = DDOS_CONFIG.warningBlockMs;
+      if (ddosCheck.level === 'medium') blockDuration = DDOS_CONFIG.mediumBlockMs;
+      if (ddosCheck.level === 'severe') blockDuration = DDOS_CONFIG.severeBlockMs;
+      if (ddosCheck.level === 'critical') blockDuration = DDOS_CONFIG.criticalBlockMs;
+      blockIP(ip, ddosCheck.reason, blockDuration);
+      return NextResponse.json({
+        error: 'Too Many Requests', code: 'DDOS_DETECTED', reason: ddosCheck.reason,
+        retryAfter: Math.ceil(blockDuration / 1000),
+      }, { status: 429, headers: { 'Retry-After': String(Math.ceil(blockDuration / 1000)) } });
+    }
   }
 
   // 6. IP blocking check
@@ -1306,11 +1317,13 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 7. Request Header Audit (请求头严格审核)
-  const headerAudit = auditRequestHeaders(request, ip);
-  if (!headerAudit.passed) {
-    blockIP(ip, headerAudit.reason, 1800000);
-    return NextResponse.json({ error: 'Forbidden', code: headerAudit.reason }, { status: 403 });
+  // 7. Request Header Audit (skip safe paths)
+  if (!SAFE_PATHS_FOR_CHECKOUT.some(p => path.includes(p))) {
+    const headerAudit = auditRequestHeaders(request, ip);
+    if (!headerAudit.passed) {
+      blockIP(ip, headerAudit.reason, 1800000);
+      return NextResponse.json({ error: 'Forbidden', code: headerAudit.reason }, { status: 403 });
+    }
   }
 
   // 8. Brute Force Protection
@@ -1340,12 +1353,17 @@ export function middleware(request: NextRequest) {
 
   const rl = checkRateLimit(ip, limitType);
   if (!rl.allowed) {
-    if (limitType !== 'checkout' && limitType !== 'api') {
-      blockIP(ip, `Rate limit exceeded (${limitType})`, 300000);
+    // Never block safe checkout paths; just warn
+    if (SAFE_PATHS_FOR_CHECKOUT.some(p => path.includes(p))) {
+      console.warn(`[RateLimit] Safe path ${path} hit rate limit for IP ${ip}`);
+    } else {
+      if (limitType !== 'checkout' && limitType !== 'api') {
+        blockIP(ip, `Rate limit exceeded (${limitType})`, 300000);
+      }
+      return NextResponse.json({
+        error: 'Too Many Requests', code: 'RATE_LIMITED', retryAfter: 60,
+      }, { status: 429, headers: { 'Retry-After': '60', 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': String(Math.floor(rl.resetAt / 1000)) } });
     }
-    return NextResponse.json({
-      error: 'Too Many Requests', code: 'RATE_LIMITED', retryAfter: 60,
-    }, { status: 429, headers: { 'Retry-After': '60', 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': String(Math.floor(rl.resetAt / 1000)) } });
   }
 
   // 10. WAF Analysis

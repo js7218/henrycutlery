@@ -71,6 +71,7 @@ export default function CheckoutPage() {
   const [orderNumber, setOrderNumber] = useState('');
   const [copied, setCopied] = useState(false);
   const [addressError, setAddressError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [paymentError, setPaymentError] = useState('');
   const [countryCode, setCountryCode] = useState('+86');
   const lastPaymentAttemptRef = useRef(0);
@@ -141,6 +142,7 @@ export default function CheckoutPage() {
       return;
     }
     setAddressError('');
+    setFieldErrors({});
     setPaymentError('');
     setCurrentStep('payment');
   };
@@ -195,7 +197,13 @@ export default function CheckoutPage() {
         }
         const errorCode = result.code ? ` (${result.code})` : '';
         securityLogger.log('PRICE_TAMPERING_ATTEMPT', `Order API rejected: ${result.error || result.code || response.status}`);
-        setPaymentError(result.error ? `${result.error}${errorCode}` : `Order failed (Error ${response.status}). Please try again.`);
+        // If server returns a specific field error, surface it so the user knows what to fix.
+        if (result.field) {
+          setFieldErrors({ [result.field]: result.error || 'Invalid value' });
+          setAddressError(result.error || 'Please correct the highlighted field.');
+        } else {
+          setPaymentError(result.error ? `${result.error}${errorCode}` : `Order failed (Error ${response.status}). Please try again.`);
+        }
         setIsProcessing(false);
         return;
       }
@@ -266,12 +274,15 @@ export default function CheckoutPage() {
               {showNewAddressForm ? (
                 <div className="space-y-4 p-4 bg-surfaceLight rounded-lg">
                   <div className="grid grid-cols-2 gap-4">
-                    <input
-                      placeholder="Name"
-                      value={newAddress.name}
-                      onChange={e => setNewAddress({ ...newAddress, name: e.target.value })}
-                      className="input-field"
-                    />
+                    <div>
+                      <input
+                        placeholder="Name"
+                        value={newAddress.name}
+                        onChange={e => { setNewAddress({ ...newAddress, name: e.target.value }); setFieldErrors(prev => { const n = { ...prev }; delete n.name; return n; }); }}
+                        className={`input-field w-full ${fieldErrors.name ? 'border-red-500' : ''}`}
+                      />
+                      {fieldErrors.name && <p className="text-xs text-red-400 mt-1">{fieldErrors.name}</p>}
+                    </div>
                     <div className="grid grid-cols-[140px_1fr] gap-2">
                       <select
                         value={countryCode}
@@ -282,40 +293,55 @@ export default function CheckoutPage() {
                           <option key={item.code} value={item.code}>{item.label}</option>
                         ))}
                       </select>
-                      <input
-                        placeholder="Phone Number"
-                        value={newAddress.phone}
-                        onChange={e => setNewAddress({ ...newAddress, phone: e.target.value })}
-                        className="input-field"
-                      />
+                      <div>
+                        <input
+                          placeholder="Phone Number"
+                          value={newAddress.phone}
+                          onChange={e => { setNewAddress({ ...newAddress, phone: e.target.value }); setFieldErrors(prev => { const n = { ...prev }; delete n.phone; return n; }); }}
+                          className={`input-field w-full ${fieldErrors.phone ? 'border-red-500' : ''}`}
+                        />
+                        {fieldErrors.phone && <p className="text-xs text-red-400 mt-1">{fieldErrors.phone}</p>}
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
-                    <input
-                      placeholder="Province"
-                      value={newAddress.province}
-                      onChange={e => setNewAddress({ ...newAddress, province: e.target.value })}
-                      className="input-field"
-                    />
-                    <input
-                      placeholder="City"
-                      value={newAddress.city}
-                      onChange={e => setNewAddress({ ...newAddress, city: e.target.value })}
-                      className="input-field"
-                    />
-                    <input
-                      placeholder="District"
-                      value={newAddress.district}
-                      onChange={e => setNewAddress({ ...newAddress, district: e.target.value })}
-                      className="input-field"
-                    />
+                    <div>
+                      <input
+                        placeholder="Province"
+                        value={newAddress.province}
+                        onChange={e => { setNewAddress({ ...newAddress, province: e.target.value }); setFieldErrors(prev => { const n = { ...prev }; delete n.province; return n; }); }}
+                        className={`input-field w-full ${fieldErrors.province ? 'border-red-500' : ''}`}
+                      />
+                      {fieldErrors.province && <p className="text-xs text-red-400 mt-1">{fieldErrors.province}</p>}
+                    </div>
+                    <div>
+                      <input
+                        placeholder="City"
+                        value={newAddress.city}
+                        onChange={e => { setNewAddress({ ...newAddress, city: e.target.value }); setFieldErrors(prev => { const n = { ...prev }; delete n.city; return n; }); }}
+                        className={`input-field w-full ${fieldErrors.city ? 'border-red-500' : ''}`}
+                      />
+                      {fieldErrors.city && <p className="text-xs text-red-400 mt-1">{fieldErrors.city}</p>}
+                    </div>
+                    <div>
+                      <input
+                        placeholder="District"
+                        value={newAddress.district}
+                        onChange={e => { setNewAddress({ ...newAddress, district: e.target.value }); setFieldErrors(prev => { const n = { ...prev }; delete n.district; return n; }); }}
+                        className={`input-field w-full ${fieldErrors.district ? 'border-red-500' : ''}`}
+                      />
+                      {fieldErrors.district && <p className="text-xs text-red-400 mt-1">{fieldErrors.district}</p>}
+                    </div>
                   </div>
-                  <input
-                    placeholder="Detailed Address"
-                    value={newAddress.detail}
-                    onChange={e => setNewAddress({ ...newAddress, detail: e.target.value })}
-                    className="input-field"
-                  />
+                  <div>
+                    <input
+                      placeholder="Detailed Address"
+                      value={newAddress.detail}
+                      onChange={e => { setNewAddress({ ...newAddress, detail: e.target.value }); setFieldErrors(prev => { const n = { ...prev }; delete n.detail; return n; }); }}
+                      className={`input-field w-full ${fieldErrors.detail ? 'border-red-500' : ''}`}
+                    />
+                    {fieldErrors.detail && <p className="text-xs text-red-400 mt-1">{fieldErrors.detail}</p>}
+                  </div>
                   <div className="flex justify-end gap-4">
                     <button
                       onClick={() => setShowNewAddressForm(false)}

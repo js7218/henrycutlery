@@ -36,8 +36,19 @@ function validInternationalPhone(phone: string) {
   return /^\+[1-9]\d{0,3}\s?[0-9][0-9\s().-]{5,30}$/.test(phone);
 }
 
-function normalizeAddress(value: unknown) {
-  if (!value || typeof value !== 'object') return null;
+interface ValidatedAddress {
+  name: string;
+  phone: string;
+  province: string;
+  city: string;
+  district: string;
+  detail: string;
+}
+
+function validateAddressField(value: unknown): { valid: boolean; address: ValidatedAddress | null; error?: string; field?: string } {
+  if (!value || typeof value !== 'object') {
+    return { valid: false, address: null, error: 'Please provide a shipping address.', field: 'address' };
+  }
   const raw = value as Record<string, unknown>;
   const normalized = {
     name: cleanText(raw.name, 100),
@@ -48,13 +59,55 @@ function normalizeAddress(value: unknown) {
     detail: cleanText(raw.detail, 300),
   };
 
-  if (!validAddressPart(normalized.name, 2, 100)) return null;
-  if (!validInternationalPhone(normalized.phone)) return null;
-  if (!validAddressPart(normalized.province)) return null;
-  if (!validAddressPart(normalized.city)) return null;
-  if (!validAddressPart(normalized.district)) return null;
-  if (!validAddressPart(normalized.detail, 5, 300)) return null;
-  return normalized;
+  if (!normalized.name) {
+    return { valid: false, address: null, error: 'Name is required.', field: 'name' };
+  }
+  if (normalized.name.length < 2) {
+    return { valid: false, address: null, error: 'Name must be at least 2 characters.', field: 'name' };
+  }
+  if (normalized.name.length > 100) {
+    return { valid: false, address: null, error: 'Name is too long (max 100 characters).', field: 'name' };
+  }
+
+  if (!normalized.phone) {
+    return { valid: false, address: null, error: 'Phone number is required.', field: 'phone' };
+  }
+  if (!validInternationalPhone(normalized.phone)) {
+    return { valid: false, address: null, error: 'Phone number must include country code, e.g. +86 13800138000.', field: 'phone' };
+  }
+
+  if (!normalized.province) {
+    return { valid: false, address: null, error: 'Province/State is required.', field: 'province' };
+  }
+  if (!validAddressPart(normalized.province)) {
+    return { valid: false, address: null, error: 'Please enter a valid province/state (not "N/A", "province", etc.).', field: 'province' };
+  }
+
+  if (!normalized.city) {
+    return { valid: false, address: null, error: 'City is required.', field: 'city' };
+  }
+  if (!validAddressPart(normalized.city)) {
+    return { valid: false, address: null, error: 'Please enter a valid city (not "N/A", "city", etc.).', field: 'city' };
+  }
+
+  if (!normalized.district) {
+    return { valid: false, address: null, error: 'District/Area is required.', field: 'district' };
+  }
+  if (!validAddressPart(normalized.district)) {
+    return { valid: false, address: null, error: 'Please enter a valid district/area (not "N/A", "district", etc.).', field: 'district' };
+  }
+
+  if (!normalized.detail) {
+    return { valid: false, address: null, error: 'Detailed address is required.', field: 'detail' };
+  }
+  if (normalized.detail.length < 5) {
+    return { valid: false, address: null, error: 'Detailed address must be at least 5 characters.', field: 'detail' };
+  }
+  if (normalized.detail.length > 300) {
+    return { valid: false, address: null, error: 'Detailed address is too long (max 300 characters).', field: 'detail' };
+  }
+
+  return { valid: true, address: normalized };
 }
 
 // POST /api/order/create - Create order with server-side price verification
@@ -78,7 +131,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { items, paymentMethod } = body;
-    const address = normalizeAddress(body.address);
+    const addressValidation = validateAddressField(body.address);
 
     // SECURITY: Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0 || items.length > MAX_ORDER_ITEMS) {
@@ -88,12 +141,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!address) {
+    if (!addressValidation.valid || !addressValidation.address) {
       return NextResponse.json(
-        { error: 'Invalid shipping address', code: 'INVALID_ADDRESS' },
+        { error: addressValidation.error || 'Invalid shipping address', code: 'INVALID_ADDRESS', field: addressValidation.field },
         { status: 400 }
       );
     }
+    const address = addressValidation.address;
 
     if (!paymentMethod || !['wechat', 'alipay', 'card', 'bank_transfer'].includes(paymentMethod)) {
       return NextResponse.json(
