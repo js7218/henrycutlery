@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard, AlertCircle } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice, calculateShippingFee } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
@@ -71,6 +71,7 @@ export default function CheckoutPage() {
   const [orderNumber, setOrderNumber] = useState('');
   const [copied, setCopied] = useState(false);
   const [addressError, setAddressError] = useState('');
+  const [paymentError, setPaymentError] = useState('');
   const [countryCode, setCountryCode] = useState('+86');
   const lastPaymentAttemptRef = useRef(0);
 
@@ -140,6 +141,7 @@ export default function CheckoutPage() {
       return;
     }
     setAddressError('');
+    setPaymentError('');
     setCurrentStep('payment');
   };
 
@@ -158,6 +160,7 @@ export default function CheckoutPage() {
     }
 
     setIsProcessing(true);
+    setPaymentError('');
 
     try {
       // SECURITY: Call server-side API to create order
@@ -177,14 +180,21 @@ export default function CheckoutPage() {
         }),
       });
 
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch {
+        result = {};
+      }
 
       if (!response.ok || !result.success) {
         if (response.status === 401 || result.code === 'LOGIN_REQUIRED') {
           router.replace('/login?next=/checkout');
+          setIsProcessing(false);
           return;
         }
-        securityLogger.log('PRICE_TAMPERING_ATTEMPT', `Order API rejected: ${result.error || result.code}`);
+        securityLogger.log('PRICE_TAMPERING_ATTEMPT', `Order API rejected: ${result.error || result.code || response.status}`);
+        setPaymentError(result.error || `Order failed (Error ${response.status}). Please try again.`);
         setIsProcessing(false);
         return;
       }
@@ -192,16 +202,16 @@ export default function CheckoutPage() {
       // SECURITY: Use server-verified order data
       const serverOrder = result.order;
       setOrderNumber(serverOrder.orderNumber);
-      
+
       // Add order to local state using server-verified data
       dispatch({ type: 'ADD_ORDER', order: serverOrder });
       dispatch({ type: 'CLEAR_CART' });
-      
+
       securityLogger.log('ORDER_CREATED', `Server-verified order ${serverOrder.orderNumber}, total: ${result.serverTotal}`);
       setCurrentStep('complete');
     } catch (error) {
       securityLogger.log('ORDER_FAILED', 'Failed to create order via API');
-    } finally {
+      setPaymentError('Network error. Please check your connection and try again.');
       setIsProcessing(false);
     }
   };
@@ -491,6 +501,12 @@ export default function CheckoutPage() {
                 <p className="text-sm text-gray-400 mb-2">Total Amount</p>
                 <p className="text-3xl font-bold text-gold">{formatPrice(totalAmount)}</p>
               </div>
+              {paymentError && (
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{paymentError}</span>
+                </div>
+              )}
               <button
                 onClick={handlePayment}
                 disabled={isProcessing}
@@ -538,6 +554,25 @@ export default function CheckoutPage() {
               </button>
             </div>
             {copied && <p className="text-xs text-green-400 mt-2">Copied</p>}
+
+            {/* HSBC Payment Instructions */}
+            {paymentMethod === 'bank_transfer' && (
+              <div className="mt-6 text-left bg-red-500/5 border border-red-500/20 rounded-lg p-4">
+                <h3 className="text-red-400 font-semibold mb-3 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  HSBC Bank Transfer Details
+                </h3>
+                <div className="space-y-2 text-sm text-gray-300">
+                  <p><span className="text-gray-500">Account Name:</span> Adam Cutlery</p>
+                  <p><span className="text-gray-500">Account Number:</span> <span className="font-mono text-gold">147-6411161-838</span></p>
+                  <p><span className="text-gray-500">Bank:</span> HSBC</p>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">
+                  Please transfer the total amount to the above account. We will confirm your payment and arrange shipment within 24 hours.
+                </p>
+              </div>
+            )}
+
             <p className="text-sm text-gray-500 mt-4">
               We will ship your order as soon as possible. Please check email notifications.
             </p>

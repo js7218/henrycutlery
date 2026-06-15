@@ -126,9 +126,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // SECURITY: Validate quantity against business rules
       const moq = product.moq || 1;
-
-      // SECURITY: Quantity must be positive integer and meet product MOQ.
       if (quantity < moq || quantity > MAX_ITEM_QUANTITY || !Number.isInteger(quantity)) {
         return NextResponse.json(
           { error: `Invalid quantity for product ${productId}. MOQ is ${moq}.`, code: 'INVALID_QUANTITY' },

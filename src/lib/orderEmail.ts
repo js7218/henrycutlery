@@ -26,14 +26,15 @@ type OrderEmailPayload = {
 };
 
 function getOrderReceiverEmail() {
-  return process.env.ORDER_RECEIVER_EMAIL || '';
+  // Default to owner's email; env var can override for testing
+  return process.env.ORDER_RECEIVER_EMAIL || 'rjyy_88@qq.com';
 }
 
 function getPrivateBankDetails() {
   return {
-    accountName: process.env.BANK_ACCOUNT_NAME || '',
-    accountNumber: process.env.BANK_ACCOUNT_NUMBER || '',
-    bankName: process.env.BANK_NAME || '',
+    accountName: process.env.BANK_ACCOUNT_NAME || 'Adam Cutlery',
+    accountNumber: process.env.BANK_ACCOUNT_NUMBER || '147-6411161-838',
+    bankName: process.env.BANK_NAME || 'HSBC',
     bankAddress: process.env.BANK_ADDRESS || '',
   };
 }
