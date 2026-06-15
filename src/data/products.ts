@@ -120,12 +120,11 @@ export const products: Product[] = [
   // Benchmade
   {
     id: 'benchmade-001',
-    name: '945 Mini Osborne Ball Bearing',
+    name: 'OTF-Straight ahead',
     brand: 'Adam Cutlery',
-    price: 8.5,
-    originalPrice: 12,
+    price: 15.6,
     description: 'Black stonewashed D2 blade, black G10 handle, OTF slider lock mechanism',
-    longDescription: 'Blade material: black stonewashed D2\nHandle material: black G10\nMechanism: OTF slider lock\n\nPackage: with black box\nPrice: $8.50/pc\nMOQ: 600pcs',
+    longDescription: 'Blade material: black stonewashed D2\nHandle material: black G10\nMechanism: OTF slider lock\n\nPackage: with black box\nPrice: $15.60/pc\nMOQ: 600pcs',
     category: 'folding',
     images: [
       '/products/OTF.jpg',
