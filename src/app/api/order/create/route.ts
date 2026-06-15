@@ -36,6 +36,40 @@ function validInternationalPhone(phone: string) {
   return /^\+[1-9]\d{0,3}\s?[0-9][0-9\s().-]{5,30}$/.test(phone);
 }
 
+function hasObviousAttackPayload(value: string) {
+  return [
+    /<\s*script\b/i,
+    /javascript\s*:/i,
+    /\bon\w+\s*=/i,
+    /\bunion\s+select\b/i,
+    /\b(or|and)\s+1\s*=\s*1\b/i,
+    /'\s*(or|and)\s+'[^']*'='[^']*'/i,
+    /;\s*(drop|delete|truncate|alter|update|insert|exec|execute)\b/i,
+    /\b(sleep|benchmark|pg_sleep|waitfor)\s*\(/i,
+    /\b(information_schema|pg_catalog|mysql\.user)\b/i,
+    /(\.\.\/|\/etc\/passwd|cmd\.exe|powershell|base64_decode)/i,
+  ].some(pattern => pattern.test(value));
+}
+
+function looksLikeNormalAddress(address: ValidatedAddress) {
+  const combined = [
+    address.province,
+    address.city,
+    address.district,
+    address.detail,
+  ].join(' ');
+
+  if (hasObviousAttackPayload(combined)) return false;
+
+  const hasCjk = /[\u4e00-\u9fff]/.test(combined);
+  const hasStreetNumber = /\d/.test(combined);
+  const hasAddressWord = /\b(street|st|road|rd|avenue|ave|lane|ln|drive|dr|building|bldg|block|floor|room|suite|unit|village|town|county|district|city|province|state|guangdong|yangjiang|jiangcheng)\b/i.test(combined) ||
+    /(路|街|号|栋|楼|室|区|县|市|省|镇|村|巷|弄)/.test(combined);
+
+  // 快速本地判断：中文地址、带门牌号、或带常见地址词，都先按正常地址处理。
+  return hasCjk || hasStreetNumber || hasAddressWord;
+}
+
 interface ValidatedAddress {
   name: string;
   phone: string;
@@ -105,6 +139,15 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
   }
   if (normalized.detail.length > 300) {
     return { valid: false, address: null, error: 'Detailed address is too long (max 300 characters).', field: 'detail' };
+  }
+
+  if (!looksLikeNormalAddress(normalized)) {
+    return {
+      valid: false,
+      address: null,
+      error: 'Please enter a recognizable shipping address, including street/building/room number if available.',
+      field: 'detail',
+    };
   }
 
   return { valid: true, address: normalized };
