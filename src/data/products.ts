@@ -172,11 +172,11 @@ export const products: Product[] = [
   },
   {
     id: 'benchmade-003',
-    name: 'Classic Buck Ball Bearing Knife',
+    name: 'BUCK 110',
     brand: 'Adam Cutlery',
-    price: 13,
-    description: 'Classic style folding knife with premium materials. Price: $13/pc. MOQ: 600pcs.',
-    longDescription: 'Classic style folding knife collection. Traditional design with modern craftsmanship. Price: $13 per unit. MOQ: 600pcs.',
+    price: 25,
+    description: 'Classic style folding knife with premium materials. Price: $25/pc. MOQ: 600pcs.',
+    longDescription: 'Classic style folding knife collection. Traditional design with modern craftsmanship. Price: $25 per unit. MOQ: 600pcs.',
     category: 'folding',
     images: [
       '/images/buck.jpg',
