@@ -1056,6 +1056,15 @@ function validateCSRF(request: NextRequest): boolean {
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
   const host = request.headers.get('host') || '';
+  const fetchSite = request.headers.get('sec-fetch-site');
+
+  // Some mobile browsers / in-app browsers may omit Origin and Referer on
+  // same-site JSON fetches. Trust browser Fetch Metadata when it explicitly
+  // says the request is same-origin or same-site, while still rejecting
+  // cross-site requests below.
+  if (!origin && !referer && (fetchSite === 'same-origin' || fetchSite === 'same-site')) {
+    return true;
+  }
 
   if (origin) {
     const originHost = hostnameFromHeader(origin);

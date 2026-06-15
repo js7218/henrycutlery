@@ -193,8 +193,9 @@ export default function CheckoutPage() {
           setIsProcessing(false);
           return;
         }
+        const errorCode = result.code ? ` (${result.code})` : '';
         securityLogger.log('PRICE_TAMPERING_ATTEMPT', `Order API rejected: ${result.error || result.code || response.status}`);
-        setPaymentError(result.error || `Order failed (Error ${response.status}). Please try again.`);
+        setPaymentError(result.error ? `${result.error}${errorCode}` : `Order failed (Error ${response.status}). Please try again.`);
         setIsProcessing(false);
         return;
       }
