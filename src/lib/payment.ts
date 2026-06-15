@@ -3,7 +3,7 @@
  * Server-side amount calculation and signature verification
  */
 
-import { createHash, randomBytes } from 'crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 // Types
 export interface OrderItem {
@@ -27,8 +27,15 @@ export interface PaymentSignature {
 }
 
 // Configuration
-const PAYMENT_SIGN_SECRET = process.env.PAYMENT_SIGN_SECRET || 'default-sign-secret-change-in-production';
 const ORDER_EXPIRY_MS = 30 * 60 * 1000;
+
+function getPaymentSignSecret(): string {
+  const secret = process.env.PAYMENT_SIGN_SECRET || '';
+  if (!secret || secret.length < 32) {
+    throw new Error('PAYMENT_SIGN_SECRET must be configured with at least 32 characters.');
+  }
+  return secret;
+}
 
 // Mock prices
 const PRODUCT_PRICES: Record<string, number> = {
@@ -153,7 +160,7 @@ export function generatePaymentSignature(
       .map((item) => `${item.productId}:${item.quantity}:${item.unitPrice}:${item.subtotal}`),
   ].join('|');
 
-  return createHash('sha256').update(dataToSign + PAYMENT_SIGN_SECRET).digest('hex');
+  return createHmac('sha256', getPaymentSignSecret()).update(dataToSign).digest('hex');
 }
 
 /**
@@ -167,7 +174,9 @@ export function verifyPaymentSignature(
   signature: string
 ): boolean {
   const expected = generatePaymentSignature(orderId, amount, items, timestamp);
-  return signature === expected;
+  const left = Buffer.from(signature);
+  const right = Buffer.from(expected);
+  return left.length === right.length && timingSafeEqual(left, right);
 }
 
 /**

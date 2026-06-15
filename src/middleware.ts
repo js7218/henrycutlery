@@ -73,11 +73,49 @@ function isPublicPagePath(path: string): boolean {
     path.startsWith('/product/');
 }
 
+function hostnameFromHeader(value: string | null): string | null {
+  if (!value || value === 'null') return null;
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function hostWithoutPort(value: string): string {
+  return value.split(':')[0].toLowerCase();
+}
+
+function isAllowedRequestSource(value: string | null, host: string): boolean {
+  const hostname = hostnameFromHeader(value);
+  if (!hostname) return false;
+
+  const currentHost = hostWithoutPort(host);
+  const allowedExactHosts = new Set([
+    currentHost,
+    'adamcutlery.com',
+    'www.adamcutlery.com',
+    'localhost',
+    'instagram.com',
+    'www.instagram.com',
+    'facebook.com',
+    'www.facebook.com',
+    'threads.net',
+    'www.threads.net',
+  ]);
+
+  return allowedExactHosts.has(hostname) ||
+    hostname.endsWith('.instagram.com') ||
+    hostname.endsWith('.facebook.com') ||
+    hostname.endsWith('.threads.net') ||
+    hostname.endsWith('.vercel.app');
+}
+
 function isSocialInAppOpen(request: NextRequest): boolean {
-  const origin = request.headers.get('origin') || '';
-  const referer = request.headers.get('referer') || '';
+  const originHost = hostnameFromHeader(request.headers.get('origin')) || '';
+  const refererHost = hostnameFromHeader(request.headers.get('referer')) || '';
   const ua = request.headers.get('user-agent') || '';
-  const source = `${origin} ${referer} ${ua}`.toLowerCase();
+  const source = `${originHost} ${refererHost} ${ua}`.toLowerCase();
 
   return [
     'instagram.com',
@@ -175,8 +213,10 @@ const HUMAN_VERIFICATION = {
 };
 
 function isHumanVerified(request: NextRequest): boolean {
-  const verifiedUntil = Number(request.cookies.get('human_verified_until')?.value || '0');
-  return Number.isFinite(verifiedUntil) && verifiedUntil > Date.now();
+  // Client-created verification cookies are intentionally not trusted. This
+  // function only keeps the hook for future server-signed verification.
+  void request;
+  return false;
 }
 
 // Per-IP recent request timestamps (used to detect uniform-timing bots
@@ -704,7 +744,15 @@ const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HE
 // ============================================================================
 // CSRF Protected Paths
 // ============================================================================
-const CSRF_PROTECTED_PATHS = ['/api/checkout', '/api/profile', '/api/orders', '/api/cart', '/api/address'];
+const CSRF_PROTECTED_PATHS = [
+  '/api/auth/session',
+  '/api/order/create',
+  '/api/user/profile',
+  '/api/user/addresses',
+  '/api/user/data',
+  '/api/reviews',
+  '/api/admin/',
+];
 const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 
 // ============================================================================
@@ -712,12 +760,12 @@ const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 // ============================================================================
 
 function getClientIP(request: NextRequest): string {
-  const fwd = request.headers.get('x-forwarded-for');
-  if (fwd) return fwd.split(',')[0].trim();
-  const real = request.headers.get('x-real-ip');
-  if (real) return real;
   const cfIP = request.headers.get('cf-connecting-ip');
   if (cfIP) return cfIP;
+  const real = request.headers.get('x-real-ip');
+  if (real) return real;
+  const fwd = request.headers.get('x-forwarded-for');
+  if (fwd) return fwd.split(',')[0].trim();
   return 'unknown';
 }
 
@@ -945,21 +993,13 @@ function auditRequestHeaders(request: NextRequest, ip: string): { passed: boolea
 
   // 3. Origin validation for non-GET requests
   if (!SAFE_METHODS.includes(method)) {
-    const allowedOrigins = [
-      'adamcutlery.com', 'www.adamcutlery.com',
-      'vercel.app', 'localhost',
-      // Allow public page opens from Instagram / Meta in-app browsers and link shims.
-      'instagram.com', 'facebook.com', 'threads.net',
-    ];
     if (origin) {
-      const originValid = allowedOrigins.some(allowed => origin.includes(allowed));
-      if (!originValid) {
+      if (!isAllowedRequestSource(origin, host)) {
         return { passed: false, reason: 'INVALID_ORIGIN' };
       }
     }
     if (referer) {
-      const refererValid = allowedOrigins.some(allowed => referer.includes(allowed));
-      if (!refererValid) {
+      if (!isAllowedRequestSource(referer, host)) {
         return { passed: false, reason: 'INVALID_REFERER' };
       }
     }
@@ -1018,17 +1058,13 @@ function validateCSRF(request: NextRequest): boolean {
   const host = request.headers.get('host') || '';
 
   if (origin) {
-    try {
-      const originHost = new URL(origin).host;
-      if (originHost !== host) return false;
-    } catch { return false; }
+    const originHost = hostnameFromHeader(origin);
+    if (!originHost || originHost !== hostWithoutPort(host)) return false;
   }
 
   if (referer) {
-    try {
-      const refererHost = new URL(referer).host;
-      if (refererHost !== host) return false;
-    } catch { return false; }
+    const refererHost = hostnameFromHeader(referer);
+    if (!refererHost || refererHost !== hostWithoutPort(host)) return false;
   }
 
   if (!origin && !referer) return false;
@@ -1130,12 +1166,13 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'accelerometer=(), camera=(), microphone=(), geolocation=(), payment=(), display-capture=()');
+  response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
   response.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
   response.headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   response.headers.set('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://fonts.googleapis.com",
+    "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: https: blob:",
@@ -1205,12 +1242,6 @@ export function middleware(request: NextRequest) {
       // produce highly variable timing, so this only fires on automation.
       return addSecurityHeaders(withHumanChallengeCookie(NextResponse.next()));
     }
-  }
-
-  // Skip internal API routes from WAF (they have their own server-side validation)
-  const isInternalAPI = path.startsWith('/api/');
-  if (isInternalAPI) {
-    return addSecurityHeaders(NextResponse.next());
   }
 
   // 1. HTTP method validation
@@ -1401,6 +1432,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|eot)$).*)',
+    '/((?!_next/static|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|eot)$).*)',
   ],
 };

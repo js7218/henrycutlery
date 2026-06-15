@@ -13,6 +13,8 @@ const MAX_FAILURES = 5;
 const attempts = new Map<string, AttemptState>();
 
 export function getClientIp(request: Request): string {
+  const cfIp = request.headers.get('cf-connecting-ip');
+  if (cfIp) return cfIp;
   const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
   return (
     forwarded ||

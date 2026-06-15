@@ -3,11 +3,13 @@ import crypto from 'crypto';
 import { ensureDatabaseSchema, getPool, getUserById } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import { classifyReview } from '@/lib/reviewClassifier';
+import { products } from '@/data/products';
 
 export const dynamic = 'force-dynamic';
 
 const REVIEW_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const REVIEW_RATE_LIMIT_MAX = 3;
+const MAX_REVIEW_LENGTH = 2000;
 const reviewSubmissions = new Map<string, number[]>();
 
 function rateLimitKey(req: NextRequest, userId: string | null): string {
@@ -134,9 +136,21 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (!Number.isFinite(rating)) {
+    if (!products.some((product) => product.id === productId)) {
       return NextResponse.json(
-        { success: false, error: '评分必须是数字' },
+        { success: false, error: '商品不存在' },
+        { status: 400 }
+      );
+    }
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return NextResponse.json(
+        { success: false, error: '评分必须是 1-5 的整数' },
+        { status: 400 }
+      );
+    }
+    if (content.length < 3 || content.length > MAX_REVIEW_LENGTH) {
+      return NextResponse.json(
+        { success: false, error: '评论内容必须为 3-2000 个字符' },
         { status: 400 }
       );
     }
@@ -155,7 +169,7 @@ export async function POST(request: NextRequest) {
           dbUser.id,
           dbUser.name || dbUser.email.split('@')[0],
           rating,
-          content.slice(0, 2000),
+          content,
           classification.score,
           classification.reason,
           hashIp(request),

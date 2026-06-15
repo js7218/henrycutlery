@@ -4,7 +4,6 @@ import { createJWT, setAuthCookies } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool, getUserById } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { checkAuthAllowed, getClientIp, recordAuthFailure, resetAuthFailures } from '@/lib/authRateLimit';
-import { isAdminEmail } from '@/lib/adminEmails';
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
@@ -71,43 +70,15 @@ export async function POST(request: Request) {
         }
       }
 
-      const hasCustomerData =
-        Number(existingUser.address_count || 0) > 0 ||
-        Number(existingUser.order_count || 0) > 0 ||
-        Number(existingUser.favorite_count || 0) > 0;
-
-      if (!hasCustomerData) {
-        const passwordHash = await hashPassword(password);
-        await getPool().query(
-          `
-            UPDATE users
-            SET email = $1, name = $2, phone = $3, password_hash = $4, deleted_at = NULL, updated_at = NOW()
-            WHERE id = $5
-          `,
-          [email, name, phone, passwordHash, existingUser.id]
-        );
-
-        const dbUser = await getUserById(existingUser.id);
-        if (dbUser) {
-          const accessToken = createJWT({ userId: dbUser.id, email: dbUser.email, role: dbUser.role || 'user' });
-          const refreshToken = randomBytes(32).toString('hex');
-          await setAuthCookies(accessToken, refreshToken);
-          resetAuthFailures(rateKey);
-          const response = NextResponse.json({ success: true, user: dbUser });
-          response.headers.set('Cache-Control', 'no-store');
-          return response;
-        }
-      }
-
       return NextResponse.json(
-        { success: false, error: '这个邮箱已经注册过，请直接登录，避免覆盖真实客户资料' },
+        { success: false, error: '这个邮箱已经注册过，请直接登录或使用忘记密码功能' },
         { status: 409 }
       );
     }
 
     const userId = randomUUID();
     const passwordHash = await hashPassword(password);
-    const role = isAdminEmail(email) ? 'admin' : 'user';
+    const role = 'user';
 
     const result = await getPool().query(
       `
@@ -131,15 +102,9 @@ export async function POST(request: Request) {
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (err) {
-    // Surface the real backend reason so the registration page can show it
-    // instead of the generic "Registration failed" message.
-    const message =
-      err instanceof Error && err.message
-        ? `注册失败: ${err.message}`
-        : '注册失败，请稍后再试';
     console.error('[register] unhandled error', err);
     const response = NextResponse.json(
-      { success: false, error: message, code: 'REGISTER_ERROR' },
+      { success: false, error: '注册失败，请稍后再试', code: 'REGISTER_ERROR' },
       { status: 500 }
     );
     response.headers.set('Cache-Control', 'no-store');

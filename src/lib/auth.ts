@@ -4,13 +4,20 @@
  */
 
 import { cookies } from 'next/headers';
-import { createHash, randomBytes } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || randomBytes(32).toString('hex');
 // SECURITY: Access token lives 15 minutes. After 15 minutes of inactivity
 // the cookie expires and the user is forced to sign in again.
 const ACCESS_TOKEN_EXPIRY = 15 * 60;
 const REFRESH_TOKEN_EXPIRY = 15 * 60;
+
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET || '';
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET must be configured with at least 32 characters.');
+  }
+  return secret;
+}
 
 function base64URLEncode(str: string): string {
   return Buffer.from(str, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
@@ -22,11 +29,21 @@ function base64URLDecode(str: string): string {
   return Buffer.from(str, 'base64').toString('utf8');
 }
 
+function signJwtPart(value: string): string {
+  return createHmac('sha256', getJwtSecret()).update(value).digest('base64url');
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
 export function createJWT(payload: { userId: string; email: string; role: 'user' | 'admin' }): string {
   const header = base64URLEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const now = Math.floor(Date.now() / 1000);
   const fullPayload = base64URLEncode(JSON.stringify({ ...payload, iat: now, exp: now + ACCESS_TOKEN_EXPIRY }));
-  const signature = base64URLEncode(createHash('sha256').update(`${header}.${fullPayload}${JWT_SECRET}`).digest('hex'));
+  const signature = signJwtPart(`${header}.${fullPayload}`);
   return `${header}.${fullPayload}.${signature}`;
 }
 
@@ -35,8 +52,10 @@ export function verifyJWT(token: string): { userId: string; email: string; role:
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const [header, payload, signature] = parts;
-    const expectedSig = base64URLEncode(createHash('sha256').update(`${header}.${payload}${JWT_SECRET}`).digest('hex'));
-    if (signature !== expectedSig) return null;
+    const decodedHeader = JSON.parse(base64URLDecode(header));
+    if (decodedHeader.alg !== 'HS256' || decodedHeader.typ !== 'JWT') return null;
+    const expectedSig = signJwtPart(`${header}.${payload}`);
+    if (!safeEqual(signature, expectedSig)) return null;
     const decoded = JSON.parse(base64URLDecode(payload));
     if (decoded.exp < Math.floor(Date.now() / 1000)) return null;
     return { userId: decoded.userId, email: decoded.email, role: decoded.role };

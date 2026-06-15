@@ -137,9 +137,9 @@ export async function PATCH(request: Request) {
     }
 
     return NextResponse.json({ success: false, error: 'Invalid update action.' }, { status: 400 });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : 'Profile update failed.' },
+      { success: false, error: 'Profile update failed.' },
       { status: 500 }
     );
   }

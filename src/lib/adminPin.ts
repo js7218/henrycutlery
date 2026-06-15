@@ -5,7 +5,11 @@ const ADMIN_PIN_COOKIE = 'admin_panel_verified';
 const ADMIN_PIN_MAX_AGE_SECONDS = 30 * 60;
 
 function getSigningSecret() {
-  return `${process.env.JWT_SECRET || 'dev-secret'}:${getConfiguredAdminPin() || ''}`;
+  const secret = process.env.ADMIN_PIN_COOKIE_SECRET || process.env.JWT_SECRET || '';
+  if (!secret || secret.length < 32) {
+    throw new Error('ADMIN_PIN_COOKIE_SECRET or JWT_SECRET must be configured with at least 32 characters.');
+  }
+  return `${secret}:${getConfiguredAdminPin() || ''}`;
 }
 
 export function getConfiguredAdminPin() {

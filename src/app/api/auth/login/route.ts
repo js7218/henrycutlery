@@ -4,7 +4,6 @@ import { createJWT, setAuthCookies } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool, getUserById } from '@/lib/db';
 import { verifyPassword } from '@/lib/password';
 import { checkAuthAllowed, getClientIp, recordAuthFailure, resetAuthFailures } from '@/lib/authRateLimit';
-import { isAdminEmail } from '@/lib/adminEmails';
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
@@ -81,7 +80,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const role = userRow.role === 'admin' || isAdminEmail(userRow.email) ? 'admin' : 'user';
+    const role = userRow.role === 'admin' ? 'admin' : 'user';
     const accessToken = createJWT({ userId: userRow.id, email: userRow.email, role });
     const refreshToken = randomBytes(32).toString('hex');
     await setAuthCookies(accessToken, refreshToken);

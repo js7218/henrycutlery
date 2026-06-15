@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
+import { checkSensitiveAllowed, getClientIp, recordSensitiveFailure, resetSensitiveFailures } from '@/lib/sensitiveRateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,64 +21,65 @@ function hashToken(token: string): string {
 export async function POST(request: NextRequest) {
   try {
     await ensureDatabaseSchema();
+    const ip = getClientIp(request);
     const body = await request.json().catch(() => null);
     const token = String(body?.token || '').trim();
     const password = String(body?.password || '');
+    const limitKey = `reset-password:${ip}:${token ? hashToken(token).slice(0, 16) : 'missing'}`;
+    const allowed = checkSensitiveAllowed(limitKey);
+
+    if (!allowed.allowed) {
+      return NextResponse.json(
+        { success: false, error: '请求过于频繁，请稍后再试', retryAfterSeconds: allowed.retryAfterSeconds },
+        { status: 429 }
+      );
+    }
+
     if (!token || !password) {
+      recordSensitiveFailure(limitKey, { maxFailures: 8, windowMs: 15 * 60 * 1000, lockMs: 30 * 60 * 1000 });
       return NextResponse.json(
         { success: false, error: '缺少必要参数' },
         { status: 400 }
       );
     }
-    if (password.length < 8) {
+    if (password.length < 8 || password.length > 128) {
+      recordSensitiveFailure(limitKey, { maxFailures: 8, windowMs: 15 * 60 * 1000, lockMs: 30 * 60 * 1000 });
       return NextResponse.json(
-        { success: false, error: '密码至少 8 位' },
+        { success: false, error: '密码必须为 8-128 位' },
         { status: 400 }
       );
     }
 
     const tokenHash = hashToken(token);
-    const tokenResult = await getPool().query(
-      `SELECT id, user_id, expires_at, used_at
-         FROM password_resets
-        WHERE token_hash = $1
-        LIMIT 1`,
-      [tokenHash]
-    );
-    const tokenRow = tokenResult.rows[0];
-    if (!tokenRow) {
-      return NextResponse.json(
-        { success: false, error: '链接无效' },
-        { status: 400 }
-      );
-    }
-    if (tokenRow.used_at) {
-      return NextResponse.json(
-        { success: false, error: '链接已被使用' },
-        { status: 400 }
-      );
-    }
-    if (new Date(tokenRow.expires_at).getTime() < Date.now()) {
-      return NextResponse.json(
-        { success: false, error: '链接已过期，请重新申请' },
-        { status: 400 }
-      );
-    }
-
     const newHash = await hashPassword(password);
 
     const client = await getPool().connect();
     try {
       await client.query('BEGIN');
+      const tokenResult = await client.query(
+        `UPDATE password_resets
+            SET used_at = NOW()
+          WHERE token_hash = $1
+            AND used_at IS NULL
+            AND expires_at > NOW()
+          RETURNING user_id`,
+        [tokenHash]
+      );
+      const tokenRow = tokenResult.rows[0];
+      if (!tokenRow) {
+        await client.query('ROLLBACK');
+        recordSensitiveFailure(limitKey, { maxFailures: 8, windowMs: 15 * 60 * 1000, lockMs: 30 * 60 * 1000 });
+        return NextResponse.json(
+          { success: false, error: '链接无效或已过期' },
+          { status: 400 }
+        );
+      }
       await client.query(
         `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
         [newHash, tokenRow.user_id]
       );
-      await client.query(
-        `UPDATE password_resets SET used_at = NOW() WHERE id = $1`,
-        [tokenRow.id]
-      );
       await client.query('COMMIT');
+      resetSensitiveFailures(limitKey);
     } catch (txErr) {
       await client.query('ROLLBACK').catch(() => {});
       throw txErr;

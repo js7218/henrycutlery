@@ -298,8 +298,8 @@ export const AuthSecurity = {
     adminPaths: ['/hc-control-2026', '/api/admin'],
     // Strict role assignment - role is NEVER derived from user input
     roleAssignment: 'server_only',
-    // Admin email whitelist (only these can be admin)
-    adminEmails: ['admin@adamcutlery.com'],
+    // Admin users must be provisioned server-side or directly in the database.
+    adminEmails: [],
     // Block admin-like email registration
     blockedEmailPatterns: [
       'admin@', 'administrator@', 'root@', 'system@', 'superuser@',

@@ -14,9 +14,33 @@ import { sendOrderNotificationEmail } from '@/lib/orderEmail';
 import { getAuthUser } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 
+const MAX_ORDER_ITEMS = 50;
+const MAX_ITEM_QUANTITY = 99;
+
 // In production, this would be a database lookup
 function getProductById(productId: string) {
   return products.find(p => p.id === productId);
+}
+
+function cleanText(value: unknown, max: number) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+function normalizeAddress(value: unknown) {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  const normalized = {
+    name: cleanText(raw.name, 100),
+    phone: cleanText(raw.phone, 40),
+    province: cleanText(raw.province, 100),
+    city: cleanText(raw.city, 100),
+    district: cleanText(raw.district, 100),
+    detail: cleanText(raw.detail, 300),
+  };
+
+  if (!normalized.name || !normalized.phone || !normalized.detail) return null;
+  if (!/^[0-9+\-\s()]{6,40}$/.test(normalized.phone)) return null;
+  return normalized;
 }
 
 // POST /api/order/create - Create order with server-side price verification
@@ -39,17 +63,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { items, address, paymentMethod } = body;
+    const { items, paymentMethod } = body;
+    const address = normalizeAddress(body.address);
 
     // SECURITY: Validate required fields
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    if (!items || !Array.isArray(items) || items.length === 0 || items.length > MAX_ORDER_ITEMS) {
       return NextResponse.json(
         { error: 'Invalid order items', code: 'INVALID_ITEMS' },
         { status: 400 }
       );
     }
 
-    if (!address || !address.name || !address.phone || !address.detail) {
+    if (!address) {
       return NextResponse.json(
         { error: 'Invalid shipping address', code: 'INVALID_ADDRESS' },
         { status: 400 }
@@ -79,7 +104,7 @@ export async function POST(request: NextRequest) {
       }
 
       // SECURITY: Quantity must be positive integer
-      if (quantity <= 0 || !Number.isInteger(quantity)) {
+      if (quantity <= 0 || quantity > MAX_ITEM_QUANTITY || !Number.isInteger(quantity)) {
         return NextResponse.json(
           { error: `Invalid quantity for product ${productId}`, code: 'INVALID_QUANTITY' },
           { status: 400 }
@@ -177,7 +202,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      order,
+      order: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        createdAt: order.createdAt,
+      },
       // SECURITY: Return server-calculated total for client display
       serverTotal,
       emailStatus,
