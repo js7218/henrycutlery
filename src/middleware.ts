@@ -1214,6 +1214,7 @@ export function middleware(request: NextRequest) {
   const ip = getClientIP(request);
   const path = request.nextUrl.pathname;
   const method = request.method;
+  const isSafeCheckoutPath = SAFE_PATHS_FOR_CHECKOUT.some(p => path.includes(p));
   const isSocialPublicPageOpen =
     isPublicPagePath(path) &&
     isSocialInAppOpen(request);
@@ -1292,7 +1293,7 @@ export function middleware(request: NextRequest) {
   }
 
   // 5. DDoS Protection (skip safe paths)
-  if (!SAFE_PATHS_FOR_CHECKOUT.some(p => path.includes(p))) {
+  if (!isSafeCheckoutPath) {
     const ddosCheck = checkDDoS(ip, request);
     if (ddosCheck.detected) {
       let blockDuration = DDOS_CONFIG.warningBlockMs;
@@ -1318,7 +1319,7 @@ export function middleware(request: NextRequest) {
   }
 
   // 7. Request Header Audit (skip safe paths)
-  if (!SAFE_PATHS_FOR_CHECKOUT.some(p => path.includes(p))) {
+  if (!isSafeCheckoutPath) {
     const headerAudit = auditRequestHeaders(request, ip);
     if (!headerAudit.passed) {
       blockIP(ip, headerAudit.reason, 1800000);
@@ -1354,7 +1355,7 @@ export function middleware(request: NextRequest) {
   const rl = checkRateLimit(ip, limitType);
   if (!rl.allowed) {
     // Never block safe checkout paths; just warn
-    if (SAFE_PATHS_FOR_CHECKOUT.some(p => path.includes(p))) {
+    if (isSafeCheckoutPath) {
       console.warn(`[RateLimit] Safe path ${path} hit rate limit for IP ${ip}`);
     } else {
       if (limitType !== 'checkout' && limitType !== 'api') {
@@ -1398,24 +1399,28 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Analyze URL path
-  const pathThreat = detectThreat(path);
-  if (pathThreat.detected) {
-    blockIP(ip, pathThreat.type, 3600000);
-    return NextResponse.json({ error: 'Forbidden', code: pathThreat.type }, { status: 403 });
-  }
-
-  // Analyze full URL
-  const urlThreat = detectThreat(fullUrl);
-  if (urlThreat.detected) {
-    if (isSocialPublicPageOpen && query) {
-      const cleanUrl = request.nextUrl.clone();
-      cleanUrl.search = '';
-      return NextResponse.redirect(cleanUrl);
+  // 安全下单接口不要扫描路径本身，否则 /api/order/create 里的 create 会被误判成 SQL CREATE。
+  // 金额、MOQ、商品 ID、地址内容仍在订单 API 内做服务端校验和参数化 SQL 入库。
+  if (!isSafeCheckoutPath) {
+    // Analyze URL path
+    const pathThreat = detectThreat(path);
+    if (pathThreat.detected) {
+      blockIP(ip, pathThreat.type, 3600000);
+      return NextResponse.json({ error: 'Forbidden', code: pathThreat.type }, { status: 403 });
     }
 
-    blockIP(ip, urlThreat.type, 3600000);
-    return NextResponse.json({ error: 'Forbidden', code: urlThreat.type }, { status: 403 });
+    // Analyze full URL
+    const urlThreat = detectThreat(fullUrl);
+    if (urlThreat.detected) {
+      if (isSocialPublicPageOpen && query) {
+        const cleanUrl = request.nextUrl.clone();
+        cleanUrl.search = '';
+        return NextResponse.redirect(cleanUrl);
+      }
+
+      blockIP(ip, urlThreat.type, 3600000);
+      return NextResponse.json({ error: 'Forbidden', code: urlThreat.type }, { status: 403 });
+    }
   }
 
   // File Inclusion Detection
