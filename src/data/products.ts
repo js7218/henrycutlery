@@ -25,6 +25,7 @@ export const products: Product[] = [
     isNew: true,
     tags: ['test', 'checkout', 'order test'],
     moq: 1,
+    freeShipping: true,
   },
 
   // Titanium Alloy + Damascus folder (custom OEM)
