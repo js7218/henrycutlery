@@ -43,7 +43,7 @@ const CMD_BLACKLIST = [
 const DANGEROUS_CHARS = /[;'"`\|&$<>{}\[\]\(\)\*\?\^\~\!\#\%\@]/;
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const PHONE_REGEX = /^[0-9+\-\s()]{6,20}$/;
+const PHONE_REGEX = /^\+[1-9]\d{0,3}\s?[0-9][0-9\s().-]{5,30}$/;
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -51,6 +51,28 @@ const NAME_MIN_LENGTH = 2;
 const NAME_MAX_LENGTH = 50;
 const REGISTER_ATTEMPTS_KEY = 'register_attempts_v2';
 const OLD_REGISTER_ATTEMPTS_KEY = 'register_attempts';
+
+const COUNTRY_CODES = [
+  { code: '+86', label: 'China +86' },
+  { code: '+1', label: 'US/Canada +1' },
+  { code: '+44', label: 'UK +44' },
+  { code: '+61', label: 'Australia +61' },
+  { code: '+49', label: 'Germany +49' },
+  { code: '+33', label: 'France +33' },
+  { code: '+39', label: 'Italy +39' },
+  { code: '+34', label: 'Spain +34' },
+  { code: '+81', label: 'Japan +81' },
+  { code: '+82', label: 'Korea +82' },
+  { code: '+65', label: 'Singapore +65' },
+  { code: '+60', label: 'Malaysia +60' },
+  { code: '+66', label: 'Thailand +66' },
+  { code: '+971', label: 'UAE +971' },
+  { code: '+966', label: 'Saudi Arabia +966' },
+  { code: '+91', label: 'India +91' },
+  { code: '+52', label: 'Mexico +52' },
+  { code: '+55', label: 'Brazil +55' },
+  { code: '+27', label: 'South Africa +27' },
+];
 
 interface SecurityError {
   field: string;
@@ -190,11 +212,11 @@ function validateName(name: string): { valid: boolean; error?: string } {
 }
 
 function validatePhoneStrict(phone: string): { valid: boolean; error?: string } {
-  if (!phone) {
-    return { valid: true }; // Phone is optional
+  if (!phone || phone.trim() === '') {
+    return { valid: false, error: 'Phone number is required' };
   }
   if (!PHONE_REGEX.test(phone)) {
-    return { valid: false, error: 'Invalid phone number format' };
+    return { valid: false, error: 'Phone number must include country code, e.g. +86 13800138000' };
   }
   return { valid: true };
 }
@@ -375,6 +397,7 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+86');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -430,7 +453,8 @@ export default function RegisterPage() {
     // SECURITY: Sanitize all inputs
     const nameSanitized = sanitizeInput(name, 'name');
     const emailSanitized = sanitizeInput(email, 'email');
-    const phoneSanitized = sanitizeInput(phone, 'phone');
+    const fullPhone = `${countryCode} ${phone.replace(/^\+\d{1,4}\s*/, '').trim()}`;
+    const phoneSanitized = sanitizeInput(fullPhone, 'phone');
     const passwordSanitized = sanitizeInput(password, 'password');
     const confirmSanitized = sanitizeInput(confirmPassword, 'confirmPassword');
     
@@ -490,7 +514,7 @@ export default function RegisterPage() {
     }
     
     // SECURITY: Check for empty sanitized inputs
-    if (!cleanName || !cleanEmail || !cleanPassword) {
+    if (!cleanName || !cleanEmail || !cleanPhone || !cleanPassword) {
       setError('Please fill in all required fields');
       return;
     }
@@ -514,7 +538,7 @@ export default function RegisterPage() {
       setIsLoading(false);
       submittingRef.current = false;
     }
-  }, [name, email, phone, password, confirmPassword, agreeTerms, register, router, isLoading]);
+  }, [name, email, phone, countryCode, password, confirmPassword, agreeTerms, register, router, isLoading]);
 
   const formatCountdown = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -603,20 +627,34 @@ export default function RegisterPage() {
           {/* Phone */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Phone Number <span className="text-gray-500">(Optional)</span>
+              Phone Number <span className="text-red-400">*</span>
             </label>
-            <div className="relative">
-              <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="138****8888"
-                maxLength={20}
+            <div className="grid grid-cols-[150px_1fr] gap-2">
+              <select
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
                 disabled={isLocked || isLoading}
-                className="w-full pl-12 pr-4 py-3 bg-surfaceLight border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
-              />
+                className="w-full px-3 py-3 bg-surfaceLight border border-border rounded-lg text-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
+              >
+                {COUNTRY_CODES.map((item) => (
+                  <option key={item.code} value={item.code}>{item.label}</option>
+                ))}
+              </select>
+              <div className="relative">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="13800138000"
+                  maxLength={30}
+                  required
+                  disabled={isLocked || isLoading}
+                  className="w-full pl-12 pr-4 py-3 bg-surfaceLight border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
+                />
+              </div>
             </div>
+            <p className="text-xs text-gray-500 mt-1">Select country code first, then enter the local phone number.</p>
           </div>
 
           {/* Password */}

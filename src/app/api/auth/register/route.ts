@@ -13,6 +13,10 @@ function safeText(value: unknown, max = 120) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
+function isValidInternationalPhone(phone: string) {
+  return /^\+[1-9]\d{0,3}\s?[0-9][0-9\s().-]{5,30}$/.test(phone);
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -30,10 +34,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!name || !isValidEmail(email) || password.length < 8) {
+    if (!name || !isValidEmail(email) || !isValidInternationalPhone(phone) || password.length < 8) {
       recordAuthFailure(rateKey);
       return NextResponse.json(
-        { success: false, error: '注册信息不完整或格式不正确' },
+        { success: false, error: '注册信息不完整或格式不正确，请填写带国家区号的手机号' },
         { status: 400 }
       );
     }

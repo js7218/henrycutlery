@@ -186,7 +186,7 @@ interface AppContextType {
   cartTotal: number;
   cartCount: number;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string, phone?: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, email: string, password: string, phone: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   createOrder: (address: Address, paymentMethod: PaymentMethod) => Order | null;
@@ -364,7 +364,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ============================================================================
   // SECURITY: Register with Full Protection
   // ============================================================================
-  const register = async (name: string, email: string, password: string, phone?: string): Promise<{ success: boolean; error?: string }> => {
+  const register = async (name: string, email: string, password: string, phone: string): Promise<{ success: boolean; error?: string }> => {
     await new Promise((resolve) => setTimeout(resolve, 80));
 
     const normalizedEmail = email.toLowerCase().trim();
