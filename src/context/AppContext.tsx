@@ -280,6 +280,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .then((data) => {
         if (!cancelled && data?.success && data.user) {
           dispatch({ type: 'SET_USER', user: data.user });
+          dispatch({ type: 'SET_ORDERS', orders: data.user.orders || [] });
         }
       })
       .catch(() => {});
@@ -351,6 +352,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!data?.success || !data.user) return false;
 
       dispatch({ type: 'SET_USER', user: data.user });
+      dispatch({ type: 'SET_ORDERS', orders: data.user.orders || [] });
       securityLogger.log('LOGIN_SUCCESS', `User logged in: ${data.user.email}`, { userId: data.user.id, isAdmin: data.user.role === 'admin' });
       return true;
     } catch {
@@ -398,6 +400,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       dispatch({ type: 'SET_USER', user: data.user });
+      dispatch({ type: 'SET_ORDERS', orders: data.user.orders || [] });
       securityLogger.log('REGISTER_SUCCESS', `User registered: ${normalizedEmail}`, { userId: data.user.id });
       return { success: true };
     } catch {
@@ -421,6 +424,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const data = await response.json().catch(() => null);
     if (response.ok && data?.success && data.user) {
       dispatch({ type: 'SET_USER', user: data.user });
+      dispatch({ type: 'SET_ORDERS', orders: data.user.orders || [] });
     }
   };
 
