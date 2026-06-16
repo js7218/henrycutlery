@@ -155,10 +155,25 @@ interface DDoSEntry {
   lockDate: string | null;
 }
 
+interface BlockEntry {
+  expiresAt: number;
+  reason: string;
+  lockDate: string | null;
+  level?: number;
+  blockedHits?: number;
+}
+
+interface ProgressiveWafEntry {
+  count: number;
+  firstSeen: number;
+  level: number;
+}
+
 const requestCounts: Record<string, RateLimitEntry> = {};
-const blockedIPs: Record<string, { expiresAt: number; reason: string; lockDate: string | null }> = {};
+const blockedIPs: Record<string, BlockEntry> = {};
 const bruteForceStore: Record<string, BruteForceEntry> = {};
 const connectionTracker: Record<string, DDoSEntry> = {};
+const progressiveWafHits: Record<string, ProgressiveWafEntry> = {};
 
 // ============================================================================
 // CONFIG: Rate Limits (Tiered)
@@ -172,6 +187,18 @@ const RATE_LIMITS = {
   checkout: { windowMs: 60000, maxRequests: 60 },
   upload: { windowMs: 60000, maxRequests: 5 },
   download: { windowMs: 60000, maxRequests: 20 },
+};
+
+const PROGRESSIVE_WAF_BLOCK = {
+  threshold: 5,
+  windowMs: 30 * 60 * 1000,
+  blockedHitUpgradeThreshold: 5,
+  durations: [
+    30 * 60 * 1000,
+    60 * 60 * 1000,
+    3 * 60 * 60 * 1000,
+    6 * 60 * 60 * 1000,
+  ],
 };
 
 // ============================================================================
@@ -807,7 +834,71 @@ function checkRateLimit(ip: string, limitType: keyof typeof RATE_LIMITS):
 
 function blockIP(ip: string, reason: string, durationMs: number): void {
   const today = new Date().toISOString().split('T')[0];
-  blockedIPs[ip] = { expiresAt: Date.now() + durationMs, reason, lockDate: today };
+  blockedIPs[ip] = { expiresAt: Date.now() + durationMs, reason, lockDate: today, level: 0, blockedHits: 0 };
+}
+
+function normalizeWafPath(path: string): string {
+  return path.toLowerCase().replace(/\/{2,}/g, '/').slice(0, 160);
+}
+
+function progressiveBlockDuration(level: number): number {
+  const durations = PROGRESSIVE_WAF_BLOCK.durations;
+  return durations[Math.min(level, durations.length - 1)];
+}
+
+function blockIPProgressively(ip: string, reason: string, level: number): void {
+  const today = new Date().toISOString().split('T')[0];
+  const normalizedLevel = Math.min(Math.max(level, 0), PROGRESSIVE_WAF_BLOCK.durations.length - 1);
+  blockedIPs[ip] = {
+    expiresAt: Date.now() + progressiveBlockDuration(normalizedLevel),
+    reason,
+    lockDate: today,
+    level: normalizedLevel,
+    blockedHits: 0,
+  };
+}
+
+function recordProgressiveWafHit(ip: string, path: string, reason: string): boolean {
+  const now = Date.now();
+  const key = `${ip}:${normalizeWafPath(path)}:${reason}`;
+  const entry = progressiveWafHits[key];
+
+  if (!entry || now - entry.firstSeen > PROGRESSIVE_WAF_BLOCK.windowMs) {
+    progressiveWafHits[key] = { count: 1, firstSeen: now, level: entry?.level || 0 };
+    return false;
+  }
+
+  entry.count += 1;
+  if (entry.count < PROGRESSIVE_WAF_BLOCK.threshold) return false;
+
+  blockIPProgressively(ip, reason, entry.level);
+  entry.count = 0;
+  entry.firstSeen = now;
+  entry.level = Math.min(entry.level + 1, PROGRESSIVE_WAF_BLOCK.durations.length - 1);
+  return true;
+}
+
+function recordBlockedIPHit(ip: string): void {
+  const block = blockedIPs[ip];
+  if (!block) return;
+
+  block.blockedHits = (block.blockedHits || 0) + 1;
+  if (block.blockedHits < PROGRESSIVE_WAF_BLOCK.blockedHitUpgradeThreshold) return;
+
+  const nextLevel = Math.min((block.level || 0) + 1, PROGRESSIVE_WAF_BLOCK.durations.length - 1);
+  blockIPProgressively(ip, block.reason, nextLevel);
+}
+
+function progressiveWafBlockResponse(ip: string, path: string, reason: string): NextResponse | null {
+  const blocked = recordProgressiveWafHit(ip, path, reason);
+  if (!blocked) return null;
+
+  const block = blockedIPs[ip];
+  const retryAfter = block ? Math.ceil((block.expiresAt - Date.now()) / 1000) : 1800;
+  return NextResponse.json(
+    { error: 'Forbidden', code: 'IP_BLOCKED', reason, retryAfter },
+    { status: 403, headers: { 'Retry-After': String(retryAfter) } }
+  );
 }
 
 function isIPBlocked(ip: string): boolean {
@@ -1222,6 +1313,8 @@ export function middleware(request: NextRequest) {
   // SECURITY: Block direct access to protected paths (config files, source maps, build output internals)
   // This prevents information disclosure and unauthorized access to sensitive files
   if (isProtectedPath(path)) {
+    const progressiveBlock = progressiveWafBlockResponse(ip, path, 'PROTECTED_PATH');
+    if (progressiveBlock) return progressiveBlock;
     return NextResponse.json(
       { error: 'Forbidden', code: 'PROTECTED_PATH' },
       { status: 403 }
@@ -1231,6 +1324,8 @@ export function middleware(request: NextRequest) {
   if (path.startsWith('/_next/image')) {
     const imageUrl = request.nextUrl.searchParams.get('url');
     if (isUnsafeImageOptimizerUrl(imageUrl)) {
+      const progressiveBlock = progressiveWafBlockResponse(ip, path, 'SSRF_BLOCKED');
+      if (progressiveBlock) return progressiveBlock;
       return NextResponse.json(
         { error: 'Forbidden', code: 'SSRF_BLOCKED' },
         { status: 403 }
@@ -1276,16 +1371,22 @@ export function middleware(request: NextRequest) {
 
   // 2. Sensitive paths → 404
   if (isSensitivePath(path)) {
+    const progressiveBlock = progressiveWafBlockResponse(ip, path, 'SENSITIVE_PATH');
+    if (progressiveBlock) return progressiveBlock;
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
 
   // 3. Block dotfile access
   if (/^\/\.[^/]/.test(path)) {
+    const progressiveBlock = progressiveWafBlockResponse(ip, path, 'DOTFILE_ACCESS');
+    if (progressiveBlock) return progressiveBlock;
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
 
   // 4. Malicious file download prevention
   if (isMaliciousDownload(path)) {
+    const progressiveBlock = progressiveWafBlockResponse(ip, path, 'MALICIOUS_DOWNLOAD');
+    if (progressiveBlock) return progressiveBlock;
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
 
@@ -1311,7 +1412,13 @@ export function middleware(request: NextRequest) {
       delete blockedIPs[ip];
     } else {
       const block = blockedIPs[ip];
-      return NextResponse.json({ error: 'Forbidden', code: 'IP_BLOCKED', reason: block?.reason }, { status: 403 });
+      recordBlockedIPHit(ip);
+      const updatedBlock = blockedIPs[ip] || block;
+      const retryAfter = updatedBlock ? Math.ceil((updatedBlock.expiresAt - Date.now()) / 1000) : undefined;
+      return NextResponse.json(
+        { error: 'Forbidden', code: 'IP_BLOCKED', reason: updatedBlock?.reason, retryAfter },
+        { status: 403, headers: retryAfter ? { 'Retry-After': String(retryAfter) } : undefined }
+      );
     }
   }
 
@@ -1319,6 +1426,8 @@ export function middleware(request: NextRequest) {
   if (!isSafeCheckoutPath) {
     const headerAudit = auditRequestHeaders(request, ip);
     if (!headerAudit.passed) {
+      const progressiveBlock = progressiveWafBlockResponse(ip, path, headerAudit.reason);
+      if (progressiveBlock) return progressiveBlock;
       return NextResponse.json({ error: 'Forbidden', code: headerAudit.reason }, { status: 403 });
     }
   }
@@ -1370,11 +1479,15 @@ export function middleware(request: NextRequest) {
 
   // Honeypot paths
   if (isHoneypotPath(path)) {
+    const progressiveBlock = progressiveWafBlockResponse(ip, path, 'HONEYPOT_PATH');
+    if (progressiveBlock) return progressiveBlock;
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
 
   // Blocked User-Agent
   if (isBlockedUA(ua)) {
+    const progressiveBlock = progressiveWafBlockResponse(ip, path, 'BLOCKED_UA');
+    if (progressiveBlock) return progressiveBlock;
     return NextResponse.json({ error: 'Forbidden', code: 'BLOCKED_UA' }, { status: 403 });
   }
 
@@ -1388,6 +1501,8 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(cleanUrl);
       }
 
+      const progressiveBlock = progressiveWafBlockResponse(ip, path, threat.type);
+      if (progressiveBlock) return progressiveBlock;
       return NextResponse.json({ error: 'Forbidden', code: threat.type }, { status: 403 });
     }
   }
@@ -1398,6 +1513,8 @@ export function middleware(request: NextRequest) {
     // Analyze URL path
     const pathThreat = detectThreat(path);
     if (pathThreat.detected) {
+      const progressiveBlock = progressiveWafBlockResponse(ip, path, pathThreat.type);
+      if (progressiveBlock) return progressiveBlock;
       return NextResponse.json({ error: 'Forbidden', code: pathThreat.type }, { status: 403 });
     }
 
@@ -1410,6 +1527,8 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(cleanUrl);
       }
 
+      const progressiveBlock = progressiveWafBlockResponse(ip, path, urlThreat.type);
+      if (progressiveBlock) return progressiveBlock;
       return NextResponse.json({ error: 'Forbidden', code: urlThreat.type }, { status: 403 });
     }
   }
@@ -1417,6 +1536,8 @@ export function middleware(request: NextRequest) {
   // File Inclusion Detection
   const fileInclusion = detectFileInclusion(fullUrl);
   if (fileInclusion.detected) {
+    const progressiveBlock = progressiveWafBlockResponse(ip, path, fileInclusion.type);
+    if (progressiveBlock) return progressiveBlock;
     return NextResponse.json({ error: 'Forbidden', code: fileInclusion.type }, { status: 403 });
   }
 
@@ -1431,12 +1552,16 @@ export function middleware(request: NextRequest) {
     if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
       const bodyThreat = detectThreat(request.nextUrl.searchParams.toString());
       if (bodyThreat.detected) {
+        const progressiveBlock = progressiveWafBlockResponse(ip, path, bodyThreat.type);
+        if (progressiveBlock) return progressiveBlock;
         return NextResponse.json({ error: 'Forbidden', code: bodyThreat.type }, { status: 403 });
       }
       // SECURITY: File upload extension check (only on upload paths)
       if (path.includes('/upload')) {
         const fileExtThreat = detectMaliciousFileExtension(request.nextUrl.searchParams.toString());
         if (fileExtThreat.detected) {
+          const progressiveBlock = progressiveWafBlockResponse(ip, path, fileExtThreat.type);
+          if (progressiveBlock) return progressiveBlock;
           return NextResponse.json({ error: 'Forbidden', code: fileExtThreat.type }, { status: 403 });
         }
       }
