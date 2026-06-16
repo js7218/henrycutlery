@@ -1276,19 +1276,16 @@ export function middleware(request: NextRequest) {
 
   // 2. Sensitive paths → 404
   if (isSensitivePath(path)) {
-    blockIP(ip, 'Sensitive path access', 3600000);
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
 
   // 3. Block dotfile access
   if (/^\/\.[^/]/.test(path)) {
-    blockIP(ip, 'Dotfile access', 3600000);
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
 
   // 4. Malicious file download prevention
   if (isMaliciousDownload(path)) {
-    blockIP(ip, 'Malicious download attempt', 3600000);
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
 
@@ -1322,7 +1319,6 @@ export function middleware(request: NextRequest) {
   if (!isSafeCheckoutPath) {
     const headerAudit = auditRequestHeaders(request, ip);
     if (!headerAudit.passed) {
-      blockIP(ip, headerAudit.reason, 1800000);
       return NextResponse.json({ error: 'Forbidden', code: headerAudit.reason }, { status: 403 });
     }
   }
@@ -1374,13 +1370,11 @@ export function middleware(request: NextRequest) {
 
   // Honeypot paths
   if (isHoneypotPath(path)) {
-    blockIP(ip, 'Honeypot path accessed', 1800000);
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
 
   // Blocked User-Agent
   if (isBlockedUA(ua)) {
-    blockIP(ip, 'Malicious User-Agent', 1800000);
     return NextResponse.json({ error: 'Forbidden', code: 'BLOCKED_UA' }, { status: 403 });
   }
 
@@ -1394,7 +1388,6 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(cleanUrl);
       }
 
-      blockIP(ip, threat.type, 3600000);
       return NextResponse.json({ error: 'Forbidden', code: threat.type }, { status: 403 });
     }
   }
@@ -1405,7 +1398,6 @@ export function middleware(request: NextRequest) {
     // Analyze URL path
     const pathThreat = detectThreat(path);
     if (pathThreat.detected) {
-      blockIP(ip, pathThreat.type, 3600000);
       return NextResponse.json({ error: 'Forbidden', code: pathThreat.type }, { status: 403 });
     }
 
@@ -1418,7 +1410,6 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(cleanUrl);
       }
 
-      blockIP(ip, urlThreat.type, 3600000);
       return NextResponse.json({ error: 'Forbidden', code: urlThreat.type }, { status: 403 });
     }
   }
@@ -1426,8 +1417,6 @@ export function middleware(request: NextRequest) {
   // File Inclusion Detection
   const fileInclusion = detectFileInclusion(fullUrl);
   if (fileInclusion.detected) {
-    blockIP(ip, fileInclusion.type, 3600000);
-    
     return NextResponse.json({ error: 'Forbidden', code: fileInclusion.type }, { status: 403 });
   }
 
@@ -1442,14 +1431,12 @@ export function middleware(request: NextRequest) {
     if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
       const bodyThreat = detectThreat(request.nextUrl.searchParams.toString());
       if (bodyThreat.detected) {
-        blockIP(ip, bodyThreat.type, 3600000);
         return NextResponse.json({ error: 'Forbidden', code: bodyThreat.type }, { status: 403 });
       }
       // SECURITY: File upload extension check (only on upload paths)
       if (path.includes('/upload')) {
         const fileExtThreat = detectMaliciousFileExtension(request.nextUrl.searchParams.toString());
         if (fileExtThreat.detected) {
-          blockIP(ip, fileExtThreat.type, 3600000);
           return NextResponse.json({ error: 'Forbidden', code: fileExtThreat.type }, { status: 403 });
         }
       }
