@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { products } from '@/data/products';
 import { generateOrderNumber } from '@/lib/utils';
 import { findUnsafeUrl } from '@/lib/ssrfProtection';
@@ -77,6 +78,62 @@ interface ValidatedAddress {
   city: string;
   district: string;
   detail: string;
+}
+
+async function saveAddressForUser(userId: string, address: ValidatedAddress) {
+  const db = getPool();
+  const existing = await db.query(
+    `
+      SELECT id
+      FROM addresses
+      WHERE user_id = $1
+        AND name = $2
+        AND phone = $3
+        AND province = $4
+        AND city = $5
+        AND district = $6
+        AND detail = $7
+      LIMIT 1
+    `,
+    [
+      userId,
+      address.name,
+      address.phone,
+      address.province,
+      address.city,
+      address.district,
+      address.detail,
+    ]
+  );
+
+  if (existing.rowCount) return;
+
+  const countResult = await db.query(
+    'SELECT COUNT(*)::int AS count FROM addresses WHERE user_id = $1',
+    [userId]
+  );
+  const addressCount = Number(countResult.rows[0]?.count || 0);
+  if (addressCount >= 20) return;
+
+  await db.query(
+    `
+      INSERT INTO addresses (
+        id, user_id, name, phone, province, city, district, detail, is_default, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+    `,
+    [
+      randomUUID(),
+      userId,
+      address.name,
+      address.phone,
+      address.province,
+      address.city,
+      address.district,
+      address.detail,
+      addressCount === 0,
+    ]
+  );
 }
 
 function validateAddressField(value: unknown): { valid: boolean; address: ValidatedAddress | null; error?: string; field?: string } {
@@ -304,6 +361,8 @@ export async function POST(request: NextRequest) {
           order.updatedAt,
         ]
       );
+
+      await saveAddressForUser(authUser.id, address);
     } catch {
       return NextResponse.json(
         { error: 'Failed to save order', code: 'ORDER_SAVE_FAILED' },
