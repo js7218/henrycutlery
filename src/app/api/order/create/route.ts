@@ -141,6 +141,16 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
     return { valid: false, address: null, error: 'Detailed address is too long (max 300 characters).', field: 'detail' };
   }
 
+  const addressText = [normalized.province, normalized.city, normalized.district, normalized.detail].join(' ');
+  if (hasObviousAttackPayload(addressText)) {
+    return {
+      valid: false,
+      address: null,
+      error: 'Address contains unsafe content. Please remove suspicious code or SQL keywords.',
+      field: 'detail',
+    };
+  }
+
   if (!looksLikeNormalAddress(normalized)) {
     return {
       valid: false,
