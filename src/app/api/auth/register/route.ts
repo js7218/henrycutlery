@@ -34,10 +34,24 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!name || !isValidEmail(email) || !isValidInternationalPhone(phone) || password.length < 8) {
+    if (!name || !isValidEmail(email) || !isValidInternationalPhone(phone) || password.length < 12) {
       recordAuthFailure(rateKey);
       return NextResponse.json(
-        { success: false, error: '注册信息不完整或格式不正确，请填写带国家区号的手机号' },
+        { success: false, error: '注册信息不完整或格式不正确，密码至少12位且包含大小写字母、数字和特殊字符' },
+        { status: 400 }
+      );
+    }
+
+    // Server-side password strength validation (must match client-side rules)
+    const hasLower = /[a-z]/.test(password);
+    const hasUpper = /[A-Z]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    const weakPasswords = ['12345678', 'password', 'qwerty', 'admin123', 'letmein', '123456789', 'abc123', 'password1'];
+    if (!hasLower || !hasUpper || !hasDigit || !hasSpecial || weakPasswords.includes(password.toLowerCase())) {
+      recordAuthFailure(rateKey);
+      return NextResponse.json(
+        { success: false, error: '密码强度不足，请使用至少12位包含大小写字母、数字和特殊字符的组合' },
         { status: 400 }
       );
     }
@@ -75,7 +89,7 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json(
-        { success: false, error: '这个邮箱已经注册过，请直接登录或使用忘记密码功能' },
+        { success: false, error: '注册失败，请检查输入信息或稍后重试' },
         { status: 409 }
       );
     }

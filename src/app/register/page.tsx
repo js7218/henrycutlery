@@ -45,7 +45,7 @@ const DANGEROUS_CHARS = /[;'"`\|&$<>{}\[\]\(\)\*\?\^\~\!\#\%\@]/;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const PHONE_REGEX = /^\+[1-9]\d{0,3}\s?[0-9][0-9\s().-]{5,30}$/;
 
-const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 128;
 const NAME_MIN_LENGTH = 2;
 const NAME_MAX_LENGTH = 50;

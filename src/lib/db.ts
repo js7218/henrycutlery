@@ -185,6 +185,44 @@ async function runSchemaMigration(): Promise<void> {
       await db.query(`CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON password_resets(user_id);`);
       await db.query(`CREATE INDEX IF NOT EXISTS password_resets_expires_idx ON password_resets(expires_at);`);
 
+      // Phone/email verification codes for login. 1-minute expiry, single-use.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS verification_codes (
+          id TEXT PRIMARY KEY,
+          user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+          email TEXT,
+          phone TEXT,
+          code_hash TEXT NOT NULL,
+          purpose TEXT NOT NULL DEFAULT 'login',
+          expires_at TIMESTAMPTZ NOT NULL,
+          used_at TIMESTAMPTZ,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          ip TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS verification_codes_email_idx ON verification_codes(email) WHERE used_at IS NULL;`);
+      await db.query(`CREATE INDEX IF NOT EXISTS verification_codes_phone_idx ON verification_codes(phone) WHERE used_at IS NULL;`);
+      await db.query(`CREATE INDEX IF NOT EXISTS verification_codes_expires_idx ON verification_codes(expires_at);`);
+
+      // Login history for multi-device detection and security alerts
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS login_history (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          ip TEXT NOT NULL DEFAULT '',
+          user_agent TEXT NOT NULL DEFAULT '',
+          country TEXT NOT NULL DEFAULT '',
+          city TEXT NOT NULL DEFAULT '',
+          login_method TEXT NOT NULL DEFAULT 'password',
+          is_new_device BOOLEAN NOT NULL DEFAULT FALSE,
+          alert_sent BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS login_history_user_id_idx ON login_history(user_id);`);
+      await db.query(`CREATE INDEX IF NOT EXISTS login_history_created_idx ON login_history(created_at);`);
+
       // Product reviews with moderation flow. All reviews start as "pending"
       // and only become visible to other customers after admin approval, or
       // after the auto-classifier marks them as clearly safe.

@@ -186,6 +186,8 @@ interface AppContextType {
   cartTotal: number;
   cartCount: number;
   login: (email: string, password: string) => Promise<boolean>;
+  loginWithCode: (type: 'email' | 'phone', identifier: string, code: string) => Promise<boolean>;
+  sendVerificationCode: (type: 'email' | 'phone', identifier: string) => Promise<{ success: boolean; error?: string; code?: string }>;
   register: (name: string, email: string, password: string, phone: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -362,6 +364,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // ============================================================================
+  // SECURITY: Login with Verification Code
+  // ============================================================================
+  const loginWithCode = async (type: 'email' | 'phone', identifier: string, code: string): Promise<boolean> => {
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    try {
+      const response = await fetch('/api/auth/login-with-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, identifier, code }),
+      });
+
+      if (!response.ok) {
+        securityLogger.log('LOGIN_CODE_FAILURE', `Code login failed: ${identifier}`);
+        return false;
+      }
+
+      const data = await response.json();
+      if (!data?.success || !data.user) return false;
+
+      dispatch({ type: 'SET_USER', user: data.user });
+      dispatch({ type: 'SET_ORDERS', orders: data.user.orders || [] });
+      securityLogger.log('LOGIN_SUCCESS', `User logged in with code: ${data.user.email}`, { userId: data.user.id });
+      return true;
+    } catch {
+      securityLogger.log('LOGIN_CODE_FAILURE', `Code login request failed: ${identifier}`);
+      return false;
+    }
+  };
+
+  // ============================================================================
+  // SECURITY: Send Verification Code
+  // ============================================================================
+  const sendVerificationCode = async (type: 'email' | 'phone', identifier: string): Promise<{ success: boolean; error?: string; code?: string }> => {
+    try {
+      const response = await fetch('/api/auth/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, identifier }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        return { success: false, error: data?.error || '发送失败，请稍后再试' };
+      }
+
+      return { success: true, code: data?.code };
+    } catch {
+      return { success: false, error: '网络错误，请稍后再试' };
+    }
+  };
+
+  // ============================================================================
   // SECURITY: Register with Full Protection
   // ============================================================================
   const register = async (name: string, email: string, password: string, phone: string): Promise<{ success: boolean; error?: string }> => {
@@ -529,6 +585,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cartTotal,
         cartCount,
         login,
+        loginWithCode,
+        sendVerificationCode,
         register,
         logout,
         refreshUser,

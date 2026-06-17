@@ -4,7 +4,7 @@
  */
 
 export type SecurityEventType =
-  | 'LOGIN_SUCCESS' | 'LOGIN_FAILURE' | 'LOGOUT'
+  | 'LOGIN_SUCCESS' | 'LOGIN_FAILURE' | 'LOGIN_CODE_FAILURE' | 'LOGOUT'
   | 'REGISTER_SUCCESS' | 'REGISTER_FAILURE'
   | 'PASSWORD_CHANGE' | 'SESSION_EXPIRED'
   | 'ORDER_CREATED' | 'ORDER_MODIFIED' | 'ORDER_CANCELLED' | 'ORDER_FAILED'
@@ -36,6 +36,7 @@ interface SecurityEvent {
 const EVENT_SEVERITY: Record<SecurityEventType, SeverityLevel> = {
   LOGIN_SUCCESS: 'info',
   LOGIN_FAILURE: 'warning',
+  LOGIN_CODE_FAILURE: 'warning',
   LOGOUT: 'info',
   REGISTER_SUCCESS: 'info',
   REGISTER_FAILURE: 'warning',

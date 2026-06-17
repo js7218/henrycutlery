@@ -42,10 +42,24 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (password.length < 8 || password.length > 128) {
+    if (password.length < 12 || password.length > 128) {
       recordSensitiveFailure(limitKey, { maxFailures: 8, windowMs: 15 * 60 * 1000, lockMs: 30 * 60 * 1000 });
       return NextResponse.json(
-        { success: false, error: '密码必须为 8-128 位' },
+        { success: false, error: '密码必须为 12-128 位，且包含大小写字母、数字和特殊字符' },
+        { status: 400 }
+      );
+    }
+
+    // Server-side password strength validation
+    const hasLower = /[a-z]/.test(password);
+    const hasUpper = /[A-Z]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    const weakPasswords = ['12345678', 'password', 'qwerty', 'admin123', 'letmein', '123456789', 'abc123', 'password1'];
+    if (!hasLower || !hasUpper || !hasDigit || !hasSpecial || weakPasswords.includes(password.toLowerCase())) {
+      recordSensitiveFailure(limitKey, { maxFailures: 8, windowMs: 15 * 60 * 1000, lockMs: 30 * 60 * 1000 });
+      return NextResponse.json(
+        { success: false, error: '密码强度不足，请使用至少12位包含大小写字母、数字和特殊字符的组合' },
         { status: 400 }
       );
     }
