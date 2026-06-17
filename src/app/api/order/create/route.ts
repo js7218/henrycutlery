@@ -424,9 +424,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // NOTE: Email notification is NOT sent here.
-    // It will be sent when order status changes to 'paid' (payment confirmed).
-    // This prevents sending emails before the customer actually pays.
+    // Send "pending payment" notification email to admin
+    // This alerts admin that a new order is awaiting payment, but does NOT confirm payment received.
+    let emailStatus: { sent: boolean; skipped: boolean; reason?: string } = {
+      sent: false,
+      skipped: false,
+    };
+
+    try {
+      emailStatus = await sendOrderNotificationEmail({
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        paymentMethod: order.paymentMethod,
+        items: order.items,
+        shippingAddress: order.shippingAddress,
+        createdAt: order.createdAt,
+      });
+    } catch {
+      emailStatus = { sent: false, skipped: false, reason: 'SMTP_SEND_FAILED' };
+    }
 
     return NextResponse.json({
       success: true,
@@ -439,7 +455,8 @@ export async function POST(request: NextRequest) {
       },
       // SECURITY: Return server-calculated total for client display
       serverTotal,
-      message: 'Order created with server-verified pricing',
+      emailStatus,
+      message: 'Order created with server-verified pricing. Awaiting payment confirmation.',
     });
 
   } catch (error) {

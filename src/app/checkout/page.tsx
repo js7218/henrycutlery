@@ -9,6 +9,7 @@ import { useApp } from '@/context/AppContext';
 import { formatPrice, calculateShippingFee } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
 import { Address, PaymentMethod } from '@/types';
+import { products as currentProducts } from '@/data/products';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
 import PaymentSelector from '@/components/checkout/PaymentSelector';
 
@@ -121,12 +122,34 @@ export default function CheckoutPage() {
     );
   }
 
-  if (state.cart.length === 0 && currentStep !== 'complete') {
+  // SECURITY: Filter out products that have been removed from catalog
+  const validProductIds = new Set(currentProducts.map(p => p.id));
+  const validCartItems = state.cart.filter(item => validProductIds.has(item.product.id));
+  const removedCartItems = state.cart.filter(item => !validProductIds.has(item.product.id));
+
+  // Auto-remove deleted products from cart
+  useEffect(() => {
+    if (removedCartItems.length > 0) {
+      removedCartItems.forEach(item => {
+        securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Auto-removed deleted product from checkout: ${item.product.id}`);
+        dispatch({ type: 'REMOVE_FROM_CART', productId: item.product.id });
+      });
+    }
+  }, []);
+
+  if ((validCartItems.length === 0 || state.cart.length === 0) && currentStep !== 'complete') {
     return (
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-20">
         <CheckoutSteps currentStep={2} />
         <div className="text-center py-20">
-          <h2 className="text-2xl font-bold text-gray-400 mb-4">Shopping Cart is Empty</h2>
+          <h2 className="text-2xl font-bold text-gray-400 mb-4">
+            {removedCartItems.length > 0 ? 'Some items are no longer available' : 'Shopping Cart is Empty'}
+          </h2>
+          <p className="text-gray-500 mb-8">
+            {removedCartItems.length > 0
+              ? 'The items in your cart have been removed from our catalog. Please browse our current products.'
+              : 'You need to add items to your cart before checkout.'}
+          </p>
           <Link href="/products" className="btn-primary">
             Go Shopping
           </Link>

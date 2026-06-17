@@ -4,6 +4,7 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode, use
 import { CartItem, Product, User, Order, Address, PaymentMethod } from '@/types';
 import { generateOrderNumber } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
+import { products as currentProducts } from '@/data/products';
 
 // ============================================================================
 // SECURITY: Session Management
@@ -296,6 +297,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try { localStorage.setItem('knife-cart', JSON.stringify(state.cart)); } catch { /* */ }
   }, [state.cart]);
+
+  // SECURITY: Clean up cart when products are removed from catalog
+  useEffect(() => {
+    const validProductIds = new Set(currentProducts.map(p => p.id));
+    const removedItems = state.cart.filter(item => !validProductIds.has(item.product.id));
+    if (removedItems.length > 0) {
+      removedItems.forEach(item => {
+        securityLogger.log('BUSINESS_LOGIC_VIOLATION', `Removed deleted product from cart: ${item.product.id}`);
+      });
+      dispatch({ type: 'CLEAR_CART' });
+      // Re-add only valid items
+      state.cart.forEach(item => {
+        if (validProductIds.has(item.product.id)) {
+          dispatch({ type: 'ADD_TO_CART', product: item.product, quantity: item.quantity });
+        }
+      });
+    }
+  }, []);
 
   // 收货地址按账号保存到 Postgres。新增、编辑、删除、设默认后都会同步到服务端。
   useEffect(() => {
