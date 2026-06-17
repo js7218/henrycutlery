@@ -339,7 +339,7 @@ export async function POST(request: NextRequest) {
       const product = getProductById(productId);
       if (!product) {
         return NextResponse.json(
-          { error: `Product not found: ${productId}`, code: 'PRODUCT_NOT_FOUND' },
+          { error: `Product not found or has been removed from catalog: ${productId}`, code: 'PRODUCT_NOT_FOUND' },
           { status: 400 }
         );
       }
@@ -424,25 +424,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send "pending payment" notification email to admin
-    // This alerts admin that a new order is awaiting payment, but does NOT confirm payment received.
-    let emailStatus: { sent: boolean; skipped: boolean; reason?: string } = {
-      sent: false,
-      skipped: false,
-    };
-
-    try {
-      emailStatus = await sendOrderNotificationEmail({
-        orderNumber: order.orderNumber,
-        totalAmount: order.totalAmount,
-        paymentMethod: order.paymentMethod,
-        items: order.items,
-        shippingAddress: order.shippingAddress,
-        createdAt: order.createdAt,
-      });
-    } catch {
-      emailStatus = { sent: false, skipped: false, reason: 'SMTP_SEND_FAILED' };
-    }
+    // Email is NOT sent on order creation.
+    // Admin notification is only sent when payment is confirmed (status changed to 'paid')
+    // via /api/order/update-status. This prevents false alerts for unpaid orders.
 
     return NextResponse.json({
       success: true,
@@ -455,7 +439,6 @@ export async function POST(request: NextRequest) {
       },
       // SECURITY: Return server-calculated total for client display
       serverTotal,
-      emailStatus,
       message: 'Order created with server-verified pricing. Awaiting payment confirmation.',
     });
 

@@ -190,10 +190,14 @@ export default function CheckoutPage() {
     try {
       // SECURITY: Call server-side API to create order
       // Client only sends productId + quantity, server looks up prices
-      const orderItems = state.cart.map(item => ({
-        productId: item.product.id,
-        quantity: item.quantity,
-      }));
+      // Filter out products that have been removed from catalog before sending
+      const validProductIds = new Set(currentProducts.map(p => p.id));
+      const orderItems = state.cart
+        .filter(item => validProductIds.has(item.product.id))
+        .map(item => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+        }));
 
       const response = await fetch('/api/order/create', {
         method: 'POST',
