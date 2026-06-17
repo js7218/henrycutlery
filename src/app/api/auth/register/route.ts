@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     if (!allowed.allowed) {
       return NextResponse.json(
-        { success: false, error: '注册尝试过多，请稍后再试', code: 'AUTH_LOCKED', retryAfterSeconds: allowed.retryAfterSeconds },
+        { success: false, error: 'Too many registration attempts, please try again later', code: 'AUTH_LOCKED', retryAfterSeconds: allowed.retryAfterSeconds },
         { status: 429 }
       );
     }
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     if (!name || !isValidEmail(email) || !isValidInternationalPhone(phone) || password.length < 12) {
       recordAuthFailure(rateKey);
       return NextResponse.json(
-        { success: false, error: '注册信息不完整或格式不正确，密码至少12位且包含大小写字母、数字和特殊字符' },
+        { success: false, error: 'Invalid registration information. Password must be at least 12 characters with uppercase, lowercase, numbers and special characters' },
         { status: 400 }
       );
     }
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     if (!hasLower || !hasUpper || !hasDigit || !hasSpecial || weakPasswords.includes(password.toLowerCase())) {
       recordAuthFailure(rateKey);
       return NextResponse.json(
-        { success: false, error: '密码强度不足，请使用至少12位包含大小写字母、数字和特殊字符的组合' },
+        { success: false, error: 'Password is too weak. Use at least 12 characters with uppercase, lowercase, numbers and special characters' },
         { status: 400 }
       );
     }
@@ -89,7 +89,20 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json(
-        { success: false, error: '注册失败，请检查输入信息或稍后重试' },
+        { success: false, error: 'Registration failed. Please check your input or try again later' },
+        { status: 409 }
+      );
+    }
+
+    // Check phone number duplication
+    const existingPhone = await getPool().query(
+      `SELECT id FROM users WHERE REPLACE(phone, ' ', '') = REPLACE($1, ' ', '') AND deleted_at IS NULL LIMIT 1`,
+      [phone]
+    );
+
+    if (existingPhone.rowCount) {
+      return NextResponse.json(
+        { success: false, error: 'This phone number is already registered' },
         { status: 409 }
       );
     }
@@ -122,7 +135,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('[register] unhandled error', err);
     const response = NextResponse.json(
-      { success: false, error: '注册失败，请稍后再试', code: 'REGISTER_ERROR' },
+      { success: false, error: 'Registration failed. Please try again later', code: 'REGISTER_ERROR' },
       { status: 500 }
     );
     response.headers.set('Cache-Control', 'no-store');

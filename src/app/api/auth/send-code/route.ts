@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     if (!allowed.allowed) {
       return NextResponse.json(
-        { success: false, error: '发送过于频繁，请稍后再试', retryAfterSeconds: allowed.retryAfterSeconds },
+        { success: false, error: 'Too many requests, please try again later', retryAfterSeconds: allowed.retryAfterSeconds },
         { status: 429 }
       );
     }
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       if (!isValidEmail(identifier)) {
         recordAuthFailure(rateKey);
         return NextResponse.json(
-          { success: false, error: '邮箱格式不正确' },
+          { success: false, error: 'Invalid email format' },
           { status: 400 }
         );
       }
@@ -51,13 +51,25 @@ export async function POST(request: Request) {
       if (!isValidInternationalPhone(identifier)) {
         recordAuthFailure(rateKey);
         return NextResponse.json(
-          { success: false, error: '手机号格式不正确，请包含国家区号' },
+          { success: false, error: 'Invalid phone format. Please include country code' },
           { status: 400 }
         );
       }
     }
 
     await ensureDatabaseSchema();
+
+    // Create verification code BEFORE checking user existence
+    // This ensures the code is available for phone-type dev responses even if user doesn't exist
+    const codeResult = await createVerificationCode(identifier, type, ip);
+    if (!codeResult) {
+      return NextResponse.json(
+        { success: false, error: 'Please wait 60 seconds before requesting another code' },
+        { status: 429 }
+      );
+    }
+
+    const { code, expiresAt } = codeResult;
 
     // Check if user exists
     let userQuery: string;
@@ -66,7 +78,7 @@ export async function POST(request: Request) {
       userQuery = `SELECT id, email, name, phone FROM users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL LIMIT 1`;
       userParams = [identifier];
     } else {
-      userQuery = `SELECT id, email, name, phone FROM users WHERE phone = $1 AND deleted_at IS NULL LIMIT 1`;
+      userQuery = `SELECT id, email, name, phone FROM users WHERE REPLACE(phone, ' ', '') = REPLACE($1, ' ', '') AND deleted_at IS NULL LIMIT 1`;
       userParams = [identifier];
     }
 
@@ -74,47 +86,47 @@ export async function POST(request: Request) {
     const userRow = userResult.rows[0];
 
     // SECURITY: Always return success even if user doesn't exist to prevent enumeration
-    // But don't actually send code if user doesn't exist
+    // But don't actually send email if user doesn't exist
     if (!userRow) {
-      // Return fake success to prevent user enumeration
+      // For phone type, still return the code in response (dev mode)
+      if (type === 'phone') {
+        const response: Record<string, unknown> = {
+          success: true,
+          message: 'Verification code sent',
+          expiresIn: 60,
+          code: code,
+          _devNote: 'SMS gateway not configured. Code included for testing only.',
+        };
+        return NextResponse.json(response, { status: 200 });
+      }
+      // For email type, return fake success to prevent user enumeration
       return NextResponse.json(
-        { success: true, message: '验证码已发送，请查收', expiresIn: 60 },
+        { success: true, message: 'Verification code sent', expiresIn: 60 },
         { status: 200 }
       );
     }
-
-    // Create verification code
-    const codeResult = await createVerificationCode(identifier, type, ip);
-    if (!codeResult) {
-      return NextResponse.json(
-        { success: false, error: '发送过于频繁，请60秒后再试' },
-        { status: 429 }
-      );
-    }
-
-    const { code, expiresAt } = codeResult;
 
     // Send code
     if (type === 'email') {
       const emailResult = await sendTransactionalEmail({
         to: identifier,
-        subject: 'Adam Cutlery - 登录验证码',
+        subject: 'Adam Cutlery - Login Verification Code',
         html: `
           <div style="font-family:Arial,sans-serif;color:#222;line-height:1.5;max-width:480px;margin:0 auto;">
-            <h2 style="margin:0 0 12px;">登录验证码</h2>
-            <p>您好，</p>
-            <p>您正在尝试登录 Adam Cutlery 账户。您的验证码是：</p>
+            <h2 style="margin:0 0 12px;">Login Verification Code</h2>
+            <p>Hello,</p>
+            <p>You are trying to log in to your Adam Cutlery account. Your verification code is:</p>
             <p style="font-size:28px;font-weight:bold;letter-spacing:4px;padding:16px;background:#f5f5f5;border-radius:8px;text-align:center;margin:16px 0;">${code}</p>
-            <p>此验证码将在 <strong>1 分钟</strong> 后过期，请勿泄露给他人。</p>
-            <p style="color:#999;font-size:12px;margin-top:24px;">如非本人操作，请忽略此邮件。</p>
+            <p>This code will expire in <strong>1 minute</strong>. Do not share it with anyone.</p>
+            <p style="color:#999;font-size:12px;margin-top:24px;">If you did not request this, please ignore this email.</p>
           </div>
         `,
-        text: `登录验证码：${code}，1分钟后过期。如非本人操作请忽略。`,
+        text: `Login verification code: ${code}, expires in 1 minute. If you did not request this, please ignore.`,
       });
 
       if (!emailResult.sent && !emailResult.skipped) {
         return NextResponse.json(
-          { success: false, error: '邮件发送失败，请稍后再试' },
+          { success: false, error: 'Failed to send email, please try again later' },
           { status: 500 }
         );
       }
@@ -124,7 +136,7 @@ export async function POST(request: Request) {
     // In production, integrate with SMS provider (Twilio, AWS SNS, etc.)
     const response: Record<string, unknown> = {
       success: true,
-      message: '验证码已发送，请查收',
+      message: 'Verification code sent',
       expiresIn: 60,
     };
 
@@ -139,7 +151,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('[send-code] error', err);
     return NextResponse.json(
-      { success: false, error: '发送失败，请稍后再试' },
+      { success: false, error: 'Failed to send, please try again later' },
       { status: 500 }
     );
   }

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         idAllowed.retryAfterSeconds || 0
       );
       return NextResponse.json(
-        { success: false, error: '尝试次数过多，请稍后再试', code: 'AUTH_LOCKED', retryAfterSeconds },
+        { success: false, error: 'Too many attempts, please try again later', code: 'AUTH_LOCKED', retryAfterSeconds },
         { status: 429 }
       );
     }
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         recordAuthFailure(ipRateKey);
         recordAuthFailure(idRateKey);
         return NextResponse.json(
-          { success: false, error: '邮箱或验证码不正确' },
+          { success: false, error: 'Incorrect email or verification code' },
           { status: 401 }
         );
       }
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         recordAuthFailure(ipRateKey);
         recordAuthFailure(idRateKey);
         return NextResponse.json(
-          { success: false, error: '手机号或验证码不正确' },
+          { success: false, error: 'Incorrect phone number or verification code' },
           { status: 401 }
         );
       }
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       recordAuthFailure(ipRateKey);
       recordAuthFailure(idRateKey);
       return NextResponse.json(
-        { success: false, error: '验证码格式不正确' },
+        { success: false, error: 'Invalid verification code format' },
         { status: 400 }
       );
     }
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       recordAuthFailure(ipRateKey);
       recordAuthFailure(idRateKey);
       return NextResponse.json(
-        { success: false, error: verifyResult.error || '验证码不正确' },
+        { success: false, error: verifyResult.error || 'Incorrect verification code' },
         { status: 401 }
       );
     }
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
       userQuery = `SELECT id, email, name, phone, password_hash, role, favorites, created_at FROM users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL LIMIT 1`;
       userParams = [identifier];
     } else {
-      userQuery = `SELECT id, email, name, phone, password_hash, role, favorites, created_at FROM users WHERE phone = $1 AND deleted_at IS NULL LIMIT 1`;
+      userQuery = `SELECT id, email, name, phone, password_hash, role, favorites, created_at FROM users WHERE REPLACE(phone, ' ', '') = REPLACE($1, ' ', '') AND deleted_at IS NULL LIMIT 1`;
       userParams = [identifier];
     }
 
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       recordAuthFailure(ipRateKey);
       recordAuthFailure(idRateKey);
       return NextResponse.json(
-        { success: false, error: '账号不存在' },
+        { success: false, error: 'Account not found' },
         { status: 401 }
       );
     }
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('[login-with-code] error', err);
     return NextResponse.json(
-      { success: false, error: '登录失败，请稍后再试' },
+      { success: false, error: 'Login failed, please try again later' },
       { status: 500 }
     );
   }
@@ -183,20 +183,20 @@ async function checkAndSendLoginAlert(
       // Send email alert
       await sendTransactionalEmail({
         to: email,
-        subject: 'Adam Cutlery - 新设备登录提醒',
+        subject: 'Adam Cutlery - New Device Login Alert',
         html: `
           <div style="font-family:Arial,sans-serif;color:#222;line-height:1.5;max-width:480px;margin:0 auto;">
-            <h2 style="color:#d32f2f;margin:0 0 12px;">新设备登录提醒</h2>
-            <p>您的账号刚刚在一台新设备上登录。</p>
+            <h2 style="color:#d32f2f;margin:0 0 12px;">New Device Login Alert</h2>
+            <p>Your account was just logged in from a new device.</p>
             <table style="width:100%;background:#f5f5f5;border-radius:8px;padding:16px;margin:16px 0;">
-              <tr><td style="padding:4px 0;"><strong>IP 地址：</strong></td><td>${ip}</td></tr>
-              <tr><td style="padding:4px 0;"><strong>设备：</strong></td><td>${userAgent.slice(0, 100)}...</td></tr>
-              <tr><td style="padding:4px 0;"><strong>时间：</strong></td><td>${new Date().toLocaleString('zh-CN')}</td></tr>
+              <tr><td style="padding:4px 0;"><strong>IP Address:</strong></td><td>${ip}</td></tr>
+              <tr><td style="padding:4px 0;"><strong>Device:</strong></td><td>${userAgent.slice(0, 100)}...</td></tr>
+              <tr><td style="padding:4px 0;"><strong>Time:</strong></td><td>${new Date().toLocaleString('en-US')}</td></tr>
             </table>
-            <p>如非本人操作，请立即修改密码。</p>
+            <p>If this was not you, please change your password immediately.</p>
           </div>
         `,
-        text: `新设备登录提醒：IP ${ip}，时间 ${new Date().toLocaleString('zh-CN')}。如非本人操作请立即修改密码。`,
+        text: `New device login alert: IP ${ip}, time ${new Date().toLocaleString('en-US')}. If this was not you, please change your password immediately.`,
       });
 
       // Mark alert as sent

@@ -516,7 +516,7 @@ export default function LoginPage() {
         resetLoginAttempts();
         router.push(getSafeReturnPathFromBrowser() || '/profile');
       } else {
-        setError('邮箱或密码不正确');
+        setError('Incorrect email or password');
       }
     } catch (err) {
       setError('An error occurred during login. Please try again.');
@@ -568,10 +568,10 @@ export default function LoginPage() {
         setCountdown(60);
         setError('');
       } else {
-        setError(result.error || '发送失败，请稍后再试');
+        setError(result.error || 'Failed to send, please try again');
       }
     } catch {
-      setError('网络错误，请稍后再试');
+      setError('Network error, please try again');
     } finally {
       setCodeSending(false);
     }
@@ -633,7 +633,7 @@ export default function LoginPage() {
         resetLoginAttempts();
         router.push(getSafeReturnPathFromBrowser() || '/profile');
       } else {
-        setError('验证码不正确');
+        setError('Incorrect verification code');
       }
     } catch (err) {
       setError('An error occurred during login. Please try again.');
@@ -673,7 +673,7 @@ export default function LoginPage() {
               }`}
             >
               <KeyRound className="w-4 h-4" />
-              密码登录
+              Password Login
             </button>
             <button
               type="button"
@@ -689,7 +689,7 @@ export default function LoginPage() {
               }`}
             >
               <ShieldCheck className="w-4 h-4" />
-              验证码登录
+              Code Login
             </button>
           </div>
 
