@@ -621,6 +621,13 @@ export default function CheckoutPage() {
                   <p><span className="text-gray-500">Account Number:</span> <span className="font-mono text-gold">147-6411161-838</span></p>
                   <p><span className="text-gray-500">Bank:</span> HSBC</p>
                 </div>
+                <div className="mt-4 p-3 bg-gold/10 border border-gold/30 rounded-lg">
+                  <p className="text-sm text-gold font-medium mb-1">Important:</p>
+                  <p className="text-sm text-gray-300">
+                    Please include your order number <span className="font-mono text-gold">{orderNumber}</span> in the transfer reference/remark.
+                    This helps us confirm your payment faster.
+                  </p>
+                </div>
                 <p className="text-xs text-gray-500 mt-3">
                   Please transfer the total amount to the above account. We will confirm your payment and arrange shipment within 24 hours.
                 </p>
