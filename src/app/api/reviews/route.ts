@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     const rating = Number(body?.rating);
     if (!productId) {
       return NextResponse.json(
-        { success: false, error: '缺少 productId' },
+        { success: false, error: 'Missing productId' },
         { status: 400 }
       );
     }

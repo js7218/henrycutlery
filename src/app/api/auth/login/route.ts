@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json(
-        { success: false, error: '邮箱或密码不正确' },
+        { success: false, error: 'Incorrect email or password' },
         { status: 401 }
       );
     }

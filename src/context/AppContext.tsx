@@ -427,12 +427,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        return { success: false, error: data?.error || '发送失败，请稍后再试' };
+        return { success: false, error: data?.error || 'Failed to send, please try again later' };
       }
 
       return { success: true, code: data?.code };
     } catch {
-      return { success: false, error: '网络错误，请稍后再试' };
+      return { success: false, error: 'Network error, please try again later' };
     }
   };
 

@@ -148,7 +148,7 @@ export function maskNameLast(name: string): string {
 
 /**
  * Mask detailed address: keep province/city only + partial detail
- * Beijing Chaoyang District某某Street123 -> Beijing Chaoyang District***
+ * Beijing Chaoyang District***Street123 -> Beijing Chaoyang District***
  */
 export function maskAddress(address: string, showChars = 0): string {
   if (!address) return '';

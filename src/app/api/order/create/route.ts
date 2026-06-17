@@ -30,7 +30,7 @@ function cleanText(value: unknown, max: number) {
 function validAddressPart(value: string, min = 2, max = 100) {
   return value.length >= min &&
     value.length <= max &&
-    !/^(n\/a|na|none|null|undefined|省份|城市|地区|province|city|district)$/i.test(value);
+    !/^(n\/a|na|none|null|undefined|province|city|district)$/i.test(value);
 }
 
 function validInternationalPhone(phone: string) {

@@ -50,7 +50,7 @@ const PROTECTED_PATHS = [
   '/.log', '/logs/', '/log/', '/tmp/', '/temp/',
   // Documentation that may contain sensitive info
   '/README.md', '/CHANGELOG.md', '/SECURITY.md',
-  '/DEPLOYMENT.md', '/安全审计报告.md',
+  '/DEPLOYMENT.md', '/security-audit-report.md',
   // Scripts that should not be executed directly
   '/scripts/', '/audit.sh', '/check-deps.js',
   // Node modules (should never be served)
