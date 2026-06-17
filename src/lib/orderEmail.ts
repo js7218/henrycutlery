@@ -183,6 +183,110 @@ export async function sendOrderNotificationEmail(order: OrderEmailPayload) {
 }
 
 /**
+ * Send a customer order confirmation email.
+ * Called after payment is confirmed so the customer receives a receipt.
+ */
+export async function sendCustomerOrderConfirmation(
+  customerEmail: string,
+  order: OrderEmailPayload
+): Promise<{ sent: boolean; skipped: boolean; reason?: string }> {
+  if (!smtpReady()) {
+    return { sent: false, skipped: true, reason: 'SMTP_NOT_CONFIGURED' };
+  }
+
+  const port = Number(process.env.SMTP_PORT || '587');
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port,
+    secure: port === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  const itemRows = order.items.map((item, index) => {
+    const lineTotal = item.price * item.quantity;
+    return `
+      <tr>
+        <td style="padding:8px;border-bottom:1px solid #eee;">${index + 1}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;">${escapeHtml(item.productName.toUpperCase())}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;">${item.quantity}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;">${formatPrice(item.price)}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;">${formatPrice(lineTotal)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const text = [
+    'Thank you for your order from Adam Cutlery!',
+    '',
+    `Order Number: ${order.orderNumber}`,
+    `Payment Method: ${paymentLabel(order.paymentMethod)}`,
+    `Total Amount: ${formatPrice(order.totalAmount)}`,
+    `Created At: ${order.createdAt}`,
+    '',
+    'Shipping Address:',
+    `Name: ${order.shippingAddress.name}`,
+    `Phone: ${order.shippingAddress.phone}`,
+    `Address: ${order.shippingAddress.province || ''} ${order.shippingAddress.city || ''} ${order.shippingAddress.district || ''} ${order.shippingAddress.detail}`,
+    '',
+    'Items:',
+    ...order.items.map((item, index) => `${index + 1}. ${item.productName.toUpperCase()} | Qty: ${item.quantity} | Unit: ${formatPrice(item.price)} | Total: ${formatPrice(item.price * item.quantity)}`),
+    '',
+    'We will notify you once your order has been shipped.',
+    '',
+    'Best regards,',
+    'Adam Cutlery',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;color:#222;line-height:1.5;">
+      <h2 style="margin:0 0 12px;">Thank You for Your Order!</h2>
+      <p>Dear ${escapeHtml(order.shippingAddress.name)},</p>
+      <p>We have received and confirmed your payment. Here are your order details:</p>
+
+      <p><strong>Order Number:</strong> ${escapeHtml(order.orderNumber)}</p>
+      <p><strong>Payment Method:</strong> ${escapeHtml(paymentLabel(order.paymentMethod))}</p>
+      <p><strong>Total Amount:</strong> ${formatPrice(order.totalAmount)}</p>
+      <p><strong>Created At:</strong> ${escapeHtml(order.createdAt)}</p>
+
+      <h3 style="margin-top:24px;">Shipping Address</h3>
+      <p><strong>Name:</strong> ${escapeHtml(order.shippingAddress.name)}</p>
+      <p><strong>Phone:</strong> ${escapeHtml(order.shippingAddress.phone)}</p>
+      <p><strong>Address:</strong> ${escapeHtml(`${order.shippingAddress.province || ''} ${order.shippingAddress.city || ''} ${order.shippingAddress.district || ''} ${order.shippingAddress.detail}`)}</p>
+
+      <h3 style="margin-top:24px;">Items</h3>
+      <table style="border-collapse:collapse;width:100%;font-size:14px;">
+        <thead>
+          <tr>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">#</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Product</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Qty</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Unit</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Total</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+
+      <p style="margin-top:24px;">We will notify you once your order has been shipped.</p>
+      <p>Best regards,<br/>Adam Cutlery</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: customerEmail,
+    subject: `Order Confirmed - ${order.orderNumber} | Adam Cutlery`,
+    text,
+    html,
+  });
+
+  return { sent: true, skipped: false };
+}
+
+/**
  * Send a generic transactional email (e.g. password reset link). Uses the
  * same SMTP credentials as order notifications, so a single configured
  * mailer powers the whole site.

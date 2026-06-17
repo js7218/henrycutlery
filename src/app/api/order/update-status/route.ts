@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
-import { sendOrderNotificationEmail } from '@/lib/orderEmail';
+import { sendOrderNotificationEmail, sendCustomerOrderConfirmation } from '@/lib/orderEmail';
 import { requireAdmin } from '@/lib/adminGuard';
 
 /**
@@ -65,7 +65,23 @@ export async function POST(request: Request) {
           createdAt: order.created_at?.toString() || new Date().toISOString(),
         });
       } catch (err) {
-        console.error('[update-status] Failed to send payment confirmation email:', err);
+        console.error('[update-status] Failed to send payment confirmation email:', err instanceof Error ? err.message : 'Unknown error');
+      }
+
+      // Send customer order confirmation email
+      if (order.email) {
+        try {
+          await sendCustomerOrderConfirmation(order.email, {
+            orderNumber: order.order_number,
+            totalAmount: order.total_amount,
+            paymentMethod: 'bank_transfer',
+            items: order.items,
+            shippingAddress: order.shipping_address,
+            createdAt: order.created_at?.toString() || new Date().toISOString(),
+          });
+        } catch (err) {
+          console.error('[update-status] Failed to send customer confirmation email:', err instanceof Error ? err.message : 'Unknown error');
+        }
       }
     }
 

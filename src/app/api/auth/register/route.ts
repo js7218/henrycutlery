@@ -4,6 +4,7 @@ import { createJWT, setAuthCookies } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool, getUserById } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { checkAuthAllowed, getClientIp, recordAuthFailure, resetAuthFailures } from '@/lib/authRateLimit';
+import { WEAK_PASSWORD_SET } from '@/data/weakPasswords';
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
@@ -49,8 +50,7 @@ export async function POST(request: Request) {
     const hasUpper = /[A-Z]/.test(password);
     const hasDigit = /[0-9]/.test(password);
     const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-    const weakPasswords = ['12345678', 'password', 'qwerty', 'admin123', 'letmein', '123456789', 'abc123', 'password1'];
-    if (!hasLower || !hasUpper || !hasDigit || !hasSpecial || weakPasswords.includes(password.toLowerCase())) {
+    if (!hasLower || !hasUpper || !hasDigit || !hasSpecial || WEAK_PASSWORD_SET.has(password.toLowerCase())) {
       recordAuthFailure(rateKey);
       return NextResponse.json(
         { success: false, error: 'Password is too weak. Use at least 12 characters with uppercase, lowercase, numbers and special characters' },

@@ -77,7 +77,7 @@ export function handleAPIError(
   // Log error in development
   if (options.logErrors) {
     if (process.env.NODE_ENV !== 'production') {
-      console.error('[API Error]', error);
+      console.error('[API Error]', error instanceof Error ? error.message : 'Unknown error');
     } else {
       // In production, you might want to send to a logging service
       console.error('[API Error]', {

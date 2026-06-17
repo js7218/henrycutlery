@@ -490,12 +490,5 @@ export async function GET(request: NextRequest) {
 // SECURITY: Generate hash for order integrity verification
 function generateOrderHash(items: Array<{ productId: string; price: number; quantity: number }>, total: number): string {
   const data = items.map(i => `${i.productId}:${i.price}:${i.quantity}`).join('|') + `|total:${total}`;
-  // Simple hash for demo - in production use crypto.createHash('sha256')
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return `h_${Math.abs(hash).toString(16)}`;
+  return createHash('sha256').update(data).digest('hex');
 }

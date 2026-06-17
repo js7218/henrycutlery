@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyJWT } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import { sendOrderNotificationEmail, sendTransactionalEmail } from '@/lib/orderEmail';
+import { requireAdmin } from '@/lib/adminGuard';
 
 interface ParsedTransaction {
   date: string;
@@ -208,16 +207,10 @@ async function matchTransactions(
  */
 export async function POST(request: NextRequest) {
   try {
-    // Verify admin authentication
-    const cookieStore = await cookies();
-    const token = cookieStore.get('access_token')?.value;
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const payload = verifyJWT(token);
-    if (!payload || payload.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
+    // SECURITY: Use requireAdmin guard with MFA and IP whitelist
+    const adminResult = await requireAdmin();
+    if ('response' in adminResult) {
+      return adminResult.response;
     }
 
     const formData = await request.formData();
