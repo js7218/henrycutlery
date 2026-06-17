@@ -1334,9 +1334,32 @@ export function middleware(request: NextRequest) {
   }
 
   // Hide old admin portal; private admin is only accessible via /hc-control-2026.
-  // Allow /admin/bank-import as it's a legitimate admin tool page.
+  // Allow /admin/bank-import but require admin authentication.
   if ((path === '/admin' || path.startsWith('/admin/')) && path !== '/admin/bank-import') {
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
+  }
+
+  // Admin auth check for bank-import page
+  if (path === '/admin/bank-import') {
+    const token = request.cookies.get('access_token')?.value;
+    if (!token) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        return NextResponse.redirect(new URL('/login', request.url));
+      }
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'));
+      if (!payload || payload.role !== 'admin') {
+        return NextResponse.json({ error: 'Admin privileges required', code: 'FORBIDDEN' }, { status: 403 });
+      }
+      if (payload.exp < Math.floor(Date.now() / 1000)) {
+        return NextResponse.redirect(new URL('/login', request.url));
+      }
+    } catch {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
   }
 
   // Skip static assets (but NOT protected paths above)
