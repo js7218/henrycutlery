@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const productId = (url.searchParams.get('productId') || '').trim();
     if (!productId) {
       return NextResponse.json(
-        { success: false, error: '缺少 productId' },
+        { success: false, error: 'Missing productId.' },
         { status: 400 }
       );
     }
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('[reviews] list failed', err);
     return NextResponse.json(
-      { success: false, error: '加载评论失败' },
+      { success: false, error: 'Failed to load reviews.' },
       { status: 500 }
     );
   }
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     const session = await getAuthUser();
     if (!session) {
       return NextResponse.json(
-        { success: false, error: '请先登录后再发表评论' },
+        { success: false, error: 'Please log in before posting a review.' },
         { status: 401 }
       );
     }
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     const dbUser = await getUserById(session.id);
     if (!dbUser) {
       return NextResponse.json(
-        { success: false, error: '账号无效' },
+        { success: false, error: 'Invalid account.' },
         { status: 401 }
       );
     }
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     const limitKey = rateLimitKey(request, dbUser.id);
     if (!takeRateLimitToken(limitKey)) {
       return NextResponse.json(
-        { success: false, error: '提交太频繁，请稍后再试' },
+        { success: false, error: 'Submissions are too frequent, please try again later.' },
         { status: 429 }
       );
     }
@@ -138,19 +138,19 @@ export async function POST(request: NextRequest) {
     }
     if (!products.some((product) => product.id === productId)) {
       return NextResponse.json(
-        { success: false, error: '商品不存在' },
+        { success: false, error: 'Product does not exist.' },
         { status: 400 }
       );
     }
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
       return NextResponse.json(
-        { success: false, error: '评分必须是 1-5 的整数' },
+        { success: false, error: 'Rating must be an integer between 1 and 5.' },
         { status: 400 }
       );
     }
     if (content.length < 3 || content.length > MAX_REVIEW_LENGTH) {
       return NextResponse.json(
-        { success: false, error: '评论内容必须为 3-2000 个字符' },
+        { success: false, error: 'Review content must be between 3 and 2000 characters.' },
         { status: 400 }
       );
     }
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
         ]
       );
       return NextResponse.json(
-        { success: false, error: '评论包含不允许的内容', reason: classification.reason },
+        { success: false, error: 'Review contains disallowed content.', reason: classification.reason },
         { status: 400 }
       );
     }
@@ -207,13 +207,13 @@ export async function POST(request: NextRequest) {
       status: classification.status,
       message:
         classification.status === 'approved'
-          ? '评论已发布'
-          : '评论已提交，将在审核通过后展示',
+          ? 'Review published.'
+          : 'Review submitted and will be displayed after approval.',
     });
   } catch (err) {
     console.error('[reviews] submit failed', err);
     return NextResponse.json(
-      { success: false, error: '提交评论失败' },
+      { success: false, error: 'Failed to submit review.' },
       { status: 500 }
     );
   }

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const authUser = await getAuthUser();
     if (!authUser) {
       return NextResponse.json(
-        { success: false, error: '请先登录' },
+        { success: false, error: 'Please log in first.' },
         { status: 401 }
       );
     }
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const user = userResult.rows[0];
     if (!user) {
       return NextResponse.json(
-        { success: false, error: '用户不存在' },
+        { success: false, error: 'User does not exist.' },
         { status: 404 }
       );
     }
@@ -76,13 +76,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: userData,
-      message: '数据获取成功',
+      message: 'Data retrieved successfully.',
     });
 
   } catch (error) {
     console.error('Error fetching user data:', error);
     return NextResponse.json(
-      { success: false, error: '获取数据失败' },
+      { success: false, error: 'Failed to retrieve data.' },
       { status: 500 }
     );
   }
@@ -112,7 +112,7 @@ export async function DELETE(request: NextRequest) {
     const authUser = await getAuthUser();
     if (!authUser) {
       return NextResponse.json(
-        { success: false, error: '请先登录' },
+        { success: false, error: 'Please log in first.' },
         { status: 401 }
       );
     }
@@ -130,7 +130,7 @@ export async function DELETE(request: NextRequest) {
     const user = result.rows[0];
     if (!user) {
       return NextResponse.json(
-        { success: false, error: '用户不存在或账户已申请删除' },
+        { success: false, error: 'User does not exist or account deletion has already been requested.' },
         { status: 400 }
       );
     }
@@ -149,7 +149,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '删除请求已提交，账户将在30天后永久删除',
+      message: 'Deletion request submitted. Account will be permanently deleted after 30 days.',
       data: {
         deletedAt: user.deleted_at?.toISOString?.() || new Date().toISOString(),
         permanentDeletionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -159,7 +159,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('Error deleting user data:', error);
     return NextResponse.json(
-      { success: false, error: '删除请求失败' },
+      { success: false, error: 'Deletion request failed.' },
       { status: 500 }
     );
   }

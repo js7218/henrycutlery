@@ -316,7 +316,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // 收货地址按账号保存到 Postgres。新增、编辑、删除、设默认后都会同步到服务端。
+  // Shipping addresses are saved to Postgres per account. Add, edit, delete, and set default will all sync to the server.
   useEffect(() => {
     if (!state.user?.email) return;
     fetch('/api/user/addresses', {

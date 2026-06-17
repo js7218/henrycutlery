@@ -17,8 +17,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "BLADE 刃艺精选 - 高端刀具专业电商平台",
-  description: "专注于高端刀具的专业电商平台，汇集全球顶级锻造大师作品，为您呈现极致的刃艺之美。",
+  title: "BLADE - Premium Knife E-commerce Platform",
+  description: "A professional e-commerce platform specializing in premium knives, featuring works from world-class master smiths.",
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

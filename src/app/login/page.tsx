@@ -11,7 +11,7 @@ import { getSafeReturnPathFromBrowser } from '@/lib/safeNavigation';
 // SECURITY: Input Sanitization & Validation
 // ============================================================================
 
-// SQL Injection blacklist - 严格禁止的SQL关键字和特殊字符
+// SQL Injection blacklist - strictly prohibited SQL keywords and special characters
 const SQL_BLACKLIST = [
   'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE', 'ALTER', 'TRUNCATE',
   'EXEC', 'EXECUTE', 'UNION', 'UNION ALL', 'WAITFOR', 'DELAY', 'BENCHMARK',
@@ -243,8 +243,8 @@ interface LoginAttempt {
   firstAttempt: number;
   lastAttempt: number;
   lockedUntil: number | null;
-  timestamps: number[]; // 记录每次失败的时间戳，用于检测爆破工具
-  lockDate: string | null; // 记录锁定日期，用于每日解封
+  timestamps: number[]; // records timestamps of each failure, used to detect brute-force tools
+  lockDate: string | null; // records lock date, used for daily auto-unlock
 }
 
 function getLoginAttempts(): LoginAttempt {
@@ -252,7 +252,7 @@ function getLoginAttempts(): LoginAttempt {
   const stored = localStorage.getItem(LOGIN_ATTEMPTS_KEY);
   if (stored) {
     const parsed = JSON.parse(stored);
-    // 每日解封：如果是新的一天，自动解封
+    // Daily auto-unlock: if it's a new day, unlock automatically
     const today = new Date().toISOString().split('T')[0];
     if (parsed.lockDate && parsed.lockDate !== today) {
       return { count: 0, firstAttempt: Date.now(), lastAttempt: 0, lockedUntil: null, timestamps: [], lockDate: null };
@@ -323,7 +323,7 @@ function recordLoginFailure(): { allowed: boolean; lockedUntil?: number; attempt
     }
   }
 
-  // 第 11 次登录尝试触发人机验证
+  // The 11th login attempt triggers human verification
   const HUMAN_VERIFICATION_THRESHOLD = 10;
 
   if (attempts.count > HUMAN_VERIFICATION_THRESHOLD) {
@@ -340,11 +340,11 @@ function recordLoginFailure(): { allowed: boolean; lockedUntil?: number; attempt
   }
 
   // Lock thresholds
-  const LOCK_THRESHOLD = 20; // 人机验证后仍连续失败才进入锁定
+  const LOCK_THRESHOLD = 20; // lock only after continuous failures following human verification
 
   if (attempts.count >= LOCK_THRESHOLD) {
     if (isBotAttack) {
-      // 爆破工具/字典攻击：锁定1小时
+      // brute-force/dictionary attack: lock for 1 hour
       attempts.lockedUntil = now + 60 * 60 * 1000;
       attempts.lockDate = today;
       localStorage.setItem(LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
@@ -355,7 +355,7 @@ function recordLoginFailure(): { allowed: boolean; lockedUntil?: number; attempt
         reason: 'Automated attack detected. Locked for 1 hour.'
       };
     } else {
-      // 正常人：锁定15分钟
+      // normal user: lock for 15 minutes
       attempts.lockedUntil = now + 15 * 60 * 1000;
       attempts.lockDate = today;
       localStorage.setItem(LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));

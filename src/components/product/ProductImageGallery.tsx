@@ -36,7 +36,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
       <div className="relative aspect-[4/3] bg-surfaceLight rounded-lg overflow-hidden">
         <Image
           src={currentSrc}
-          alt={`${productName} - 图片 ${currentIndex + 1}`}
+          alt={`${productName} - Image ${currentIndex + 1}`}
           fill
           className="object-cover"
           priority
@@ -81,7 +81,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
             >
               <Image
                 src={image}
-                alt={`${productName} - 缩略图 ${index + 1}`}
+                alt={`${productName} - Thumbnail ${index + 1}`}
                 fill
                 className="object-cover"
                 sizes="96px"

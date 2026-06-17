@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const allowed = new Set(['pending', 'approved', 'rejected', 'all']);
     if (!allowed.has(status)) {
       return NextResponse.json(
-        { success: false, error: '无效的状态' },
+        { success: false, error: 'Invalid status.' },
         { status: 400 }
       );
     }
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('[admin/reviews] list failed', err);
     return NextResponse.json(
-      { success: false, error: '加载评论失败' },
+      { success: false, error: 'Failed to load reviews.' },
       { status: 500 }
     );
   }
@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest) {
     const action = String(body?.action || '').toLowerCase();
     if (!id) {
       return NextResponse.json(
-        { success: false, error: '缺少评论 ID' },
+        { success: false, error: 'Missing review ID.' },
         { status: 400 }
       );
     }
@@ -103,7 +103,7 @@ export async function PATCH(request: NextRequest) {
       await getPool().query(`DELETE FROM product_reviews WHERE id = $1`, [id]);
     } else {
       return NextResponse.json(
-        { success: false, error: '无效的操作' },
+        { success: false, error: 'Invalid action.' },
         { status: 400 }
       );
     }
@@ -112,7 +112,7 @@ export async function PATCH(request: NextRequest) {
   } catch (err) {
     console.error('[admin/reviews] update failed', err);
     return NextResponse.json(
-      { success: false, error: '更新评论失败' },
+      { success: false, error: 'Failed to update review.' },
       { status: 500 }
     );
   }

@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('[admin/customers] failed', err);
     return NextResponse.json(
-      { success: false, error: '查询失败，请稍后再试' },
+      { success: false, error: 'Query failed, please try again later.' },
       { status: 500 }
     );
   }

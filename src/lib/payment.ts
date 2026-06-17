@@ -56,7 +56,7 @@ export function calculateShipping(
 ): number {
   if (subtotal >= 500) return 0;
   
-  const remoteAreas = ['西藏', '新疆', '青海', '内蒙古', '宁夏', '海南'];
+  const remoteAreas = ['Tibet', 'Xinjiang', 'Qinghai', 'Inner Mongolia', 'Ningxia', 'Hainan'];
   const isRemote = remoteAreas.some(
     area => address.province.includes(area) || address.city.includes(area)
   );
@@ -103,16 +103,16 @@ export function calculateOrderAmount(
   amount: OrderAmount;
 } {
   if (!items || items.length === 0) {
-    throw new Error('订单商品不能为空');
+    throw new Error('Order items cannot be empty');
   }
 
   const itemsWithPrices = items.map(item => {
     const unitPrice = PRODUCT_PRICES[item.productId];
     if (unitPrice === undefined) {
-      throw new Error(`商品不存在: ${item.productId}`);
+      throw new Error(`Product not found: ${item.productId}`);
     }
     if (item.quantity < 1 || item.quantity > 99) {
-      throw new Error(`商品数量无效: ${item.quantity}`);
+      throw new Error(`Invalid product quantity: ${item.quantity}`);
     }
     return {
       productId: item.productId,

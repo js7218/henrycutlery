@@ -1,5 +1,5 @@
 /**
- * Security Event Logger - 安全事件日志系统
+ * Security Event Logger - Security Event Log System
  * Layer 4: Monitoring & Incident Response
  */
 

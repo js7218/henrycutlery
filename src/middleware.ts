@@ -1,27 +1,27 @@
 /**
  * Maximum Security Middleware - Ultimate WAF Protection
- * 
+ *
  * Security Modules (ALL MAXIMUM STRENGTH):
- * 1. PHP Malicious Code / WebShell / One-liner Trojan Detection (一句话木马)
- * 2. Image Trojan Detection (图片木马/图片马)
- * 3. Malicious File Upload Detection (恶意文件上传)
- * 4. Malicious File Download Prevention (恶意文件下载)
- * 5. Command Execution / RCE Detection (命令执行)
- * 6. DDoS / DoS Attack Protection (DDoS/拒绝服务)
- * 7. Strict Request Header Audit (请求头严格审核)
- * 8. File Inclusion LFI/RFI (文件包含)
- * 9. SQL Injection Detection (SQL注入)
- * 10. XSS Detection (跨站脚本)
- * 11. Path Traversal Detection (路径穿越)
- * 12. SSRF Detection (服务端请求伪造)
- * 13. CSRF Protection (跨站请求伪造)
- * 14. Brute Force Protection (暴力破解)
- * 15. Rate Limiting (速率限制)
- * 16. Honeypot Paths (蜜罐路径)
- * 17. Malicious Redirect Detection (恶意跳转)
- * 18. Protocol Smuggling Detection (协议走私)
- * 19. HTTP Desync Attack (HTTP请求走私)
- * 20. Daily Auto-Unlock at Midnight (每日凌晨自动解封)
+ * 1. PHP Malicious Code / WebShell / One-liner Trojan Detection
+ * 2. Image Trojan Detection
+ * 3. Malicious File Upload Detection
+ * 4. Malicious File Download Prevention
+ * 5. Command Execution / RCE Detection
+ * 6. DDoS / DoS Attack Protection
+ * 7. Strict Request Header Audit
+ * 8. File Inclusion LFI/RFI
+ * 9. SQL Injection Detection
+ * 10. XSS Detection
+ * 11. Path Traversal Detection
+ * 12. SSRF Detection
+ * 13. CSRF Protection
+ * 14. Brute Force Protection
+ * 15. Rate Limiting
+ * 16. Honeypot Paths
+ * 17. Malicious Redirect Detection
+ * 18. Protocol Smuggling Detection
+ * 19. HTTP Desync Attack
+ * 20. Daily Auto-Unlock at Midnight
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -297,10 +297,10 @@ function withHumanChallengeCookie(response: NextResponse): NextResponse {
 }
 
 // ============================================================================
-// PATTERNS: PHP Malicious Code / WebShell / One-liner Trojan (一句话木马)
+// PATTERNS: PHP Malicious Code / WebShell / One-liner Trojan
 // ============================================================================
 const PHP_MALICIOUS_PATTERNS = [
-  // 一句话木马 - 最常见变体
+  // One-liner trojan - most common variants
   /<\?php\s*\$_(GET|POST|REQUEST|COOKIE|SERVER)\s*\[.*\]\s*\(.*\)/i,
   /<\?php\s*@?eval\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)\s*\[.*\]\s*\)/i,
   /<\?php\s*@?assert\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)\s*\[.*\]\s*\)/i,
@@ -316,26 +316,26 @@ const PHP_MALICIOUS_PATTERNS = [
   /<\?php\s*@?usort\s*\(.*\$_(GET|POST|REQUEST)/i,
   /<\?php\s*@?file_put_contents\s*\(.*\$_(GET|POST|REQUEST)/i,
   /<\?php\s*@?str_replace\s*\(.*\$_(GET|POST|REQUEST)/i,
-  // 编码变形一句话木马
+  // Encoded one-liner trojan variants
   /<\?php\s*@?eval\s*\(\s*base64_decode\s*\(/i,
   /<\?php\s*@?eval\s*\(\s*gzinflate\s*\(\s*base64_decode\s*\(/i,
   /<\?php\s*@?eval\s*\(\s*gzuncompress\s*\(\s*base64_decode\s*\(/i,
   /<\?php\s*@?eval\s*\(\s*str_rot13\s*\(/i,
   /<\?php\s*@?eval\s*\(\s*pack\s*\(/i,
   /<\?php\s*\$\w+\s*=\s*["'].*["']\s*;\s*@?eval\s*\(\s*\$\w+\s*\)/i,
-  // PHP短标签木马
+  // PHP short tag trojan
   /<\?\s*=\s*\$_(GET|POST|REQUEST)/i,
   /<\?\s*=\s*@?eval/i,
   /<\?\s*=\s*@?system/i,
   /<\?\s*=\s*@?assert/i,
-  // 无标签一句话木马（利用auto_prepend_file）
+  // Tagless one-liner trojan (using auto_prepend_file)
   /eval\s*\(\s*base64_decode\s*\(\s*["']([A-Za-z0-9+\/=]{100,})/i,
-  // PHP回调木马
+  // PHP callback trojan
   /register_shutdown_function\s*\(\s*["']\w+["']\s*,/i,
   /set_error_handler\s*\(\s*["']\w+["']\s*,/i,
-  // PHP反序列化漏洞利用
+  // PHP deserialization exploit
   /unserialize\s*\(\s*\$_(GET|POST|REQUEST|COOKIE)/i,
-  // PHP危险函数
+  // PHP dangerous functions
   /eval\s*\(/i, /assert\s*\(/i, /system\s*\(/i,
   /exec\s*\(/i, /passthru\s*\(/i, /shell_exec\s*\(/i,
   /proc_open\s*\(/i, /popen\s*\(/i,
@@ -345,43 +345,43 @@ const PHP_MALICIOUS_PATTERNS = [
   /dl\s*\(/i, /ini_alter\s*\(/i,
   /move_uploaded_file\s*\(\s*\$_FILES/i,
   /copy\s*\(\s*\$_FILES/i,
-  // PHP混淆/加密代码
+  // PHP obfuscated/encrypted code
   /\$\{.+}\s*\(.*\)/i,
   /\$\w+\s*\(\s*["'].*["']\s*\.\s*\$_(GET|POST|REQUEST)/i,
-  // PHP标签隐藏
+  // PHP tag hiding
   /<script\s+language\s*=\s*["']?php["']?/i,
   /<\%\s*@\s*eval/i,
 ];
 
 // ============================================================================
-// PATTERNS: Image Trojan Detection (图片木马/图片马)
+// PATTERNS: Image Trojan Detection
 // ============================================================================
 const IMAGE_TROJAN_PATTERNS = [
-  // PHP代码嵌入图片
+  // PHP code embedded in image
   /<\?php/i,
   /<\?=/i,
   /<script\s+language\s*=\s*["']?php["']?/i,
   /<\%\s*@\s*eval/i,
-  // 图片EXIF注入PHP
+  // Image EXIF PHP injection
   /\/\*[\s\S]*\*\/\s*<\?php/i,
-  // GIF89a头部后跟PHP代码
-  /GIF89a[\s\S]{0,100}<\?/i,
-  /PNG[\s\S]{0,100}<\?/i,
-  /JFIF[\s\S]{0,100}<\?/i,
-  /BM[\s\S]{0,100}<\?/i,
-  // Base64编码的PHP代码嵌入
-  /PD9waHAg/i, // <?php 的base64
-  /ZXZhbCAo/i, // eval ( 的base64
-  // 十六进制编码
-  /0x3c3f706870/i, // <?php 的hex
-  // 图片文件中包含可执行标记
+  // GIF89a header followed by PHP code
+  /GIF89a[\s\S]{0,100}<?/i,
+  /PNG[\s\S]{0,100}<?/i,
+  /JFIF[\s\S]{0,100}<?/i,
+  /BM[\s\S]{0,100}<?/i,
+  // Base64 encoded PHP code embedded
+  /PD9waHAg/i, // base64 of <?php
+  /ZXZhbCAo/i, // base64 of eval (
+  // Hex encoding
+  /0x3c3f706870/i, // hex of <?php
+  // Executable markers in image files
   /\xff\xd8\xff[\s\S]{0,1000}(eval|system|exec|passthru|shell_exec|base64_decode)/i,
   /\x89PNG[\s\S]{0,1000}(eval|system|exec|passthru|shell_exec|base64_decode)/i,
   /GIF89a[\s\S]{0,1000}(eval|system|exec|passthru|shell_exec|base64_decode)/i,
 ];
 
 // ============================================================================
-// PATTERNS: Malicious File Upload Extensions (恶意文件上传)
+// PATTERNS: Malicious File Upload Extensions
 // ============================================================================
 const MALICIOUS_EXTENSIONS = [
   // PHP variants
@@ -412,7 +412,7 @@ const MALICIOUS_EXTENSIONS = [
 ];
 
 // ============================================================================
-// PATTERNS: Command Execution / RCE (命令执行)
+// PATTERNS: Command Execution / RCE
 // ============================================================================
 const CMD_EXECUTION_PATTERNS = [
   // Direct command execution
@@ -445,7 +445,7 @@ const CMD_EXECUTION_PATTERNS = [
 ];
 
 // ============================================================================
-// PATTERNS: Malicious File Download Prevention (恶意文件下载)
+// PATTERNS: Malicious File Download Prevention
 // ============================================================================
 const MALICIOUS_DOWNLOAD_PATTERNS = [
   // Sensitive file extensions
@@ -469,7 +469,7 @@ const MALICIOUS_DOWNLOAD_PATTERNS = [
 ];
 
 // ============================================================================
-// PATTERNS: File Inclusion LFI/RFI (文件包含) - Enhanced
+// PATTERNS: File Inclusion LFI/RFI - Enhanced
 // ============================================================================
 const FILE_INCLUSION_PATTERNS = [
   // Local File Inclusion (LFI)
@@ -1062,7 +1062,7 @@ function checkDDoS(ip: string, request: NextRequest): {
 }
 
 // ============================================================================
-// Request Header Audit (请求头严格审核)
+// Request Header Audit
 // ============================================================================
 function auditRequestHeaders(request: NextRequest, ip: string): { passed: boolean; reason: string } {
   const host = request.headers.get('host') || '';
@@ -1333,7 +1333,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 隐藏旧后台入口，私有后台只允许通过 /hc-control-2026 访问。
+  // Hide old admin portal; private admin is only accessible via /hc-control-2026.
   // Allow /admin/bank-import as it's a legitimate admin tool page.
   if ((path === '/admin' || path.startsWith('/admin/')) && path !== '/admin/bank-import') {
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
@@ -1508,8 +1508,8 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 安全下单接口不要扫描路径本身，否则 /api/order/create 里的 create 会被误判成 SQL CREATE。
-  // 金额、MOQ、商品 ID、地址内容仍在订单 API 内做服务端校验和参数化 SQL 入库。
+  // Safe order endpoint: do not scan the path itself, otherwise "create" in /api/order/create would be misidentified as SQL CREATE.
+  // Amount, MOQ, product ID, and address content are still validated server-side and stored via parameterized SQL in the order API.
   if (!isSafeCheckoutPath) {
     // Analyze URL path
     const pathThreat = detectThreat(path);

@@ -26,9 +26,9 @@ import { Product, Order, ProductCategory } from '@/types';
 type Tab = 'products' | 'orders' | 'dashboard';
 
 const tabs = [
-  { id: 'dashboard' as Tab, label: '数据概览', icon: BarChart3 },
-  { id: 'products' as Tab, label: '商品管理', icon: Package },
-  { id: 'orders' as Tab, label: '订单管理', icon: ShoppingCart },
+  { id: 'dashboard' as Tab, label: 'Dashboard', icon: BarChart3 },
+  { id: 'products' as Tab, label: 'Product Management', icon: Package },
+  { id: 'orders' as Tab, label: 'Order Management', icon: ShoppingCart },
 ];
 
 // Mock orders
@@ -37,19 +37,19 @@ const mockOrders: Order[] = [
     id: 'o001',
     orderNumber: 'ORDM8K2N4P1',
     items: [
-      { productId: 'p001', productName: '大马士革钢主厨刀', productImage: 'https://images.unsplash.com/photo-1593618998160-e34014e67546?w=800', price: 2999, quantity: 1 },
-      { productId: 'p004', productName: '日式三德刀', productImage: 'https://images.unsplash.com/photo-1588854337221-4cf9fa96059c?w=800', price: 1299, quantity: 1 },
+      { productId: 'p001', productName: 'Damascus Steel Chef Knife', productImage: 'https://images.unsplash.com/photo-1593618998160-e34014e67546?w=800', price: 2999, quantity: 1 },
+      { productId: 'p004', productName: 'Japanese Santoku Knife', productImage: 'https://images.unsplash.com/photo-1588854337221-4cf9fa96059c?w=800', price: 1299, quantity: 1 },
     ],
     totalAmount: 4298,
     status: 'processing',
     shippingAddress: {
       id: 'a001',
-      name: '张三',
+      name: 'Zhang San',
       phone: '13812345678',
-      province: '北京市',
-      city: '北京市',
-      district: '朝阳区',
-      detail: '建国路88号1号楼1501',
+      province: 'Beijing',
+      city: 'Beijing',
+      district: 'Chaoyang District',
+      detail: 'No. 88 Jianguo Road, Building 1, Unit 1501',
       isDefault: true,
     },
     paymentMethod: 'wechat',
@@ -60,18 +60,18 @@ const mockOrders: Order[] = [
     id: 'o002',
     orderNumber: 'ORDN5T7Q2R',
     items: [
-      { productId: 'p002', productName: '战术折刀-暗影', productImage: 'https://images.unsplash.com/photo-1606755456206-b25206cde27e?w=800', price: 1899, quantity: 1 },
+      { productId: 'p002', productName: 'Tactical Folding Knife - Shadow', productImage: 'https://images.unsplash.com/photo-1606755456206-b25206cde27e?w=800', price: 1899, quantity: 1 },
     ],
     totalAmount: 1899,
     status: 'shipped',
     shippingAddress: {
       id: 'a002',
-      name: '李四',
+      name: 'Li Si',
       phone: '13987654321',
-      province: '上海市',
-      city: '上海市',
-      district: '浦东新区',
-      detail: '世纪大道1000号',
+      province: 'Shanghai',
+      city: 'Shanghai',
+      district: 'Pudong New Area',
+      detail: 'No. 1000 Century Avenue',
       isDefault: false,
     },
     paymentMethod: 'alipay',
@@ -82,18 +82,18 @@ const mockOrders: Order[] = [
     id: 'o003',
     orderNumber: 'ORDP3V8S4T',
     items: [
-      { productId: 'p006', productName: '博伊刀-猛犸', productImage: 'https://images.unsplash.com/photo-1533310266094-8898a03807dd?w=800', price: 3499, quantity: 1 },
+      { productId: 'p006', productName: 'Bowie Knife - Mammoth', productImage: 'https://images.unsplash.com/photo-1533310266094-8898a03807dd?w=800', price: 3499, quantity: 1 },
     ],
     totalAmount: 3499,
     status: 'delivered',
     shippingAddress: {
       id: 'a003',
-      name: '王五',
+      name: 'Wang Wu',
       phone: '13765432109',
-      province: '广东省',
-      city: '深圳市',
-      district: '南山区',
-      detail: '科技园南路88号',
+      province: 'Guangdong',
+      city: 'Shenzhen',
+      district: 'Nanshan District',
+      detail: 'No. 88 Technology Park South Road',
       isDefault: true,
     },
     paymentMethod: 'card',
@@ -104,18 +104,18 @@ const mockOrders: Order[] = [
     id: 'o004',
     orderNumber: 'ORDQ9W1U6V',
     items: [
-      { productId: 'p013', productName: '大马士革钢匕首-龙牙', productImage: 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800', price: 4299, quantity: 1 },
+      { productId: 'p013', productName: 'Damascus Steel Dagger - Dragon Tooth', productImage: 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800', price: 4299, quantity: 1 },
     ],
     totalAmount: 4299,
     status: 'pending',
     shippingAddress: {
       id: 'a004',
-      name: '赵六',
+      name: 'Zhao Liu',
       phone: '13612345678',
-      province: '浙江省',
-      city: '杭州市',
-      district: '西湖区',
-      detail: '文三路120号',
+      province: 'Zhejiang',
+      city: 'Hangzhou',
+      district: 'Xihu District',
+      detail: 'No. 120 WenSan Road',
       isDefault: true,
     },
     paymentMethod: 'wechat',
@@ -202,7 +202,7 @@ export default function AdminPage() {
   };
 
   const handleDeleteProduct = (productId: string) => {
-    if (confirm('确定要删除这个商品吗？')) {
+    if (confirm('Are you sure you want to delete this product?')) {
       setProducts(products.filter(p => p.id !== productId));
     }
   };
@@ -212,12 +212,12 @@ export default function AdminPage() {
   };
 
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-    pending: { label: '待支付', color: 'text-yellow-400 bg-yellow-400/10', icon: Clock },
-    paid: { label: '已支付', color: 'text-blue-400 bg-blue-400/10', icon: CheckCircle },
-    processing: { label: '处理中', color: 'text-purple-400 bg-purple-400/10', icon: Package },
-    shipped: { label: '已发货', color: 'text-orange-400 bg-orange-400/10', icon: Truck },
-    delivered: { label: '已完成', color: 'text-green-400 bg-green-400/10', icon: CheckCircle },
-    cancelled: { label: '已取消', color: 'text-red-400 bg-red-400/10', icon: XCircle },
+    pending: { label: 'Pending Payment', color: 'text-yellow-400 bg-yellow-400/10', icon: Clock },
+    paid: { label: 'Paid', color: 'text-blue-400 bg-blue-400/10', icon: CheckCircle },
+    processing: { label: 'Processing', color: 'text-purple-400 bg-purple-400/10', icon: Package },
+    shipped: { label: 'Shipped', color: 'text-orange-400 bg-orange-400/10', icon: Truck },
+    delivered: { label: 'Completed', color: 'text-green-400 bg-green-400/10', icon: CheckCircle },
+    cancelled: { label: 'Cancelled', color: 'text-red-400 bg-red-400/10', icon: XCircle },
   };
 
   // Stats
@@ -236,10 +236,10 @@ export default function AdminPage() {
               <span className="text-2xl font-bold text-gold-gradient" style={{ fontFamily: 'Playfair Display, serif' }}>
                 BLADE
               </span>
-              <span className="text-sm text-steel">管理后台</span>
+              <span className="text-sm text-steel">Admin Panel</span>
             </Link>
             <Link href="/" className="text-sm text-gray-400 hover:text-gold transition-colors">
-              返回前台
+              Back to Store
             </Link>
           </div>
         </div>
@@ -269,9 +269,9 @@ export default function AdminPage() {
         {activeTab === 'dashboard' && (
           <div className="space-y-8">
             <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'Playfair Display, serif' }}>
-              数据概览
+              Dashboard
             </h1>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-surface border border-border rounded-lg p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -279,7 +279,7 @@ export default function AdminPage() {
                     <BarChart3 className="w-6 h-6 text-gold" />
                   </div>
                 </div>
-                <p className="text-sm text-gray-400 mb-1">总收入</p>
+                <p className="text-sm text-gray-400 mb-1">Total Revenue</p>
                 <p className="text-2xl font-bold text-gold">{formatPrice(totalRevenue)}</p>
               </div>
               <div className="bg-surface border border-border rounded-lg p-6">
@@ -288,7 +288,7 @@ export default function AdminPage() {
                     <Package className="w-6 h-6 text-blue-400" />
                   </div>
                 </div>
-                <p className="text-sm text-gray-400 mb-1">商品数量</p>
+                <p className="text-sm text-gray-400 mb-1">Products</p>
                 <p className="text-2xl font-bold text-foreground">{totalProducts}</p>
               </div>
               <div className="bg-surface border border-border rounded-lg p-6">
@@ -297,7 +297,7 @@ export default function AdminPage() {
                     <ShoppingCart className="w-6 h-6 text-purple-400" />
                   </div>
                 </div>
-                <p className="text-sm text-gray-400 mb-1">订单总数</p>
+                <p className="text-sm text-gray-400 mb-1">Total Orders</p>
                 <p className="text-2xl font-bold text-foreground">{totalOrders}</p>
               </div>
               <div className="bg-surface border border-border rounded-lg p-6">
@@ -306,22 +306,22 @@ export default function AdminPage() {
                     <Clock className="w-6 h-6 text-yellow-400" />
                   </div>
                 </div>
-                <p className="text-sm text-gray-400 mb-1">待处理订单</p>
+                <p className="text-sm text-gray-400 mb-1">Pending Orders</p>
                 <p className="text-2xl font-bold text-foreground">{pendingOrders}</p>
               </div>
             </div>
 
             {/* Recent Orders */}
             <div>
-              <h2 className="text-lg font-semibold text-foreground mb-4">最近订单</h2>
+              <h2 className="text-lg font-semibold text-foreground mb-4">Recent Orders</h2>
               <div className="bg-surface border border-border rounded-lg overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-surfaceLight">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">订单号</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">金额</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">状态</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">时间</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Order Number</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -349,14 +349,14 @@ export default function AdminPage() {
           <div>
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'Playfair Display, serif' }}>
-                商品管理
+                Product Management
               </h1>
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                   <input
                     type="text"
-                    placeholder="搜索商品..."
+                    placeholder="Search products..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 pr-4 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold"
@@ -375,7 +375,7 @@ export default function AdminPage() {
                   className="flex items-center gap-2 px-4 py-2 bg-gold text-background rounded-lg hover:bg-goldLight transition-colors"
                 >
                   <Plus className="w-5 h-5" />
-                  添加商品
+                  Add Product
                 </button>
               </div>
             </div>
@@ -384,11 +384,11 @@ export default function AdminPage() {
               <table className="w-full">
                 <thead className="bg-surfaceLight">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">商品</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">分类</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">价格</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">库存</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">操作</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Product</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Category</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Stock</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -441,14 +441,14 @@ export default function AdminPage() {
           <div>
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'Playfair Display, serif' }}>
-                订单管理
+                Order Management
               </h1>
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                   <input
                     type="text"
-                    placeholder="搜索订单号..."
+                    placeholder="Search order number..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 pr-4 py-2 bg-surface border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold"
@@ -459,13 +459,13 @@ export default function AdminPage() {
                   onChange={(e) => setSelectedOrderStatus(e.target.value)}
                   className="px-4 py-2 bg-surface border border-border rounded-lg text-foreground focus:outline-none focus:border-gold"
                 >
-                  <option value="all">全部状态</option>
-                  <option value="pending">待支付</option>
-                  <option value="paid">已支付</option>
-                  <option value="processing">处理中</option>
-                  <option value="shipped">已发货</option>
-                  <option value="delivered">已完成</option>
-                  <option value="cancelled">已取消</option>
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending Payment</option>
+                  <option value="paid">Paid</option>
+                  <option value="processing">Processing</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Completed</option>
+                  <option value="cancelled">Cancelled</option>
                 </select>
               </div>
             </div>
@@ -517,13 +517,13 @@ export default function AdminPage() {
                             onClick={() => handleUpdateOrderStatus(order.id, 'paid')}
                             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
                           >
-                            确认支付
+                            Confirm Payment
                           </button>
                           <button
                             onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}
                             className="px-4 py-2 border border-red-500 text-red-400 rounded hover:bg-red-500/10 transition-colors text-sm"
                           >
-                            取消订单
+                            Cancel Order
                           </button>
                         </>
                       )}
@@ -532,7 +532,7 @@ export default function AdminPage() {
                           onClick={() => handleUpdateOrderStatus(order.id, 'processing')}
                           className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors text-sm"
                         >
-                          开始处理
+                          Start Processing
                         </button>
                       )}
                       {order.status === 'processing' && (
@@ -540,7 +540,7 @@ export default function AdminPage() {
                           onClick={() => handleUpdateOrderStatus(order.id, 'shipped')}
                           className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors text-sm"
                         >
-                          确认发货
+                          Confirm Shipment
                         </button>
                       )}
                       {order.status === 'shipped' && (
@@ -548,7 +548,7 @@ export default function AdminPage() {
                           onClick={() => handleUpdateOrderStatus(order.id, 'delivered')}
                           className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm"
                         >
-                          确认收货
+                          Confirm Delivery
                         </button>
                       )}
                     </div>
@@ -567,7 +567,7 @@ export default function AdminPage() {
           <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-surface border border-border rounded-xl">
             <div className="sticky top-0 bg-surface p-6 border-b border-border flex items-center justify-between">
               <h2 className="text-xl font-bold text-foreground">
-                {editingProduct ? '编辑商品' : '添加商品'}
+                {editingProduct ? 'Edit Product' : 'Add Product'}
               </h2>
               <button onClick={() => setShowProductModal(false)} className="text-gray-400 hover:text-foreground">
                 ×
@@ -576,7 +576,7 @@ export default function AdminPage() {
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">商品名称</label>
+                  <label className="block text-sm text-gray-400 mb-1">Product Name</label>
                   <input
                     value={productForm.name}
                     onChange={e => setProductForm({ ...productForm, name: e.target.value })}
@@ -584,7 +584,7 @@ export default function AdminPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">品牌</label>
+                  <label className="block text-sm text-gray-400 mb-1">Brand</label>
                   <input
                     value={productForm.brand}
                     onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
@@ -594,7 +594,7 @@ export default function AdminPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">价格</label>
+                  <label className="block text-sm text-gray-400 mb-1">Price</label>
                   <input
                     type="number"
                     value={productForm.price}
@@ -603,7 +603,7 @@ export default function AdminPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">库存</label>
+                  <label className="block text-sm text-gray-400 mb-1">Stock</label>
                   <input
                     type="number"
                     value={productForm.stock}
@@ -613,21 +613,21 @@ export default function AdminPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">分类</label>
+                <label className="block text-sm text-gray-400 mb-1">Category</label>
                 <select
                   value={productForm.category}
                   onChange={e => setProductForm({ ...productForm, category: e.target.value as ProductCategory })}
                   className="input-field"
                 >
-                  <option value="kitchen">厨刀</option>
-                  <option value="folding">折刀</option>
-                  <option value="fixed">直刀</option>
-                  <option value="hunting">猎刀</option>
-                  <option value="damascus">大马士革</option>
+                  <option value="kitchen">Kitchen Knife</option>
+                  <option value="folding">Folding Knife</option>
+                  <option value="fixed">Fixed Blade</option>
+                  <option value="hunting">Hunting Knife</option>
+                  <option value="damascus">Damascus</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">简短描述</label>
+                <label className="block text-sm text-gray-400 mb-1">Short Description</label>
                 <input
                   value={productForm.description}
                   onChange={e => setProductForm({ ...productForm, description: e.target.value })}
@@ -635,7 +635,7 @@ export default function AdminPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">详细描述</label>
+                <label className="block text-sm text-gray-400 mb-1">Detailed Description</label>
                 <textarea
                   value={productForm.longDescription}
                   onChange={e => setProductForm({ ...productForm, longDescription: e.target.value })}
@@ -651,7 +651,7 @@ export default function AdminPage() {
                     onChange={e => setProductForm({ ...productForm, featured: e.target.checked })}
                     className="w-4 h-4 rounded border-gray-600 bg-surfaceLight text-gold"
                   />
-                  <span className="text-sm text-gray-400">精选推荐</span>
+                  <span className="text-sm text-gray-400">Featured</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -660,7 +660,7 @@ export default function AdminPage() {
                     onChange={e => setProductForm({ ...productForm, isNew: e.target.checked })}
                     className="w-4 h-4 rounded border-gray-600 bg-surfaceLight text-gold"
                   />
-                  <span className="text-sm text-gray-400">新品上架</span>
+                  <span className="text-sm text-gray-400">New Arrival</span>
                 </label>
               </div>
             </div>
@@ -669,13 +669,13 @@ export default function AdminPage() {
                 onClick={() => setShowProductModal(false)}
                 className="px-6 py-2 border border-border rounded-lg text-gray-400 hover:text-foreground"
               >
-                取消
+                Cancel
               </button>
               <button
                 onClick={handleSaveProduct}
                 className="px-6 py-2 bg-gold text-background rounded-lg hover:bg-goldLight"
               >
-                保存
+                Save
               </button>
             </div>
           </div>

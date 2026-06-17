@@ -1,9 +1,9 @@
 /**
- * Server-Side Order API - 防抓包篡改
- * 
- * 客户端只发送 productId + quantity
- * 服务端从产品数据源查价格，计算总金额
- * 即使黑客抓包修改了请求，也无法篡改价格
+ * Server-Side Order API - Anti-tampering
+ *
+ * Client only sends productId + quantity
+ * Server looks up price from product data source and calculates total amount
+ * Even if hackers intercept and modify the request, they cannot tamper with the price
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -67,7 +67,7 @@ function looksLikeNormalAddress(address: ValidatedAddress) {
   const hasAddressWord = /\b(street|st|road|rd|avenue|ave|lane|ln|drive|dr|building|bldg|block|floor|room|suite|unit|village|town|county|district|city|province|state|guangdong|yangjiang|jiangcheng)\b/i.test(combined) ||
     /(路|街|号|栋|楼|室|区|县|市|省|镇|村|巷|弄)/.test(combined);
 
-  // 快速本地判断：中文地址、带门牌号、或带常见地址词，都先按正常地址处理。
+  // Quick local check: Chinese address, with street number, or with common address words are treated as normal addresses.
   return hasCjk || hasStreetNumber || hasAddressWord;
 }
 
@@ -219,7 +219,7 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
     return { valid: false, address: null, error: 'Please enter a valid province/state (not "N/A", "province", etc.).', field: 'province' };
   }
   if (!isValidPlaceName(normalized.province)) {
-    return { valid: false, address: null, error: '请输入真实的省份/州名称，例如 "Guangdong"、"California"', field: 'province' };
+    return { valid: false, address: null, error: 'Please enter a valid province/state name, e.g. "Guangdong", "California"', field: 'province' };
   }
 
   if (!normalized.city) {
@@ -229,7 +229,7 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
     return { valid: false, address: null, error: 'Please enter a valid city (not "N/A", "city", etc.).', field: 'city' };
   }
   if (!isValidPlaceName(normalized.city)) {
-    return { valid: false, address: null, error: '请输入真实的城市名称，例如 "Yangjiang"、"London"', field: 'city' };
+    return { valid: false, address: null, error: 'Please enter a valid city name, e.g. "Yangjiang", "London"', field: 'city' };
   }
 
   if (!normalized.district) {
@@ -239,7 +239,7 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
     return { valid: false, address: null, error: 'Please enter a valid district/area (not "N/A", "district", etc.).', field: 'district' };
   }
   if (!isValidPlaceName(normalized.district)) {
-    return { valid: false, address: null, error: '请输入真实的地区名称，例如 "Jiangcheng"、"Manhattan"', field: 'district' };
+    return { valid: false, address: null, error: 'Please enter a valid district name, e.g. "Jiangcheng", "Manhattan"', field: 'district' };
   }
 
   if (!normalized.detail) {

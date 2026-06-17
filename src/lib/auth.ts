@@ -103,7 +103,7 @@ export async function getAuthUser(): Promise<{ id: string; email: string; name: 
 
 export async function requireAuth() {
   const user = await getAuthUser();
-  if (!user) throw new Error('请先登录');
+  if (!user) throw new Error('Please log in first');
   return user;
 }
 

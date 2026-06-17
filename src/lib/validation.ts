@@ -29,12 +29,12 @@ function containsCommandInjection(input: string): boolean {
  */
 const noSQLInjection = z.string().refine(
   (val) => !containsSQLInjection(val),
-  { message: '输入包含非法字符' }
+  { message: 'Input contains illegal characters' }
 );
 
 const noCommandInjection = z.string().refine(
   (val) => !containsCommandInjection(val),
-  { message: '输入包含非法字符' }
+  { message: 'Input contains illegal characters' }
 );
 
 // ============================================================================
@@ -47,15 +47,15 @@ const noCommandInjection = z.string().refine(
 export const loginSchema = z.object({
   email: z
     .string()
-    .min(1, '邮箱不能为空')
-    .max(255, '邮箱长度不能超过255个字符')
-    .email('请输入有效的邮箱地址')
+    .min(1, 'Email is required')
+    .max(255, 'Email must not exceed 255 characters')
+    .email('Please enter a valid email address')
     .transform((val) => val.toLowerCase().trim()),
   
   password: z
     .string()
-    .min(1, '密码不能为空')
-    .max(128, '密码长度不能超过128个字符'),
+    .min(1, 'Password is required')
+    .max(128, 'Password must not exceed 128 characters'),
     
   // CSRF token
   csrfToken: z
@@ -71,28 +71,28 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const registerSchema = z.object({
   email: z
     .string()
-    .min(1, '邮箱不能为空')
-    .max(255, '邮箱长度不能超过255个字符')
-    .email('请输入有效的邮箱地址')
+    .min(1, 'Email is required')
+    .max(255, 'Email must not exceed 255 characters')
+    .email('Please enter a valid email address')
     .transform((val) => val.toLowerCase().trim()),
   
   password: z
     .string()
-    .min(8, '密码至少8个字符')
-    .max(128, '密码长度不能超过128个字符')
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password must not exceed 128 characters')
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/,
-      '密码必须包含大小写字母、数字和特殊字符'
+      'Password must contain uppercase, lowercase, numbers and special characters'
     ),
   
   confirmPassword: z
     .string()
-    .min(1, '请确认密码'),
+    .min(1, 'Please confirm your password'),
   
   name: z
     .string()
-    .min(2, '姓名至少2个字符')
-    .max(50, '姓名不能超过50个字符')
+    .min(2, 'Name must be at least 2 characters')
+    .max(50, 'Name must not exceed 50 characters')
     .transform((val) => val.trim()),
   
   phone: z
@@ -100,10 +100,10 @@ export const registerSchema = z.object({
     .optional()
     .refine(
       (val) => !val || validatePhone(val),
-      { message: '请输入有效的手机号码' }
+      { message: 'Please enter a valid phone number' }
     ),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: '两次输入的密码不一致',
+  message: 'Passwords do not match',
   path: ['confirmPassword'],
 });
 
@@ -115,25 +115,25 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export const changePasswordSchema = z.object({
   currentPassword: z
     .string()
-    .min(1, '请输入当前密码'),
+    .min(1, 'Please enter your current password'),
   
   newPassword: z
     .string()
-    .min(8, '新密码至少8个字符')
-    .max(128, '新密码不能超过128个字符')
+    .min(8, 'New password must be at least 8 characters')
+    .max(128, 'New password must not exceed 128 characters')
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/,
-      '密码必须包含大小写字母、数字和特殊字符'
+      'Password must contain uppercase, lowercase, numbers and special characters'
     ),
   
   confirmPassword: z
     .string()
-    .min(1, '请确认新密码'),
+    .min(1, 'Please confirm your password'),
 }).refine((data) => data.newPassword === data.confirmPassword, {
-  message: '两次输入的密码不一致',
+  message: 'Passwords do not match',
   path: ['confirmPassword'],
 }).refine((data) => data.currentPassword !== data.newPassword, {
-  message: '新密码不能与当前密码相同',
+  message: 'New password cannot be the same as current password',
   path: ['newPassword'],
 });
 
@@ -151,39 +151,39 @@ export const addressSchema = z.object({
   
   name: z
     .string()
-    .min(2, '收货人姓名至少2个字符')
-    .max(50, '收货人姓名不能超过50个字符')
+    .min(2, 'Recipient name must be at least 2 characters')
+    .max(50, 'Recipient name must not exceed 50 characters')
     .transform((val) => val.trim()),
   
   phone: z
     .string()
-    .min(1, '手机号码不能为空')
+    .min(1, 'Phone number is required')
     .refine((val) => validatePhone(val), {
-      message: '请输入有效的手机号码',
+      message: 'Please enter a valid phone number',
     }),
   
   province: z
     .string()
-    .min(1, '请选择省份')
-    .max(20, '省份名称不能超过20个字符')
+    .min(1, 'Please select a province')
+    .max(20, 'Province must not exceed 20 characters')
     .transform((val) => val.trim()),
   
   city: z
     .string()
-    .min(1, '请选择城市')
-    .max(20, '城市名称不能超过20个字符')
+    .min(1, 'Please select a city')
+    .max(20, 'City must not exceed 20 characters')
     .transform((val) => val.trim()),
   
   district: z
     .string()
-    .min(1, '请选择区县')
-    .max(20, '区县名称不能超过20个字符')
+    .min(1, 'Please select a district')
+    .max(20, 'District must not exceed 20 characters')
     .transform((val) => val.trim()),
   
   detail: z
     .string()
-    .min(5, '详细地址至少5个字符')
-    .max(200, '详细地址不能超过200个字符')
+    .min(5, 'Address must be at least 5 characters')
+    .max(200, 'Address must not exceed 200 characters')
     .transform((val) => val.trim()),
   
   isDefault: z.boolean().default(false),
@@ -193,7 +193,7 @@ export const addressSchema = z.object({
     .optional()
     .refine(
       (val) => !val || /^\d{6}$/.test(val),
-      { message: '请输入有效的6位邮政编码' }
+      { message: 'Please enter a valid 6-digit postal code' }
     ),
 });
 
@@ -209,7 +209,7 @@ export type AddressInput = z.infer<typeof addressSchema>;
 export const searchSchema = z.object({
   q: z
     .string()
-    .max(100, '搜索关键词不能超过100个字符')
+    .max(100, 'Search keyword must not exceed 100 characters')
     .transform((val) => val.trim())
     .optional()
     .or(z.literal('')),
@@ -223,17 +223,17 @@ export const searchSchema = z.object({
     .string()
     .optional()
     .transform((val) => (val ? parseInt(val, 10) : undefined))
-    .refine((val) => !val || val >= 0, { message: '价格不能为负数' }),
+    .refine((val) => !val || val >= 0, { message: 'Price cannot be negative' }),
   
   maxPrice: z
     .string()
     .optional()
     .transform((val) => (val ? parseInt(val, 10) : undefined))
-    .refine((val) => !val || val >= 0, { message: '价格不能为负数' }),
+    .refine((val) => !val || val >= 0, { message: 'Price cannot be negative' }),
   
   brand: z
     .string()
-    .max(50, '品牌名称不能超过50个字符')
+    .max(50, 'Brand name must not exceed 50 characters')
     .optional(),
   
   sort: z
@@ -246,14 +246,14 @@ export const searchSchema = z.object({
     .optional()
     .default('1')
     .transform((val) => parseInt(val, 10))
-    .refine((val) => val >= 1, { message: '页码必须大于0' }),
+    .refine((val) => val >= 1, { message: 'Page number must be greater than 0' }),
   
   limit: z
     .string()
     .optional()
     .default('20')
     .transform((val) => parseInt(val, 10))
-    .refine((val) => val >= 1 && val <= 100, { message: '每页数量必须在1-100之间' }),
+    .refine((val) => val >= 1 && val <= 100, { message: 'Items per page must be between 1-100' }),
 });
 
 export type SearchInput = z.infer<typeof searchSchema>;
@@ -268,21 +268,21 @@ export type SearchInput = z.infer<typeof searchSchema>;
 export const checkoutSchema = z.object({
   addressId: z
     .string()
-    .min(1, '请选择收货地址'),
+    .min(1, 'Please select a shipping address'),
   
   paymentMethod: z
     .enum(['wechat', 'alipay', 'card', 'bank_transfer']),
   
   remark: z
     .string()
-    .max(500, '备注不能超过500个字符')
+    .max(500, 'Remark must not exceed 500 characters')
     .transform((val) => val.trim())
     .optional()
     .or(z.literal('')),
   
   couponCode: z
     .string()
-    .max(50, '优惠券码不能超过50个字符')
+    .max(50, 'Coupon code must not exceed 50 characters')
     .optional(),
 });
 
@@ -298,9 +298,9 @@ export type CheckoutInput = z.infer<typeof checkoutSchema>;
 export const idParamSchema = z.object({
   id: z
     .string()
-    .min(1, 'ID不能为空')
-    .max(50, 'ID格式不正确')
-    .regex(/^[a-zA-Z0-9_-]+$/, 'ID格式不正确'),
+    .min(1, 'ID is required')
+    .max(50, 'Invalid ID format')
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Invalid ID format'),
 });
 
 /**
@@ -312,14 +312,14 @@ export const paginationSchema = z.object({
     .optional()
     .default('1')
     .transform((val) => parseInt(val, 10))
-    .refine((val) => val >= 1, { message: '页码必须大于0' }),
+    .refine((val) => val >= 1, { message: 'Page number must be greater than 0' }),
   
   limit: z
     .string()
     .optional()
     .default('20')
     .transform((val) => parseInt(val, 10))
-    .refine((val) => val >= 1 && val <= 100, { message: '每页数量必须在1-100之间' }),
+    .refine((val) => val >= 1 && val <= 100, { message: 'Items per page must be between 1-100' }),
 });
 
 export type PaginationInput = z.infer<typeof paginationSchema>;
@@ -356,7 +356,7 @@ export function validateInput<T>(
     console.error('Validation error:', error);
     return {
       success: false,
-      errors: [{ field: 'unknown', message: '验证过程出错' }],
+      errors: [{ field: 'unknown', message: 'Validation process error' }],
     };
   }
 }

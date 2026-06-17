@@ -64,7 +64,7 @@ export const products: Product[] = [
     brand: 'Adam Cutlery',
     price: 1200,
     description: 'Best Collected knife with Austrian M390 powder steel blade, 61-62HRC hardness, mammoth molar stone and ebony hand-carved handle, and imported Italian vegetable-tanned leather scabbard.',
-    longDescription: 'Best Collected knife: Austrian M390 powder steel blade material, 61-62HRC hardness/supports spectral analysis verification (one for every fake), hand drawn cutting edge effect 👍. The texture is very high-end, and the handle is embedded 🦣 Mammoth molar septum, carefully selected old materials 🪵 Sandalwood material, hand carved petals 💐. The pattern provides a powerful grip and excellent hand feel. The scabbard is made of imported Italian vegetable tanned leather material and is hand carved with crocodile back bone leather cover, making it the Hermes quality of scabbard. A treasure sword paired with a treasure sheath, a perfect match. This is an excellent high-end personal sword, showcasing the aristocratic style.\n\nTotal length: 23.6cm\nBlade: 11.3cm\nHandle: 12.5cm\nBlade thickness: 3.8MM\nBlade width: 2.8cm\nBlade material: M390 powder steel (fake one compensated ten)\nHardness: 61-62HRC\nHeat treatment method: vacuum heat treatment + deep cold treatment\nHandle material: Mammoth molar stone + ebony wood (hand carved pattern)\nPackaging: high-end blade cover + high-end brocade box\nPrice: $1200\nMOQ: 1\n\n一把起步下单，低于一把不能下单。',
+    longDescription: 'Best Collected knife: Austrian M390 powder steel blade material, 61-62HRC hardness/supports spectral analysis verification (one for every fake), hand drawn cutting edge effect 👍. The texture is very high-end, and the handle is embedded 🦣 Mammoth molar septum, carefully selected old materials 🪵 Sandalwood material, hand carved petals 💐. The pattern provides a powerful grip and excellent hand feel. The scabbard is made of imported Italian vegetable tanned leather material and is hand carved with crocodile back bone leather cover, making it the Hermes quality of scabbard. A treasure sword paired with a treasure sheath, a perfect match. This is an excellent high-end personal sword, showcasing the aristocratic style.\n\nTotal length: 23.6cm\nBlade: 11.3cm\nHandle: 12.5cm\nBlade thickness: 3.8MM\nBlade width: 2.8cm\nBlade material: M390 powder steel (fake one compensated ten)\nHardness: 61-62HRC\nHeat treatment method: vacuum heat treatment + deep cold treatment\nHandle material: Mammoth molar stone + ebony wood (hand carved pattern)\nPackaging: high-end blade cover + high-end brocade box\nPrice: $1200\nMOQ: 1\n\nMinimum order is 1 piece. Orders below 1 piece cannot be placed.',
     category: 'collection',
     images: [
       '/products/collection/the-best-collection-1.jpeg',
@@ -149,7 +149,7 @@ export const products: Product[] = [
     brand: 'Adam Cutlery',
     price: 21.5,
     description: 'Hunting knife. Handle material: G10. Blade material: D2. Full size: 23cm. Blade length: 9.7cm. Thickness: 4.5mm. With K-sheath. Price: $21.50/pc. MOQ: 1200pcs.',
-    longDescription: 'Hunting knife\n\nHandle material: G10\nBlade material: D2\nFull size: 23cm\nBlade length: 9.7cm\nThickness: 4.5mm\nWith K-sheath\nPrice: $21.50/pc\nMOQ: 1200pcs\n\n1200把起步下单，低于1200把不能下单。',
+    longDescription: 'Hunting knife\n\nHandle material: G10\nBlade material: D2\nFull size: 23cm\nBlade length: 9.7cm\nThickness: 4.5mm\nWith K-sheath\nPrice: $21.50/pc\nMOQ: 1200pcs\n\nMinimum order is 1200 pieces. Orders below 1200 pieces cannot be placed.',
     category: 'hunting',
     images: [
       '/images/hunting1.jpg',
@@ -199,7 +199,7 @@ export const products: Product[] = [
     brand: 'Adam Cutlery',
     price: 21,
     description: 'Hunting knife. Handle material: G10. Blade material: D2. Full size: 20.5cm. Blade length: 9.3cm. Thickness: 4.5mm. With K-sheath. Price: $21.00/pc. MOQ: 1200pcs.',
-    longDescription: 'Hunting knife\n\nHandle material: G10\nBlade material: D2\nFull size: 20.5cm\nBlade length: 9.3cm\nThickness: 4.5mm\nWith K-sheath\nPrice: $21.00/pc\nMOQ: 1200pcs\n\n1200把起步下单低于1200把不能下单。',
+    longDescription: 'Hunting knife\n\nHandle material: G10\nBlade material: D2\nFull size: 20.5cm\nBlade length: 9.3cm\nThickness: 4.5mm\nWith K-sheath\nPrice: $21.00/pc\nMOQ: 1200pcs\n\nMinimum order is 1200 pieces. Orders below 1200 pieces cannot be placed.',
     category: 'hunting',
     images: [
       '/images/hunting3.jpg',

@@ -8,14 +8,14 @@
 // ============================================================================
 
 /**
- * Mask Chinese phone number: 13812345678 -> 138****5678
+ * Mask phone number: 13812345678 -> 138****5678
  */
 export function maskPhone(phone: string | number): string {
   if (!phone) return '';
   
   const str = String(phone);
   
-  // Chinese phone number: 11 digits starting with 1
+  // Phone number: 11 digits starting with 1
   if (/^1[3-9]\d{9}$/.test(str)) {
     return `${str.substring(0, 3)}****${str.substring(7)}`;
   }
@@ -83,12 +83,12 @@ export function maskEmailMinimal(email: string): string {
 // ============================================================================
 
 /**
- * Mask Chinese ID card: 110101199001011234 -> 110***********1234
+ * Mask ID card: 110101199001011234 -> 110***********1234
  */
 export function maskIDCard(idCard: string): string {
   if (!idCard) return '';
   
-  // Chinese ID card: 18 digits or 17 digits + X
+  // ID card: 18 digits or 17 digits + X
   if (/^[1-9]\d{5}(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$/.test(idCard)) {
     return `${idCard.substring(0, 3)}***********${idCard.substring(14)}`;
   }
@@ -106,14 +106,14 @@ export function maskIDCard(idCard: string): string {
 // ============================================================================
 
 /**
- * Mask Chinese name: 张三 -> 张*
- * 王小明 -> 王***
+ * Mask name: Zhang San -> Zhang*
+ * Wang Xiaoming -> Wang***
  * Alexander -> A******
  */
 export function maskName(name: string, showLast = false): string {
   if (!name) return '';
   
-  // Check if Chinese name (mostly Chinese characters)
+  // Check if name contains mostly CJK characters
   if (/^[\u4e00-\u9fa5]+$/.test(name)) {
     if (name.length === 1) return name;
     if (name.length === 2) return `${name[0]}*`;
@@ -148,7 +148,7 @@ export function maskNameLast(name: string): string {
 
 /**
  * Mask detailed address: keep province/city only + partial detail
- * 北京市朝阳区某某街道123号 -> 北京市朝阳区***
+ * Beijing Chaoyang District某某Street123 -> Beijing Chaoyang District***
  */
 export function maskAddress(address: string, showChars = 0): string {
   if (!address) return '';
@@ -160,7 +160,7 @@ export function maskAddress(address: string, showChars = 0): string {
   
   // Keep first 6 chars + original length indicator
   if (showChars === 0) {
-    // For Chinese addresses, keep province + city (usually 6-9 chars)
+    // For addresses, keep province + city (usually 6-9 chars)
     const visibleChars = 9;
     if (address.length <= visibleChars) {
       return address;
@@ -379,13 +379,13 @@ export function safeUserDisplay(user: {
 } {
   return {
     id: user.id,
-    name: user.name ? maskName(user.name) : '[未设置]',
-    email: user.email ? maskEmail(user.email) : '[未设置]',
-    phone: user.phone ? maskPhone(user.phone) : '[未设置]',
+    name: user.name ? maskName(user.name) : '[Not Set]',
+    email: user.email ? maskEmail(user.email) : '[Not Set]',
+    phone: user.phone ? maskPhone(user.phone) : '[Not Set]',
     addresses: (user.addresses || []).map(addr => ({
-      name: addr.name ? maskName(addr.name) : '[未设置]',
-      phone: addr.phone ? maskPhone(addr.phone) : '[未设置]',
-      detail: addr.detail ? maskAddress(addr.detail) : '[未设置]',
+      name: addr.name ? maskName(addr.name) : '[Not Set]',
+      phone: addr.phone ? maskPhone(addr.phone) : '[Not Set]',
+      detail: addr.detail ? maskAddress(addr.detail) : '[Not Set]',
     })),
   };
 }

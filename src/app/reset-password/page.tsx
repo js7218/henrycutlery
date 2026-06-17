@@ -17,15 +17,15 @@ function ResetPasswordInner() {
     e.preventDefault();
     setError(null);
     if (!token) {
-      setError('链接无效');
+      setError('Invalid link');
       return;
     }
     if (password.length < 8) {
-      setError('密码至少 8 位');
+      setError('Password must be at least 8 characters');
       return;
     }
     if (password !== confirm) {
-      setError('两次输入的新密码不一致');
+      setError('The two passwords do not match');
       return;
     }
     setSubmitting(true);
@@ -37,13 +37,13 @@ function ResetPasswordInner() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        setError(data.error || '重置失败');
+        setError(data.error || 'Reset failed');
         return;
       }
       setDone(true);
       setTimeout(() => router.push('/login'), 1500);
     } catch {
-      setError('网络错误，请稍后再试');
+      setError('Network error, please try again later');
     } finally {
       setSubmitting(false);
     }
@@ -52,17 +52,17 @@ function ResetPasswordInner() {
   return (
     <main className="min-h-screen flex items-center justify-center px-4 py-16 bg-background text-textPrimary">
       <div className="w-full max-w-md bg-surface border border-border rounded-xl p-8 shadow-xl">
-        <h1 className="text-2xl font-semibold mb-2">设置新密码</h1>
+        <h1 className="text-2xl font-semibold mb-2">Set New Password</h1>
         <p className="text-sm text-gray-400 mb-6">
-          重置链接 30 分钟内有效，使用后立即失效。
+          The reset link is valid for 30 minutes and expires immediately after use.
         </p>
 
         {done ? (
-          <p className="text-green-400">密码已更新，正在跳转到登录页...</p>
+          <p className="text-green-400">Password updated, redirecting to login...</p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm mb-1">新密码</label>
+              <label className="block text-sm mb-1">New Password</label>
               <input
                 type="password"
                 value={password}
@@ -72,7 +72,7 @@ function ResetPasswordInner() {
               />
             </div>
             <div>
-              <label className="block text-sm mb-1">确认新密码</label>
+              <label className="block text-sm mb-1">Confirm New Password</label>
               <input
                 type="password"
                 value={confirm}
@@ -87,7 +87,7 @@ function ResetPasswordInner() {
               disabled={submitting || !token}
               className="w-full py-2 rounded-md bg-gold text-black font-medium disabled:opacity-60"
             >
-              {submitting ? '提交中...' : '更新密码'}
+              {submitting ? 'Submitting...' : 'Update Password'}
             </button>
           </form>
         )}

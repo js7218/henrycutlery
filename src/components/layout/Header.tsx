@@ -33,7 +33,7 @@ export default function Header() {
   }, [isSearchOpen]);
 
   const handleSearchBlur = () => {
-    // 延迟关闭，避免和搜索按钮点击冲突
+    // Delayed close to avoid conflict with search button click
     setTimeout(() => {
       setIsSearchOpen(false);
       setSearchQuery('');

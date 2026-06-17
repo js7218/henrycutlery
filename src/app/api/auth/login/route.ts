@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         getRetryAfterSeconds(emailAllowed)
       );
       return NextResponse.json(
-        { success: false, error: '尝试次数过多，请稍后再试', code: 'AUTH_LOCKED', retryAfterSeconds },
+        { success: false, error: 'Too many attempts, please try again later.', code: 'AUTH_LOCKED', retryAfterSeconds },
         { status: 429 }
       );
     }
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       recordAuthFailure(ipRateKey);
       recordAuthFailure(emailRateKey);
       return NextResponse.json(
-        { success: false, error: '邮箱或密码不正确' },
+        { success: false, error: 'Incorrect email or password.' },
         { status: 401 }
       );
     }
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
           getRetryAfterSeconds(emailFailure)
         );
         return NextResponse.json(
-          { success: false, error: '尝试次数过多，请稍后再试', code: failureReason(ipFailure) || failureReason(emailFailure), retryAfterSeconds },
+          { success: false, error: 'Too many attempts, please try again later.', code: failureReason(ipFailure) || failureReason(emailFailure), retryAfterSeconds },
           { status: 429 }
         );
       }
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     return response;
   } catch {
     const response = NextResponse.json(
-      { success: false, error: '登录失败，请稍后再试' },
+      { success: false, error: 'Login failed, please try again later.' },
       { status: 500 }
     );
     response.headers.set('Cache-Control', 'no-store');

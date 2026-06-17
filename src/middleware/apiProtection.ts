@@ -26,7 +26,7 @@ export function applyRateLimit(
   
   if (!result.success) {
     return NextResponse.json(
-      { success: false, error: '请求过于频繁', retryAfter: result.retryAfter },
+      { success: false, error: 'Too many requests', retryAfter: result.retryAfter },
       { status: 429, headers: { 'Retry-After': String(result.retryAfter || 60) } }
     );
   }

@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
 /**
- * OEM / ODM Manufacturing 卡片。
+ * OEM / ODM Manufacturing Card.
  *
- * - 卡片本身是 button，不是 a 标签，避免开放重定向或钓鱼跳转。
- * - 展开内容只通过 React 文本节点渲染，不使用 dangerouslySetInnerHTML。
- * - 弹窗支持 ESC 和遮罩关闭，打开期间只锁定页面滚动，不写入 cookie / localStorage。
+ * - The card itself is a button, not an anchor tag, to avoid open redirect or phishing.
+ * - Expanded content is rendered only through React text nodes, without using dangerouslySetInnerHTML.
+ * - Modal supports ESC and overlay close; during opening only page scrolling is locked, no cookie / localStorage is written.
  */
 
 const SUMMARY_TEXT =

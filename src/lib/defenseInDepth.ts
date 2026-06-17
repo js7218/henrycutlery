@@ -1,25 +1,24 @@
 /**
  * ============================================================================
- * ADAM CUTLERY - DEFENSE IN DEPTH SECURITY SYSTEM (纵深防御安全体系)
+ * ADAM CUTLERY - DEFENSE IN DEPTH SECURITY SYSTEM
  * ============================================================================
- * 
+ *
  * Based on OWASP Top 10 (2021) and industry best practices
  * Four layers of defense from basic to advanced
- * 
- * Layer 1: Security Configuration & Operations (基础配置与运维管理)
- * Layer 2: Code Logic & Input Validation (代码逻辑与输入验证)
- * Layer 3: Authentication & Access Control (身份认证与访问控制)
- * Layer 4: Architecture & Advanced Threats (架构设计与高级威胁)
+ *
+ * Layer 1: Security Configuration & Operations
+ * Layer 2: Code Logic & Input Validation
+ * Layer 3: Authentication & Access Control
+ * Layer 4: Architecture & Advanced Threats
  * ============================================================================
  */
 
 // ============================================================================
 // LAYER 1: SECURITY CONFIGURATION & OPERATIONS MANAGEMENT
-// 基础配置与运维管理层
 // ============================================================================
 
 export const SecurityConfig = {
-  // 1.1 Security Headers Configuration (安全响应头)
+  // 1.1 Security Headers Configuration
   headers: {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
@@ -49,7 +48,7 @@ export const SecurityConfig = {
     ].join('; '),
   },
 
-  // 1.2 Sensitive Data Protection (敏感数据保护)
+  // 1.2 Sensitive Data Protection
   sensitiveData: {
     // Fields that should never be logged or exposed
     piiFields: ['password', 'creditCard', 'cvv', 'ssn', 'token', 'secret'],
@@ -70,7 +69,7 @@ export const SecurityConfig = {
     },
   },
 
-  // 1.3 Software Supply Chain (软件供应链)
+  // 1.3 Software Supply Chain
   supplyChain: {
     // Allowed external domains
     allowedExternalDomains: [
@@ -93,7 +92,7 @@ export const SecurityConfig = {
     minTLSVersion: 'TLSv1.2',
   },
 
-  // 1.4 Security Configuration Checklist (安全配置检查)
+  // 1.4 Security Configuration Checklist
   configChecklist: {
     poweredByHeader: false,        // Remove X-Powered-By
     serverHeader: false,           // Remove Server header
@@ -110,11 +109,10 @@ export const SecurityConfig = {
 
 // ============================================================================
 // LAYER 2: CODE LOGIC & INPUT VALIDATION
-// 代码逻辑与输入验证层
 // ============================================================================
 
 export const InputValidation = {
-  // 2.1 SQL Injection Prevention (SQL注入防护)
+  // 2.1 SQL Injection Prevention
   sql: {
     // Strict whitelist approach - only allow known-safe patterns
     allowedPatterns: {
@@ -140,7 +138,7 @@ export const InputValidation = {
     enforceParameterized: true,
   },
 
-  // 2.2 XSS Prevention (XSS防护)
+  // 2.2 XSS Prevention
   xss: {
     // HTML encoding map
     htmlEntities: {
@@ -174,7 +172,7 @@ export const InputValidation = {
     },
   },
 
-  // 2.3 File Upload Security (文件上传安全)
+  // 2.3 File Upload Security
   fileUpload: {
     // Allowed MIME types (whitelist approach)
     allowedMimeTypes: [
@@ -202,7 +200,7 @@ export const InputValidation = {
     blockDoubleExtensions: true,
   },
 
-  // 2.4 Command Injection Prevention (命令注入防护)
+  // 2.4 Command Injection Prevention
   commandInjection: {
     // Forbidden characters
     forbiddenChars: /[;&|`$><\(\)\[\]{}\n\r\t]/,
@@ -220,11 +218,10 @@ export const InputValidation = {
 
 // ============================================================================
 // LAYER 3: AUTHENTICATION & ACCESS CONTROL
-// 身份认证与访问控制层
 // ============================================================================
 
 export const AuthSecurity = {
-  // 3.1 Password Policy (密码策略)
+  // 3.1 Password Policy
   passwordPolicy: {
     minLength: 8,
     maxLength: 128,
@@ -246,7 +243,7 @@ export const AuthSecurity = {
     maxConcurrentSessions: 3,
   },
 
-  // 3.2 Session Security (会话安全)
+  // 3.2 Session Security
   session: {
     // Session timeout
     inactiveTimeoutMs: 30 * 60 * 1000,     // 30 minutes
@@ -272,7 +269,7 @@ export const AuthSecurity = {
     bindToUA: true,
   },
 
-  // 3.3 Access Control - Horizontal (水平越权防护)
+  // 3.3 Access Control - Horizontal
   horizontalPrivilege: {
     // Resource ownership verification
     verifyOwnership: true,
@@ -286,7 +283,7 @@ export const AuthSecurity = {
     protectedResources: ['orders', 'addresses', 'favorites', 'cart', 'profile', 'payments'],
   },
 
-  // 3.4 Access Control - Vertical (垂直越权防护)
+  // 3.4 Access Control - Vertical
   verticalPrivilege: {
     // Role hierarchy
     roles: {
@@ -307,7 +304,7 @@ export const AuthSecurity = {
     ],
   },
 
-  // 3.5 CSRF Protection (CSRF防护)
+  // 3.5 CSRF Protection
   csrf: {
     // Double-submit cookie pattern
     doubleSubmitCookie: true,
@@ -326,7 +323,7 @@ export const AuthSecurity = {
     requireCustomHeader: true,
   },
 
-  // 3.6 Brute Force Protection (暴力破解防护)
+  // 3.6 Brute Force Protection
   bruteForce: {
     // Login
     login: {
@@ -368,11 +365,10 @@ export const AuthSecurity = {
 
 // ============================================================================
 // LAYER 4: ARCHITECTURE & ADVANCED THREATS
-// 架构设计与高级威胁层
 // ============================================================================
 
 export const ArchitectureSecurity = {
-  // 4.1 Secure Design Principles (安全设计原则)
+  // 4.1 Secure Design Principles
   design: {
     // Never trust client-side data
     neverTrustClient: true,
@@ -392,7 +388,7 @@ export const ArchitectureSecurity = {
     secureDefaults: true,
   },
 
-  // 4.2 Business Logic Protection (业务逻辑防护)
+  // 4.2 Business Logic Protection
   businessLogic: {
     // Price tampering prevention
     verifyPriceOnServer: true,
@@ -413,7 +409,7 @@ export const ArchitectureSecurity = {
     signOrderData: true,
   },
 
-  // 4.3 Zero-Day / Unknown Threat Protection (零日漏洞防护)
+  // 4.3 Zero-Day / Unknown Threat Protection
   zeroDay: {
     // Runtime Application Self-Protection (RASP) concepts
     rasp: {
@@ -432,7 +428,7 @@ export const ArchitectureSecurity = {
     strictContentTypeValidation: true,
   },
 
-  // 4.4 DDoS Protection Architecture (DDoS防护架构)
+  // 4.4 DDoS Protection Architecture
   ddos: {
     // Rate limiting tiers
     rateLimits: {
@@ -459,7 +455,7 @@ export const ArchitectureSecurity = {
     ipReputation: true,
   },
 
-  // 4.5 Logging & Monitoring (日志与监控)
+  // 4.5 Logging & Monitoring
   monitoring: {
     // Security event logging
     logEvents: [
@@ -484,7 +480,7 @@ export const ArchitectureSecurity = {
     auditRetentionDays: 180,
   },
 
-  // 4.6 Incident Response (应急响应)
+  // 4.6 Incident Response
   incidentResponse: {
     // Auto-block thresholds
     autoBlockThresholds: {
@@ -500,7 +496,7 @@ export const ArchitectureSecurity = {
     },
   },
 
-  // 4.7 Data Backup & Recovery (数据备份与恢复)
+  // 4.7 Data Backup & Recovery
   backup: {
     // Backup frequency
     frequency: 'daily',
@@ -517,7 +513,7 @@ export const ArchitectureSecurity = {
 };
 
 // ============================================================================
-// SECURITY AUDIT CHECKLIST (安全审计清单)
+// SECURITY AUDIT CHECKLIST
 // ============================================================================
 
 export const SecurityAuditChecklist = {

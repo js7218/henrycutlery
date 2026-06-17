@@ -37,19 +37,19 @@ const SPAM_PATTERNS: { regex: RegExp; weight: number; label: string }[] = [
 export function classifyReview(input: { content: string; rating: number }): ReviewClassification {
   const content = (input.content || '').trim();
   if (!content) {
-    return { status: 'rejected', score: 100, reason: '内容为空' };
+    return { status: 'rejected', score: 100, reason: 'Empty content' };
   }
   if (content.length > 2000) {
-    return { status: 'rejected', score: 100, reason: '内容过长' };
+    return { status: 'rejected', score: 100, reason: 'Content too long' };
   }
   if (input.rating < 1 || input.rating > 5) {
-    return { status: 'rejected', score: 100, reason: '评分超出范围' };
+    return { status: 'rejected', score: 100, reason: 'Rating out of range' };
   }
 
   // Hard-block attacks first.
   for (const p of ATTACK_PATTERNS) {
     if (p.regex.test(content)) {
-      return { status: 'rejected', score: 100, reason: `攻击特征: ${p.label}` };
+      return { status: 'rejected', score: 100, reason: `Attack pattern: ${p.label}` };
     }
   }
 

@@ -20,7 +20,7 @@ export async function GET(
     const { id } = await context.params;
     if (!id) {
       return NextResponse.json(
-        { success: false, error: '缺少用户 ID' },
+        { success: false, error: 'Missing user ID.' },
         { status: 400 }
       );
     }
@@ -32,7 +32,7 @@ export async function GET(
     );
     if (userResult.rowCount === 0) {
       return NextResponse.json(
-        { success: false, error: '用户不存在' },
+        { success: false, error: 'User does not exist.' },
         { status: 404 }
       );
     }
@@ -81,7 +81,7 @@ export async function GET(
   } catch (err) {
     console.error('[admin/customers/:id] failed', err);
     return NextResponse.json(
-      { success: false, error: '查询失败' },
+      { success: false, error: 'Query failed.' },
       { status: 500 }
     );
   }

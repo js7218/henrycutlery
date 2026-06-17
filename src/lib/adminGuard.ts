@@ -16,7 +16,7 @@ export async function requireAdmin():
   if (!session) {
     return {
       response: NextResponse.json(
-        { success: false, error: '请先登录管理员账号', code: 'AUTH_REQUIRED' },
+        { success: false, error: 'Please log in with an admin account first', code: 'AUTH_REQUIRED' },
         { status: 401 }
       ),
     };
@@ -26,7 +26,7 @@ export async function requireAdmin():
   if (!dbUser || dbUser.role !== 'admin') {
     return {
       response: NextResponse.json(
-        { success: false, error: '没有管理员权限', code: 'FORBIDDEN' },
+        { success: false, error: 'Admin privileges required', code: 'FORBIDDEN' },
         { status: 403 }
       ),
     };

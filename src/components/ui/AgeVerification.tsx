@@ -19,7 +19,7 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
       dispatch({ type: 'SET_AGE_VERIFIED', verified: true });
       setShowModal(false);
     } else {
-      // 不跳转到外部 referrer，避免开放重定向风险。
+      // Do not redirect to external referrer to avoid open redirect risk.
       if (window.history.length > 1) {
         window.history.back();
         return;

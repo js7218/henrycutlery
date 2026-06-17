@@ -126,18 +126,18 @@ export async function POST(request: NextRequest) {
       const resetUrl = `${baseUrl.replace(/\/$/, '')}/reset-password?token=${rawToken}`;
 
       const html = `
-        <p>你好,</p>
-        <p>我们收到了你账号 <strong>${escapeHtml(user.email)}</strong> 的密码重置请求。</p>
-        <p>请在 <strong>30 分钟内</strong> 点击下面的链接设置新密码:</p>
+        <p>Hello,</p>
+        <p>We received a password reset request for your account <strong>${escapeHtml(user.email)}</strong>.</p>
+        <p>Please click the link below to set a new password within <strong>30 minutes</strong>:</p>
         <p><a href="${resetUrl}">${escapeHtml(resetUrl)}</a></p>
-        <p>如果不是你本人发起,可以忽略此邮件,密码不会变化。</p>
-        <p>为了你的账号安全,我们不会通过任何渠道把密码原文发给你。</p>
+        <p>If you did not initiate this request, you can ignore this email and your password will remain unchanged.</p>
+        <p>For your account security, we will never send your password in plaintext through any channel.</p>
       `;
 
       try {
         await sendTransactionalEmail({
           to: user.email,
-          subject: 'Adam Cutlery 密码重置链接',
+          subject: 'Adam Cutlery Password Reset Link',
           html,
         });
       } catch (mailErr) {

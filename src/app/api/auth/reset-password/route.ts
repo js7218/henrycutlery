@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     if (!allowed.allowed) {
       return NextResponse.json(
-        { success: false, error: '请求过于频繁，请稍后再试', retryAfterSeconds: allowed.retryAfterSeconds },
+        { success: false, error: 'Too many requests, please try again later.', retryAfterSeconds: allowed.retryAfterSeconds },
         { status: 429 }
       );
     }
@@ -38,14 +38,14 @@ export async function POST(request: NextRequest) {
     if (!token || !password) {
       recordSensitiveFailure(limitKey, { maxFailures: 8, windowMs: 15 * 60 * 1000, lockMs: 30 * 60 * 1000 });
       return NextResponse.json(
-        { success: false, error: '缺少必要参数' },
+        { success: false, error: 'Missing required parameters.' },
         { status: 400 }
       );
     }
     if (password.length < 12 || password.length > 128) {
       recordSensitiveFailure(limitKey, { maxFailures: 8, windowMs: 15 * 60 * 1000, lockMs: 30 * 60 * 1000 });
       return NextResponse.json(
-        { success: false, error: '密码必须为 12-128 位，且包含大小写字母、数字和特殊字符' },
+        { success: false, error: 'Password must be 12-128 characters and include uppercase, lowercase, number, and special character.' },
         { status: 400 }
       );
     }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     if (!hasLower || !hasUpper || !hasDigit || !hasSpecial || weakPasswords.includes(password.toLowerCase())) {
       recordSensitiveFailure(limitKey, { maxFailures: 8, windowMs: 15 * 60 * 1000, lockMs: 30 * 60 * 1000 });
       return NextResponse.json(
-        { success: false, error: '密码强度不足，请使用至少12位包含大小写字母、数字和特殊字符的组合' },
+        { success: false, error: 'Password is too weak. Please use at least 12 characters with uppercase, lowercase, number, and special character.' },
         { status: 400 }
       );
     }
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         await client.query('ROLLBACK');
         recordSensitiveFailure(limitKey, { maxFailures: 8, windowMs: 15 * 60 * 1000, lockMs: 30 * 60 * 1000 });
         return NextResponse.json(
-          { success: false, error: '链接无效或已过期' },
+          { success: false, error: 'Link is invalid or has expired.' },
           { status: 400 }
         );
       }
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('[reset-password] failed', err);
     return NextResponse.json(
-      { success: false, error: '重置失败，请稍后再试' },
+      { success: false, error: 'Reset failed, please try again later.' },
       { status: 500 }
     );
   }

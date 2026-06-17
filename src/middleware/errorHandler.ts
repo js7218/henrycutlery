@@ -26,29 +26,29 @@ export class ValidationError extends APIError {
 }
 
 export class AuthenticationError extends APIError {
-  constructor(message: string = '认证失败') {
+  constructor(message: string = 'Authentication failed') {
     super(message, 401, 'AUTH_ERROR');
     this.name = 'AuthenticationError';
   }
 }
 
 export class AuthorizationError extends APIError {
-  constructor(message: string = '权限不足') {
+  constructor(message: string = 'Insufficient permissions') {
     super(message, 403, 'AUTHORIZATION_ERROR');
     this.name = 'AuthorizationError';
   }
 }
 
 export class NotFoundError extends APIError {
-  constructor(resource: string = '资源') {
-    super(`${resource}不存在`, 404, 'NOT_FOUND');
+  constructor(resource: string = 'Resource') {
+    super(`${resource} does not exist`, 404, 'NOT_FOUND');
     this.name = 'NotFoundError';
   }
 }
 
 export class RateLimitError extends APIError {
   constructor(retryAfter?: number) {
-    super('请求过于频繁，请稍后再试', 429, 'RATE_LIMIT_EXCEEDED', { retryAfter });
+    super('Too many requests, please try again later', 429, 'RATE_LIMIT_EXCEEDED', { retryAfter });
     this.name = 'RateLimitError';
   }
 }
@@ -113,7 +113,7 @@ export function handleAPIError(
   if (error instanceof Error) {
     // Don't expose internal error messages in production
     const message = process.env.NODE_ENV === 'production'
-      ? '服务器内部错误'
+      ? 'Internal server error'
       : error.message;
     
     const body: Record<string, unknown> = {
@@ -140,7 +140,7 @@ export function handleAPIError(
   return NextResponse.json(
     {
       success: false,
-      error: '发生了未知错误',
+      error: 'An unknown error occurred',
       code: 'UNKNOWN_ERROR',
       timestamp: Date.now(),
     },
@@ -192,7 +192,7 @@ export async function parseJSONBody<T>(
   if (contentLength) {
     const size = parseInt(contentLength, 10);
     if (size > maxSize) {
-      throw new ValidationError(`请求体过大，最大允许 ${maxSize} 字节`);
+      throw new ValidationError(`Request body too large, maximum allowed ${maxSize} bytes`);
     }
   }
   
@@ -204,7 +204,7 @@ export async function parseJSONBody<T>(
       const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
       for (const key of dangerousKeys) {
         if (key in body) {
-          throw new ValidationError('请求数据包含非法字段');
+          throw new ValidationError('Request data contains illegal fields');
         }
       }
     }
@@ -214,7 +214,7 @@ export async function parseJSONBody<T>(
     if (error instanceof ValidationError) {
       throw error;
     }
-    throw new ValidationError('无效的 JSON 数据');
+    throw new ValidationError('Invalid JSON data');
   }
 }
 
@@ -275,7 +275,7 @@ export function successResponse<T>(
  */
 export function createdResponse<T>(
   data: T,
-  message: string = '创建成功'
+  message: string = 'Created successfully'
 ): NextResponse {
   return NextResponse.json(
     {

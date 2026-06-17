@@ -10,7 +10,7 @@ function clean(value: unknown, max = 120) {
 function validAddressPart(value: string, min = 2, max = 100) {
   return value.length >= min &&
     value.length <= max &&
-    !/^(n\/a|na|none|null|undefined|省份|城市|地区|province|city|district)$/i.test(value);
+    !/^(n\/a|na|none|null|undefined|province|city|district)$/i.test(value);
 }
 
 function validPhone(phone: string) {
@@ -43,7 +43,7 @@ function normalizeAddress(address: unknown): Address | null {
 export async function GET() {
   const authUser = await getAuthUser();
   if (!authUser) {
-    return NextResponse.json({ success: false, error: '请先登录' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please log in first.' }, { status: 401 });
   }
 
   const response = NextResponse.json({
@@ -57,7 +57,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   const authUser = await getAuthUser();
   if (!authUser) {
-    return NextResponse.json({ success: false, error: '请先登录' }, { status: 401 });
+    return NextResponse.json({ success: false, error: 'Please log in first.' }, { status: 401 });
   }
 
   try {
@@ -118,7 +118,7 @@ export async function PUT(request: Request) {
     return response;
   } catch {
     return NextResponse.json(
-      { success: false, error: '保存收货地址失败' },
+      { success: false, error: 'Failed to save shipping address.' },
       { status: 500 }
     );
   }

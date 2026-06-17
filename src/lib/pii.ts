@@ -44,61 +44,61 @@ export const L1_FIELDS: Record<string, PIIField> = {
   password: {
     name: 'password',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: '用户密码',
+    description: 'User password',
     examples: ['any'],
   },
   passwordHash: {
     name: 'passwordHash',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: '密码哈希值',
+    description: 'Password hash',
   },
   salt: {
     name: 'salt',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: '密码盐值',
+    description: 'Password salt',
   },
   creditCardNumber: {
     name: 'creditCardNumber',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: '信用卡号',
+    description: 'Credit card number',
     regex: /\b\d{13,19}\b/,
   },
   cvv: {
     name: 'cvv',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: '信用卡CVV',
+    description: 'Credit card CVV',
     regex: /\b\d{3,4}\b/,
   },
   idCardNumber: {
     name: 'idCardNumber',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: '身份证号码',
+    description: 'ID card number',
     regex: /\b[1-9]\d{5}(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b/,
   },
   ssn: {
     name: 'ssn',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: '社保号码',
+    description: 'Social security number',
   },
   bankAccount: {
     name: 'bankAccount',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: '银行账户',
+    description: 'Bank account',
   },
   secretKey: {
     name: 'secretKey',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: '密钥',
+    description: 'Secret key',
   },
   privateKey: {
     name: 'privateKey',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: '私钥',
+    description: 'Private key',
   },
   apiKey: {
     name: 'apiKey',
     level: PIILevel.L1_EXTREMELY_SENSITIVE,
-    description: 'API密钥',
+    description: 'API key',
   },
 };
 
@@ -107,46 +107,46 @@ export const L2_FIELDS: Record<string, PIIField> = {
   phone: {
     name: 'phone',
     level: PIILevel.L2_SENSITIVE,
-    description: '手机号码',
+    description: 'Phone number',
     regex: /\b1[3-9]\d{9}\b/,
   },
   email: {
     name: 'email',
     level: PIILevel.L2_SENSITIVE,
-    description: '邮箱地址',
+    description: 'Email address',
     regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/,
   },
   realName: {
     name: 'realName',
     level: PIILevel.L2_SENSITIVE,
-    description: '真实姓名',
+    description: 'Real name',
   },
   address: {
     name: 'address',
     level: PIILevel.L2_SENSITIVE,
-    description: '详细地址',
+    description: 'Detailed address',
   },
   ipAddress: {
     name: 'ipAddress',
     level: PIILevel.L2_SENSITIVE,
-    description: 'IP地址',
+    description: 'IP address',
     regex: /\b(\d{1,3}\.){3}\d{1,3}\b/,
   },
   macAddress: {
     name: 'macAddress',
     level: PIILevel.L2_SENSITIVE,
-    description: 'MAC地址',
+    description: 'MAC address',
     regex: /\b([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b/,
   },
   passportNumber: {
     name: 'passportNumber',
     level: PIILevel.L2_SENSITIVE,
-    description: '护照号码',
+    description: 'Passport number',
   },
   driversLicense: {
     name: 'driversLicense',
     level: PIILevel.L2_SENSITIVE,
-    description: '驾照号码',
+    description: 'Driver license number',
   },
 };
 
@@ -155,22 +155,22 @@ export const L3_FIELDS: Record<string, PIIField> = {
   username: {
     name: 'username',
     level: PIILevel.L3_GENERAL,
-    description: '用户名',
+    description: 'Username',
   },
   displayName: {
     name: 'displayName',
     level: PIILevel.L3_GENERAL,
-    description: '显示名称',
+    description: 'Display name',
   },
   orderId: {
     name: 'orderId',
     level: PIILevel.L3_GENERAL,
-    description: '订单号',
+    description: 'Order ID',
   },
   productId: {
     name: 'productId',
     level: PIILevel.L3_GENERAL,
-    description: '商品ID',
+    description: 'Product ID',
   },
 };
 
@@ -189,33 +189,33 @@ export const ALL_PII_FIELDS: Record<string, PIIField> = {
 // ============================================================================
 
 export const PII_PATTERNS = {
-  // Chinese phone number
+  // Phone number
   phone: /\b1[3-9]\d{9}\b/g,
-  
+
   // Email
   email: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
-  
-  // Chinese ID card (18 digits)
+
+  // ID card (18 digits)
   idCard: /\b[1-9]\d{5}(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b/g,
-  
+
   // Credit card (13-19 digits)
   creditCard: /\b\d{13,19}\b/g,
-  
+
   // Bank account
   bankAccount: /\b\d{16,19}\b/g,
-  
+
   // IP address
   ipAddress: /\b(\d{1,3}\.){3}\d{1,3}\b/g,
-  
+
   // MAC address
   macAddress: /\b([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b/g,
-  
+
   // Password-like strings (common patterns)
   password: /("password"\s*:\s*")[^"]+("|\s)/gi,
-  
+
   // Token patterns
   token: /("token"\s*:\s*")[^"]+("|\s)/gi,
-  
+
   // Bearer token
   bearerToken: /Bearer\s+[A-Za-z0-9._-]+/gi,
 };

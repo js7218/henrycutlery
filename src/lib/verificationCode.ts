@@ -86,7 +86,7 @@ export async function verifyCode(
 
   const row = result.rows[0];
   if (!row) {
-    return { valid: false, error: '验证码无效或已过期' };
+    return { valid: false, error: 'Verification code is invalid or has expired' };
   }
 
   // Check expiry
@@ -95,7 +95,7 @@ export async function verifyCode(
       `UPDATE verification_codes SET used_at = NOW() WHERE id = $1`,
       [row.id]
     );
-    return { valid: false, error: '验证码已过期，请重新获取' };
+    return { valid: false, error: 'Verification code has expired. Please request a new one.' };
   }
 
   // Check max attempts
@@ -104,7 +104,7 @@ export async function verifyCode(
       `UPDATE verification_codes SET used_at = NOW() WHERE id = $1`,
       [row.id]
     );
-    return { valid: false, error: '验证码错误次数过多，请重新获取' };
+    return { valid: false, error: 'Too many failed attempts. Please request a new verification code.' };
   }
 
   // Increment attempts
@@ -115,7 +115,7 @@ export async function verifyCode(
 
   // Verify code
   if (row.code_hash !== codeHash) {
-    return { valid: false, error: '验证码不正确' };
+    return { valid: false, error: 'Incorrect verification code' };
   }
 
   // Mark as used

@@ -41,7 +41,7 @@ function validAddressPart(value?: string, min = 2, max = 100) {
   const clean = (value || '').trim();
   return clean.length >= min &&
     clean.length <= max &&
-    !/^(n\/a|na|none|null|undefined|省份|城市|地区|province|city|district)$/i.test(clean);
+    !/^(n\/a|na|none|null|undefined|province|city|district)$/i.test(clean);
 }
 
 function validInternationalPhone(phone?: string) {

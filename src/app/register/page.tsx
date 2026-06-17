@@ -229,8 +229,8 @@ interface RegisterAttempt {
   firstAttempt: number;
   lastAttempt: number;
   lockedUntil: number | null;
-  timestamps: number[]; // 记录每次失败的时间戳，用于检测自动化工具
-  lockDate: string | null; // 记录锁定日期，用于每日解封
+  timestamps: number[]; // records timestamps of each failure, used to detect automated tools
+  lockDate: string | null; // records lock date, used for daily auto-unlock
 }
 
 function getRegisterAttempts(): RegisterAttempt {
@@ -238,7 +238,7 @@ function getRegisterAttempts(): RegisterAttempt {
   const stored = localStorage.getItem(REGISTER_ATTEMPTS_KEY);
   if (stored) {
     const parsed = JSON.parse(stored);
-    // 每日解封：如果是新的一天，自动解封
+    // Daily auto-unlock: if it's a new day, unlock automatically
     const today = new Date().toISOString().split('T')[0];
     if (parsed.lockDate && parsed.lockDate !== today) {
       return { count: 0, firstAttempt: Date.now(), lastAttempt: 0, lockedUntil: null, timestamps: [], lockDate: null };
@@ -310,10 +310,10 @@ function recordRegisterFailure(): { allowed: boolean; lockedUntil?: number; atte
   // Lock thresholds. Client-side lock is intentionally looser; server-side
   // API rate limiting is the real protection against automated brute force.
   const LOCK_THRESHOLD = 12;
-  
+
   if (attempts.count >= LOCK_THRESHOLD) {
     if (isBotAttack) {
-      // 自动化工具：锁定1小时
+      // automated tool: lock for 1 hour
       attempts.lockedUntil = now + 60 * 60 * 1000;
       attempts.lockDate = today;
       localStorage.setItem(REGISTER_ATTEMPTS_KEY, JSON.stringify(attempts));
@@ -324,7 +324,7 @@ function recordRegisterFailure(): { allowed: boolean; lockedUntil?: number; atte
         reason: 'Automated registration detected. Locked for 1 hour.' 
       };
     } else {
-      // 普通连续失败：锁定15分钟
+      // normal consecutive failures: lock for 15 minutes
       attempts.lockedUntil = now + 15 * 60 * 1000;
       attempts.lockDate = today;
       localStorage.setItem(REGISTER_ATTEMPTS_KEY, JSON.stringify(attempts));
