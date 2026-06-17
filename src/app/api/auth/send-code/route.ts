@@ -4,6 +4,7 @@ import { createJWT, setAuthCookies } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool, getUserById } from '@/lib/db';
 import { createVerificationCode } from '@/lib/verificationCode';
 import { sendTransactionalEmail } from '@/lib/orderEmail';
+import { sendSMS } from '@/lib/sms';
 import { checkAuthAllowed, getClientIp, recordAuthFailure } from '@/lib/authRateLimit';
 
 function isValidEmail(email: string) {
@@ -20,7 +21,7 @@ function isValidInternationalPhone(phone: string) {
  *
  * Sends a 6-digit verification code to the user's email or phone.
  * For email: sends via SMTP.
- * For phone: returns code in response (since no SMS gateway configured).
+ * For phone: sends via Twilio SMS.
  */
 export async function POST(request: Request) {
   try {
@@ -132,19 +133,20 @@ export async function POST(request: Request) {
       }
     }
 
-    // For phone, we return the code in response (no SMS gateway configured)
-    // In production, integrate with SMS provider (Twilio, AWS SNS, etc.)
+    // Send code via SMS for phone type
     const response: Record<string, unknown> = {
       success: true,
       message: 'Verification code sent',
       expiresIn: 60,
     };
 
-    // DEV ONLY: include code in response for phone login testing
-    // REMOVE IN PRODUCTION - integrate real SMS gateway
     if (type === 'phone') {
-      response.code = code;
-      response._devNote = 'SMS gateway not configured. Code included for testing only.';
+      const smsResult = await sendSMS(identifier, `Your Adam Cutlery verification code is: ${code}. Valid for 1 minute.`);
+      if (!smsResult.success) {
+        // Fallback: return code in response if SMS fails
+        response.code = code;
+        response._devNote = 'SMS failed. Code included for testing.';
+      }
     }
 
     return NextResponse.json(response, { status: 200 });

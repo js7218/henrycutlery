@@ -97,14 +97,14 @@ export async function POST(request: Request) {
     }
 
     // Check phone number duplication (compare normalized form)
-    const existingPhone = await getPool().query(
-      `SELECT id FROM users WHERE REPLACE(phone, ' ', '') = REPLACE($1, ' ', '') AND deleted_at IS NULL LIMIT 1`,
+    const phoneCountResult = await getPool().query(
+      `SELECT COUNT(*)::int as count FROM users WHERE REPLACE(phone, ' ', '') = REPLACE($1, ' ', '') AND deleted_at IS NULL`,
       [normalizedPhone]
     );
-
-    if (existingPhone.rowCount) {
+    const phoneCount = phoneCountResult.rows[0]?.count || 0;
+    if (phoneCount >= 3) {
       return NextResponse.json(
-        { success: false, error: 'This phone number is already registered' },
+        { success: false, error: 'This phone number has reached the maximum of 3 accounts' },
         { status: 409 }
       );
     }
