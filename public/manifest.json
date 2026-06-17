@@ -1,0 +1,13 @@
+{
+  "name": "Adam Cutlery - Premium Knives",
+  "short_name": "Adam Cutlery",
+  "description": "Professional e-commerce platform for premium knives",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#d4a574",
+  "icons": [
+    { "src": "/icon-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512x512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

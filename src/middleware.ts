@@ -1267,7 +1267,19 @@ function isBlockedUA(ua: string): boolean {
 // ============================================================================
 // Security Headers
 // ============================================================================
-function addSecurityHeaders(response: NextResponse): NextResponse {
+function generateNonce(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let nonce = '';
+  const randomValues = new Uint8Array(16);
+  crypto.getRandomValues(randomValues);
+  for (let i = 0; i < 16; i++) {
+    nonce += chars[randomValues[i] % chars.length];
+  }
+  return nonce;
+}
+
+function addSecurityHeaders(response: NextResponse, nonce?: string): NextResponse {
+  const cspNonce = nonce || generateNonce();
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
@@ -1281,16 +1293,18 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   response.headers.set('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
-    "img-src 'self' data: https: blob:",
-    "connect-src 'self' https:",
-    "frame-src 'none'",
-    "object-src 'none'",
+    `script-src 'self' 'nonce-${cspNonce}' https://www.googletagmanager.com`,
+    `style-src 'self' 'nonce-${cspNonce}'`,
+    "img-src 'self' data: https:",
+    "font-src 'self'",
+    "connect-src 'self' https://vitals.vercel-insights.com",
+    "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
+    "upgrade-insecure-requests",
   ].join('; '));
+  response.headers.set('X-CSP-Nonce', cspNonce);
+  response.headers.set('Reporting-Endpoints', 'csp-endpoint=\"https://vitals.vercel-insights.com/csp-report\"');
   response.headers.delete('X-Powered-By');
   response.headers.delete('Server');
   response.headers.delete('X-AspNet-Version');
@@ -1369,7 +1383,7 @@ export function middleware(request: NextRequest) {
     path.startsWith('/favicon') ||
     /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|eot)$/i.test(path)
   ) {
-    return addSecurityHeaders(NextResponse.next());
+    return addSecurityHeaders(NextResponse.next(), generateNonce());
   }
 
   if (!isHumanVerified(request)) {
@@ -1378,7 +1392,7 @@ export function middleware(request: NextRequest) {
       // Bot pacing requests with near-constant intervals (typical of dictionary
       // / brute-force / scraper scripts that try to look slow). Normal humans
       // produce highly variable timing, so this only fires on automation.
-      return addSecurityHeaders(withHumanChallengeCookie(NextResponse.next()));
+      return addSecurityHeaders(withHumanChallengeCookie(NextResponse.next()), generateNonce());
     }
   }
 
@@ -1597,7 +1611,7 @@ export function middleware(request: NextRequest) {
   response.headers.set('X-RateLimit-Remaining', String(rl.remaining));
   response.headers.set('X-RateLimit-Reset', String(Math.floor(rl.resetAt / 1000)));
 
-  return addSecurityHeaders(response);
+  return addSecurityHeaders(response, generateNonce());
 }
 
 export const config = {

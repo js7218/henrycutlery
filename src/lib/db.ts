@@ -245,6 +245,29 @@ async function runSchemaMigration(): Promise<void> {
       `);
       await db.query(`CREATE INDEX IF NOT EXISTS product_reviews_product_idx ON product_reviews(product_id);`);
       await db.query(`CREATE INDEX IF NOT EXISTS product_reviews_status_idx ON product_reviews(status);`);
+
+      // Add review verification columns if not exists
+      await db.query(`ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS verified_purchase BOOLEAN NOT NULL DEFAULT FALSE;`);
+      await db.query(`ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS helpful_count INTEGER NOT NULL DEFAULT 0;`);
+      await db.query(`ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS not_helpful_count INTEGER NOT NULL DEFAULT 0;`);
+      await db.query(`ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS moderation_status TEXT NOT NULL DEFAULT 'pending';`);
+      await db.query(`ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS moderated_at TIMESTAMPTZ;`);
+      await db.query(`ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS moderated_by TEXT;`);
+      await db.query(`UPDATE product_reviews SET moderation_status = status WHERE moderation_status = 'pending' AND status != 'pending';`);
+
+      // Review helpfulness votes table
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS review_votes (
+          id TEXT PRIMARY KEY,
+          review_id TEXT NOT NULL REFERENCES product_reviews(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          is_helpful BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(review_id, user_id)
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS review_votes_review_idx ON review_votes(review_id);`);
+      await db.query(`CREATE INDEX IF NOT EXISTS review_votes_user_idx ON review_votes(user_id);`);
 }
 
 export async function getUserAddresses(userId: string): Promise<Address[]> {

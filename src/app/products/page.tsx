@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Filter, Grid, List, SlidersHorizontal, X, Search } from 'lucide-react';
 import { products, brands, categories } from '@/data/products';
@@ -26,13 +26,78 @@ const sortOptions = [
 
 // Brands to remove from filter
 const removedBrands = new Set([
-  'Buck', 'Benchmade', 'Spyderco', 'Kershaw', 'Cold Steel', 
-  'Victorinox', 'Gerber', 'Zero Tolerance', 'CRKT', 'Microtech', 
+  'Buck', 'Benchmade', 'Spyderco', 'Kershaw', 'Cold Steel',
+  'Victorinox', 'Gerber', 'Zero Tolerance', 'CRKT', 'Microtech',
   'SOG', 'Emerson', 'Mercer Culinary', 'Miyabi'
 ]);
 
 // Filter out removed brands
 const filteredBrands = brands.filter(brand => !removedBrands.has(brand));
+
+/**
+ * Levenshtein distance for fuzzy search.
+ */
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return dp[m][n];
+}
+
+function fuzzyMatch(query: string, target: string, maxDistance = 3): boolean {
+  const q = query.toLowerCase();
+  const t = target.toLowerCase();
+  if (t.includes(q)) return true;
+  // Allow small typos if query is long enough
+  if (q.length >= 3 && levenshteinDistance(q, t) <= maxDistance) return true;
+  // Check if any word in target is close to query
+  const words = t.split(/\s+/);
+  return words.some((word) => levenshteinDistance(q, word) <= Math.min(maxDistance, Math.floor(word.length / 2)));
+}
+
+function getSearchSuggestions(query: string): string[] {
+  const q = query.toLowerCase().trim();
+  if (!q || q.length < 2) return [];
+  const suggestions = new Set<string>();
+  products.forEach((p) => {
+    if (p.name.toLowerCase().includes(q)) suggestions.add(p.name);
+    if (p.brand.toLowerCase().includes(q)) suggestions.add(p.brand);
+    if (p.category.toLowerCase().includes(q)) suggestions.add(p.category);
+    p.tags?.forEach((tag) => {
+      if (tag.toLowerCase().includes(q)) suggestions.add(tag);
+    });
+  });
+  return Array.from(suggestions).slice(0, 6);
+}
+
+function highlightText(text: string, query: string) {
+  if (!query.trim()) return text;
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    regex.test(part) ? (
+      <mark key={i} className="bg-gold/30 text-foreground rounded px-0.5">
+        {part}
+      </mark>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+}
 
 export default function ProductsPage() {
   return (
@@ -45,10 +110,10 @@ export default function ProductsPage() {
 function ProductsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  
+
   // Filter states
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | ''>(
     (searchParams.get('category') as ProductCategory) || ''
@@ -59,6 +124,9 @@ function ProductsContent() {
   const [searchQuery, setSearchQuery] = useState<string>(
     searchParams.get('search') || ''
   );
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const category = searchParams.get('category');
@@ -71,39 +139,60 @@ function ProductsContent() {
     }
   }, [searchParams]);
 
+  // Close suggestions on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      setSuggestions(getSearchSuggestions(searchQuery));
+      setShowSuggestions(true);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery]);
+
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
-    
-    // Search filter
+
+    // Search filter with fuzzy matching
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(query) ||
-        p.brand.toLowerCase().includes(query) ||
-        p.description.toLowerCase().includes(query) ||
-        p.category.toLowerCase().includes(query) ||
-        (p.tags && p.tags.some(tag => tag.toLowerCase().includes(query)))
+      filtered = filtered.filter((p) =>
+        fuzzyMatch(query, p.name) ||
+        fuzzyMatch(query, p.brand) ||
+        fuzzyMatch(query, p.description) ||
+        fuzzyMatch(query, p.category) ||
+        (p.tags && p.tags.some((tag) => fuzzyMatch(query, tag)))
       );
     }
-    
+
     // Category filter
     if (selectedCategory) {
-      filtered = filtered.filter(p => p.category === selectedCategory);
+      filtered = filtered.filter((p) => p.category === selectedCategory);
     }
-    
+
     // Brand filter
     if (selectedBrand) {
-      filtered = filtered.filter(p => p.brand === selectedBrand);
+      filtered = filtered.filter((p) => p.brand === selectedBrand);
     }
-    
+
     // Price range filter
     const range = priceRanges[selectedPriceRange];
     if (range.max !== Infinity) {
-      filtered = filtered.filter(p => p.price >= range.min && p.price < range.max);
+      filtered = filtered.filter((p) => p.price >= range.min && p.price < range.max);
     } else {
-      filtered = filtered.filter(p => p.price >= range.min);
+      filtered = filtered.filter((p) => p.price >= range.min);
     }
-    
+
     // Sort
     switch (sortBy) {
       case 'price-asc':
@@ -119,7 +208,7 @@ function ProductsContent() {
         filtered.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
         break;
     }
-    
+
     return filtered;
   }, [selectedCategory, selectedBrand, selectedPriceRange, sortBy, searchQuery]);
 
@@ -132,7 +221,36 @@ function ProductsContent() {
     router.push('/products');
   };
 
+  const removeFilter = useCallback((type: 'category' | 'brand' | 'price' | 'search') => {
+    switch (type) {
+      case 'category':
+        setSelectedCategory('');
+        break;
+      case 'brand':
+        setSelectedBrand('');
+        break;
+      case 'price':
+        setSelectedPriceRange(0);
+        break;
+      case 'search':
+        setSearchQuery('');
+        break;
+    }
+  }, []);
+
   const hasActiveFilters = selectedCategory || selectedBrand || selectedPriceRange !== 0 || searchQuery !== '';
+
+  const activeFilterChips = useMemo(() => {
+    const chips: { type: 'category' | 'brand' | 'price' | 'search'; label: string }[] = [];
+    if (searchQuery) chips.push({ type: 'search', label: `Search: "${searchQuery}"` });
+    if (selectedCategory) {
+      const cat = categories.find((c) => c.id === selectedCategory);
+      chips.push({ type: 'category', label: cat ? `${cat.icon} ${cat.name}` : selectedCategory });
+    }
+    if (selectedBrand) chips.push({ type: 'brand', label: selectedBrand });
+    if (selectedPriceRange !== 0) chips.push({ type: 'price', label: priceRanges[selectedPriceRange].label });
+    return chips;
+  }, [searchQuery, selectedCategory, selectedBrand, selectedPriceRange]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
@@ -147,26 +265,73 @@ function ProductsContent() {
       </div>
 
       {/* Search Bar */}
-      <div className="mb-6">
+      <div className="mb-6" ref={searchRef}>
         <div className="relative max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
             placeholder="Search by name, brand, category..."
             className="w-full pl-10 pr-4 py-3 bg-surface border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold transition-colors"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => { setSearchQuery(''); setSuggestions([]); }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gold transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           )}
+          {/* Autocomplete Suggestions */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute z-20 mt-1 w-full bg-surface border border-border rounded-lg shadow-lg overflow-hidden">
+              {suggestions.map((suggestion, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setSearchQuery(suggestion);
+                    setShowSuggestions(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-surfaceLight transition-colors"
+                >
+                  {highlightText(suggestion, searchQuery)}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Active Filter Chips */}
+      {activeFilterChips.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {activeFilterChips.map((chip, idx) => (
+            <span
+              key={idx}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gold/10 text-gold text-sm border border-gold/20"
+            >
+              {chip.label}
+              <button
+                onClick={() => removeFilter(chip.type)}
+                className="ml-1 hover:text-foreground transition-colors"
+                aria-label={`Remove ${chip.type} filter`}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+          {activeFilterChips.length > 1 && (
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm text-gray-400 hover:text-gold transition-colors"
+            >
+              Clear All
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-6 border-b border-border">
@@ -175,8 +340,8 @@ function ProductsContent() {
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors',
-              showFilters 
-                ? 'border-gold text-gold bg-gold/5' 
+              showFilters
+                ? 'border-gold text-gold bg-gold/5'
                 : 'border-border text-gray-400 hover:border-gold hover:text-gold'
             )}
           >
@@ -200,7 +365,7 @@ function ProductsContent() {
             onChange={(e) => setSortBy(e.target.value)}
             className="bg-surface border border-border rounded-lg px-4 py-2 text-sm text-foreground focus:outline-none focus:border-gold"
           >
-            {sortOptions.map(option => (
+            {sortOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -243,21 +408,21 @@ function ProductsContent() {
                     onClick={() => setSelectedCategory('')}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                      !selectedCategory 
-                        ? 'bg-gold/10 text-gold' 
+                      !selectedCategory
+                        ? 'bg-gold/10 text-gold'
                         : 'text-gray-400 hover:bg-surfaceLight hover:text-foreground'
                     )}
                   >
                     All
                   </button>
-                  {categories.map(cat => (
+                  {categories.map((cat) => (
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id as ProductCategory)}
                       className={cn(
                         'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between',
-                        selectedCategory === cat.id 
-                          ? 'bg-gold/10 text-gold' 
+                        selectedCategory === cat.id
+                          ? 'bg-gold/10 text-gold'
                           : 'text-gray-400 hover:bg-surfaceLight hover:text-foreground'
                       )}
                     >
@@ -275,21 +440,21 @@ function ProductsContent() {
                     onClick={() => setSelectedBrand('')}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                      !selectedBrand 
-                        ? 'bg-gold/10 text-gold' 
+                      !selectedBrand
+                        ? 'bg-gold/10 text-gold'
                         : 'text-gray-400 hover:bg-surfaceLight hover:text-foreground'
                     )}
                   >
                     All Brands
                   </button>
-                  {filteredBrands.map(brand => (
+                  {filteredBrands.map((brand) => (
                     <button
                       key={brand}
                       onClick={() => setSelectedBrand(brand)}
                       className={cn(
                         'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                        selectedBrand === brand 
-                          ? 'bg-gold/10 text-gold' 
+                        selectedBrand === brand
+                          ? 'bg-gold/10 text-gold'
                           : 'text-gray-400 hover:bg-surfaceLight hover:text-foreground'
                       )}
                     >
@@ -309,8 +474,8 @@ function ProductsContent() {
                       onClick={() => setSelectedPriceRange(index)}
                       className={cn(
                         'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                        selectedPriceRange === index 
-                          ? 'bg-gold/10 text-gold' 
+                        selectedPriceRange === index
+                          ? 'bg-gold/10 text-gold'
                           : 'text-gray-400 hover:bg-surfaceLight hover:text-foreground'
                       )}
                     >
@@ -347,7 +512,7 @@ function ProductsContent() {
                   >
                     All
                   </button>
-                  {categories.map(cat => (
+                  {categories.map((cat) => (
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id as ProductCategory)}
@@ -374,7 +539,7 @@ function ProductsContent() {
                   >
                     All
                   </button>
-                  {filteredBrands.map(brand => (
+                  {filteredBrands.map((brand) => (
                     <button
                       key={brand}
                       onClick={() => setSelectedBrand(brand)}
@@ -438,11 +603,11 @@ function ProductsContent() {
           ) : (
             <div className={cn(
               'grid gap-6',
-              viewMode === 'grid' 
-                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' 
+              viewMode === 'grid'
+                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
                 : 'grid-cols-1'
             )}>
-              {filteredProducts.map(product => (
+              {filteredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>

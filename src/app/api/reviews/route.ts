@@ -44,10 +44,34 @@ function hashIp(req: NextRequest): string {
 }
 
 /**
+ * Check if a user has a verified purchase for a product.
+ * A verified purchase means the user has an order containing this product
+ * with status not 'cancelled'.
+ */
+async function hasVerifiedPurchase(userId: string, productId: string): Promise<boolean> {
+  try {
+    const result = await getPool().query(
+      `
+        SELECT 1 FROM orders
+        WHERE user_id = $1
+          AND status != 'cancelled'
+          AND items @> $2::jsonb
+        LIMIT 1
+      `,
+      [userId, JSON.stringify([{ productId }])]
+    );
+    return result.rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * GET /api/reviews?productId=xxx
  *
  * Public endpoint: returns ONLY approved reviews. Pending and rejected ones
  * stay invisible to other customers.
+ * Includes verified_purchase flag, helpfulness counts, and moderation_status.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -63,10 +87,11 @@ export async function GET(request: NextRequest) {
 
     const result = await getPool().query(
       `
-        SELECT id, author_name, rating, content, created_at
+        SELECT id, author_name, rating, content, created_at,
+               verified_purchase, helpful_count, not_helpful_count, moderation_status
         FROM product_reviews
         WHERE product_id = $1 AND status = 'approved'
-        ORDER BY created_at DESC
+        ORDER BY verified_purchase DESC, helpful_count DESC, created_at DESC
         LIMIT 100
       `,
       [productId]
@@ -80,6 +105,10 @@ export async function GET(request: NextRequest) {
         rating: row.rating,
         content: row.content,
         createdAt: row.created_at?.toISOString?.() || new Date().toISOString(),
+        verifiedPurchase: row.verified_purchase,
+        helpfulCount: row.helpful_count,
+        notHelpfulCount: row.not_helpful_count,
+        moderationStatus: row.moderation_status,
       })),
     });
     response.headers.set('Cache-Control', 'no-store');
@@ -98,6 +127,7 @@ export async function GET(request: NextRequest) {
  *
  * Submit a review. The classifier decides if it goes straight to "approved",
  * stays "pending" for moderation, or gets "rejected".
+ * Only verified purchasers can submit reviews.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -155,14 +185,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify purchase before allowing review
+    const isVerified = await hasVerifiedPurchase(dbUser.id, productId);
+    if (!isVerified) {
+      return NextResponse.json(
+        { success: false, error: 'Only verified purchasers can submit reviews.' },
+        { status: 403 }
+      );
+    }
+
     const classification = classifyReview({ content, rating });
     if (classification.status === 'rejected') {
       // Persist a rejected record so admins can audit abuse if they want to,
       // but never show this to other customers.
       await getPool().query(
         `INSERT INTO product_reviews
-            (id, product_id, user_id, author_name, rating, content, status, risk_score, risk_reason, ip_hash, user_agent)
-         VALUES ($1, $2, $3, $4, $5, $6, 'rejected', $7, $8, $9, $10)`,
+            (id, product_id, user_id, author_name, rating, content, status, moderation_status, risk_score, risk_reason, ip_hash, user_agent, verified_purchase)
+         VALUES ($1, $2, $3, $4, $5, $6, 'rejected', 'rejected', $7, $8, $9, $10, $11)`,
         [
           crypto.randomUUID(),
           productId,
@@ -174,6 +213,7 @@ export async function POST(request: NextRequest) {
           classification.reason,
           hashIp(request),
           (request.headers.get('user-agent') || '').slice(0, 200),
+          true,
         ]
       );
       return NextResponse.json(
@@ -185,8 +225,8 @@ export async function POST(request: NextRequest) {
     const id = crypto.randomUUID();
     await getPool().query(
       `INSERT INTO product_reviews
-         (id, product_id, user_id, author_name, rating, content, status, risk_score, risk_reason, ip_hash, user_agent)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+         (id, product_id, user_id, author_name, rating, content, status, moderation_status, risk_score, risk_reason, ip_hash, user_agent, verified_purchase)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9, $10, $11, $12)`,
       [
         id,
         productId,
@@ -199,6 +239,7 @@ export async function POST(request: NextRequest) {
         classification.reason,
         hashIp(request),
         (request.headers.get('user-agent') || '').slice(0, 200),
+        true,
       ]
     );
 
@@ -214,6 +255,100 @@ export async function POST(request: NextRequest) {
     console.error('[reviews] submit failed', err);
     return NextResponse.json(
       { success: false, error: 'Failed to submit review.' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/reviews
+ *
+ * Vote on review helpfulness.
+ * Body: { reviewId: string, isHelpful: boolean }
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    await ensureDatabaseSchema();
+    const session = await getAuthUser();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: 'Please log in to vote.' },
+        { status: 401 }
+      );
+    }
+
+    const dbUser = await getUserById(session.id);
+    if (!dbUser) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid account.' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json().catch(() => null);
+    const reviewId = String(body?.reviewId || '').trim();
+    const isHelpful = Boolean(body?.isHelpful);
+
+    if (!reviewId) {
+      return NextResponse.json(
+        { success: false, error: 'Missing reviewId.' },
+        { status: 400 }
+      );
+    }
+
+    // Prevent self-voting
+    const reviewResult = await getPool().query(
+      `SELECT user_id FROM product_reviews WHERE id = $1`,
+      [reviewId]
+    );
+    if (reviewResult.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Review not found.' },
+        { status: 404 }
+      );
+    }
+    if (reviewResult.rows[0].user_id === dbUser.id) {
+      return NextResponse.json(
+        { success: false, error: 'You cannot vote on your own review.' },
+        { status: 403 }
+      );
+    }
+
+    // Upsert vote
+    const voteId = crypto.randomUUID();
+    await getPool().query(
+      `
+        INSERT INTO review_votes (id, review_id, user_id, is_helpful)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (review_id, user_id)
+        DO UPDATE SET is_helpful = EXCLUDED.is_helpful
+      `,
+      [voteId, reviewId, dbUser.id, isHelpful]
+    );
+
+    // Recalculate counts
+    await getPool().query(
+      `
+        UPDATE product_reviews
+        SET helpful_count = (
+          SELECT COUNT(*) FROM review_votes WHERE review_id = $1 AND is_helpful = TRUE
+        ),
+        not_helpful_count = (
+          SELECT COUNT(*) FROM review_votes WHERE review_id = $1 AND is_helpful = FALSE
+        )
+        WHERE id = $1
+      `,
+      [reviewId]
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: 'Vote recorded.',
+    });
+  } catch (err) {
+    console.error('[reviews] vote failed', err);
+    return NextResponse.json(
+      { success: false, error: 'Failed to record vote.' },
       { status: 500 }
     );
   }
