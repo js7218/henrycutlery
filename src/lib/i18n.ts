@@ -65,15 +65,6 @@ export function getTranslations(lang: string) {
         placeOrder: 'Place Order',
         orderSuccess: 'Order placed successfully',
       },
-      loyalty: {
-        points: 'Points',
-        tier: 'Tier',
-        bronze: 'Bronze',
-        silver: 'Silver',
-        gold: 'Gold',
-        platinum: 'Platinum',
-        pointsEarned: 'Points Earned',
-      },
       support: {
         title: 'Customer Support',
         faq: 'FAQ',
@@ -137,15 +128,6 @@ export function getTranslations(lang: string) {
         orderSummary: '订单摘要',
         placeOrder: '提交订单',
         orderSuccess: '订单提交成功',
-      },
-      loyalty: {
-        points: '积分',
-        tier: '等级',
-        bronze: '青铜',
-        silver: '白银',
-        gold: '黄金',
-        platinum: '铂金',
-        pointsEarned: '获得积分',
       },
       support: {
         title: '客户支持',
@@ -211,15 +193,6 @@ export function getTranslations(lang: string) {
         placeOrder: '注文を確定',
         orderSuccess: '注文が完了しました',
       },
-      loyalty: {
-        points: 'ポイント',
-        tier: 'ランク',
-        bronze: 'ブロンズ',
-        silver: 'シルバー',
-        gold: 'ゴールド',
-        platinum: 'プラチナ',
-        pointsEarned: '獲得ポイント',
-      },
       support: {
         title: 'カスタマーサポート',
         faq: 'よくある質問',
@@ -283,15 +256,6 @@ export function getTranslations(lang: string) {
         orderSummary: 'Bestellübersicht',
         placeOrder: 'Bestellung aufgeben',
         orderSuccess: 'Bestellung erfolgreich aufgegeben',
-      },
-      loyalty: {
-        points: 'Punkte',
-        tier: 'Stufe',
-        bronze: 'Bronze',
-        silver: 'Silber',
-        gold: 'Gold',
-        platinum: 'Platin',
-        pointsEarned: 'Verdiente Punkte',
       },
       support: {
         title: 'Kundensupport',
