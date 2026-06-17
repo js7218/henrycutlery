@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (err) {
-    console.error('[admin/customers] failed', err);
+    console.error('[admin/customers] failed', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Query failed, please try again later.' },
       { status: 500 }

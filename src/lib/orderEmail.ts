@@ -27,13 +27,13 @@ type OrderEmailPayload = {
 
 function getOrderReceiverEmail() {
   // Default to owner's email; env var can override for testing
-  return process.env.ORDER_RECEIVER_EMAIL || 'rjyy_88@qq.com';
+  return process.env.ORDER_RECEIVER_EMAIL || process.env.BUSINESS_EMAIL || 'info@adamcutlery.com';
 }
 
 function getPrivateBankDetails() {
   return {
     accountName: process.env.BANK_ACCOUNT_NAME || 'Adam Cutlery',
-    accountNumber: process.env.BANK_ACCOUNT_NUMBER || '147-6411161-838',
+    accountNumber: process.env.BANK_ACCOUNT_NUMBER || '',
     bankName: process.env.BANK_NAME || 'HSBC',
     bankAddress: process.env.BANK_ADDRESS || '',
   };

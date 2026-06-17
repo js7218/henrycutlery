@@ -295,7 +295,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Persist state
   useEffect(() => {
-    try { localStorage.setItem('knife-cart', JSON.stringify(state.cart)); } catch { /* */ }
+    // SECURITY NOTE: Cart prices are stored in localStorage and could theoretically be tampered
+  // with by a determined client-side attacker. This is acceptable because the server-side order
+  // API re-validates all prices from the product database before processing any payment. The
+  // client-side cart prices are for display/UI purposes only.
+  // TODO: Implement server-side cart sync (e.g., store cart in session/DB) for defense-in-depth.
+  try { localStorage.setItem('knife-cart', JSON.stringify(state.cart)); } catch { /* */ }
   }, [state.cart]);
 
   // SECURITY: Clean up cart when products are removed from catalog

@@ -134,7 +134,7 @@ export async function POST(request: Request) {
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (err) {
-    console.error('[login-with-code] error', err);
+    console.error('[login-with-code] error', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Login failed, please try again later' },
       { status: 500 }
@@ -208,7 +208,7 @@ async function checkAndSendLoginAlert(
       );
     }
   } catch (err) {
-    console.error('[login-alert] error', err);
+    console.error('[login-alert] error', err instanceof Error ? err.message : 'Unknown error');
     // Don't fail login if alert fails
   }
 }

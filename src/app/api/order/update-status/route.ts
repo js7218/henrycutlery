@@ -1,28 +1,22 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyJWT } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import { sendOrderNotificationEmail } from '@/lib/orderEmail';
+import { requireAdmin } from '@/lib/adminGuard';
 
 /**
  * POST /api/order/update-status
  * Body: { orderId: string, status: 'paid' | 'shipped' | 'cancelled' }
  *
  * Updates order status and sends email notification when status changes to 'paid'.
- * This is called when payment is confirmed (e.g., admin marks order as paid).
+ * SECURITY: Only admins can update order status. Regular users cannot mark
+ * their own orders as paid or change status to bypass payment verification.
  */
 export async function POST(request: Request) {
   try {
-    // Verify authentication
-    const cookieStore = await cookies();
-    const token = cookieStore.get('access_token')?.value;
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const payload = verifyJWT(token);
-    if (!payload) {
-      return NextResponse.json({ success: false, error: 'Session expired' }, { status: 401 });
+    // SECURITY: Only admin can update order status
+    const adminResult = await requireAdmin();
+    if ('response' in adminResult) {
+      return adminResult.response;
     }
 
     const body = await request.json();
@@ -49,11 +43,6 @@ export async function POST(request: Request) {
     const order = orderResult.rows[0];
     if (!order) {
       return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
-    }
-
-    // Check authorization: only the order owner or admin can update
-    if (payload.role !== 'admin' && order.user_id !== payload.userId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
     }
 
     const previousStatus = order.status;
@@ -86,7 +75,7 @@ export async function POST(request: Request) {
       newStatus: status,
     });
   } catch (err) {
-    console.error('[update-status] error:', err);
+    console.error('[update-status] error:', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json({ success: false, error: 'Failed to update order status' }, { status: 500 });
   }
 }

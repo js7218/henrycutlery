@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[reset-password] failed', err);
+    console.error('[reset-password] failed', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Reset failed, please try again later.' },
       { status: 500 }

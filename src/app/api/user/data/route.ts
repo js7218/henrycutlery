@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching user data:', error);
+    console.error('Error fetching user data:', error instanceof Error ? error.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Failed to retrieve data.' },
       { status: 500 }
@@ -157,7 +157,7 @@ export async function DELETE(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error deleting user data:', error);
+    console.error('Error deleting user data:', error instanceof Error ? error.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Deletion request failed.' },
       { status: 500 }

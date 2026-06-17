@@ -141,13 +141,13 @@ export async function POST(request: NextRequest) {
           html,
         });
       } catch (mailErr) {
-        console.error('[forgot-password] mail send failed', mailErr);
+        console.error('[forgot-password] mail send failed', mailErr instanceof Error ? mailErr.message : 'Unknown error');
       }
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[forgot-password] failed', err);
+    console.error('[forgot-password] failed', err instanceof Error ? err.message : 'Unknown error');
     // Still return success-shaped response to avoid leaking implementation.
     return NextResponse.json({ success: true });
   }

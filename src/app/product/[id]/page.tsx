@@ -212,7 +212,7 @@ export default function ProductDetailPage() {
         : `Hello,\n\nI am interested in ${product.name}.\nCould you please send me more details about price, availability, MOQ, shipping, and lead time?\n\nProduct link:\n${productUrl}\n\nThank you.`;
 
     return buildSafeMailtoLink({
-      to: '845117447@qq.com',
+      to: process.env.NEXT_PUBLIC_BUSINESS_EMAIL || 'info@adamcutlery.com',
       subject,
       body,
     });

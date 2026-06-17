@@ -1,3 +1,13 @@
+/**
+ * Admin PIN verification module.
+ *
+ * SECURITY NOTE: The admin PIN is currently stored as a plaintext environment variable
+ * (ADMIN_PANEL_PIN). This approach is acceptable for a single-admin setup where the env
+ * vars are managed securely (e.g., a locked-down server or platform-managed secrets).
+ * In a production multi-admin scenario, the PIN should be stored as a bcrypt/argon2 hash
+ * in the database, with proper migration and rotation support. The env var approach
+ * does not support PIN rotation without redeployment.
+ */
 import { cookies, headers } from 'next/headers';
 import { createHmac, timingSafeEqual } from 'crypto';
 

@@ -30,7 +30,7 @@ export function getPool(): Pool {
   if (!pool) {
     pool = new Pool({
       connectionString: requireTlsConnectionString(connectionString),
-      ssl: { rejectUnauthorized: false },
+      ssl: { rejectUnauthorized: process.env.NODE_ENV === 'production' ? true : false },
       max: 5,
       connectionTimeoutMillis: 10000,
       idleTimeoutMillis: 10000,
@@ -39,7 +39,7 @@ export function getPool(): Pool {
     });
 
     pool.on('error', (err) => {
-      console.error('[db] idle client error', err);
+      console.error('[db] idle client error', err instanceof Error ? err.message : 'Unknown error');
     });
   }
 

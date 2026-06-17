@@ -30,7 +30,7 @@ export async function sendSMS(to: string, body: string): Promise<{ success: bool
     });
     return { success: true };
   } catch (err) {
-    console.error('[SMS] Failed to send:', err);
+    console.error('[SMS] Failed to send:', err instanceof Error ? err.message : 'Unknown error');
     return { success: false, error: 'Failed to send SMS' };
   }
 }

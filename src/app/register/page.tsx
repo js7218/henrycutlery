@@ -377,7 +377,7 @@ function PasswordRequirement({ met, label }: { met: boolean; label: string }) {
 function PasswordRequirements({ password }: { password: string }) {
   return (
     <div className="mt-3 grid grid-cols-1 gap-1 sm:grid-cols-2">
-      <PasswordRequirement met={password.length >= 8} label="At least 8 characters" />
+      <PasswordRequirement met={password.length >= 12} label="At least 12 characters" />
       <PasswordRequirement met={/[a-z]/.test(password)} label="Lowercase letter" />
       <PasswordRequirement met={/[A-Z]/.test(password)} label="Uppercase letter" />
       <PasswordRequirement met={/[0-9]/.test(password)} label="Number" />

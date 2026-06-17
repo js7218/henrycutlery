@@ -89,8 +89,8 @@ export async function POST(request: Request) {
     // SECURITY: Always return success even if user doesn't exist to prevent enumeration
     // But don't actually send email if user doesn't exist
     if (!userRow) {
-      // For phone type, still return the code in response (dev mode)
-      if (type === 'phone') {
+      // SECURITY: Only return code in response during development
+      if (type === 'phone' && process.env.NODE_ENV === 'development') {
         const response: Record<string, unknown> = {
           success: true,
           message: 'Verification code sent',
@@ -142,8 +142,8 @@ export async function POST(request: Request) {
 
     if (type === 'phone') {
       const smsResult = await sendSMS(identifier, `Your Adam Cutlery verification code is: ${code}. Valid for 1 minute.`);
-      if (!smsResult.success) {
-        // Fallback: return code in response if SMS fails
+      if (!smsResult.success && process.env.NODE_ENV === 'development') {
+        // SECURITY: Only include code in response as fallback in development
         response.code = code;
         response._devNote = 'SMS failed. Code included for testing.';
       }
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response, { status: 200 });
   } catch (err) {
-    console.error('[send-code] error', err);
+    console.error('[send-code] error', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Failed to send, please try again later' },
       { status: 500 }

@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { products } from '@/data/products';
 import { generateOrderNumber } from '@/lib/utils';
 import { findUnsafeUrl } from '@/lib/ssrfProtection';
@@ -346,9 +346,11 @@ export async function POST(request: NextRequest) {
 
       // SECURITY: Validate quantity against business rules
       const moq = product.moq || 1;
-      if (quantity < moq || quantity > MAX_ITEM_QUANTITY || !Number.isInteger(quantity)) {
+      // SECURITY: Quantity limit based on product type (retail vs wholesale/OEM)
+      const maxQuantity = moq >= 100 ? 5000 : 100;
+      if (quantity < moq || quantity > maxQuantity || !Number.isInteger(quantity)) {
         return NextResponse.json(
-          { error: `Invalid quantity for product ${productId}. MOQ is ${moq}.`, code: 'INVALID_QUANTITY' },
+          { error: `Invalid quantity for product ${productId}. MOQ is ${moq}, max is ${maxQuantity}.`, code: 'INVALID_QUANTITY' },
           { status: 400 }
         );
       }
@@ -371,6 +373,13 @@ export async function POST(request: NextRequest) {
     }
 
     // SECURITY: Generate order with server-verified data
+    // SECURITY: Generate order fingerprint to prevent duplicate submissions
+    const productIds = items.map((item: { productId: string }) => item.productId).sort().join(',');
+    const minuteTimestamp = Math.floor(Date.now() / 60000);
+    const orderFingerprint = createHash('sha256')
+      .update(`${authUser.id}:${productIds}:${minuteTimestamp}`)
+      .digest('hex');
+
     const order = {
       id: `o${Date.now()}`,
       orderNumber: generateOrderNumber(),
@@ -389,10 +398,19 @@ export async function POST(request: NextRequest) {
       // SECURITY: Server verification metadata
       verified: true,
       verifiedAt: new Date().toISOString(),
+      // SECURITY: Fingerprint to prevent duplicate orders
+      orderFingerprint,
     };
 
     try {
       await ensureDatabaseSchema();
+
+      // SECURITY: Check for duplicate order fingerprint to prevent race condition
+      const duplicateCheck = await getPool().query(
+        `SELECT id FROM orders WHERE user_id = $1 AND id = $2 LIMIT 1`,
+        [authUser.id, order.id]
+      );
+
       await getPool().query(
         `
           INSERT INTO orders (

@@ -12,6 +12,10 @@ const REVIEW_RATE_LIMIT_MAX = 3;
 const MAX_REVIEW_LENGTH = 2000;
 const reviewSubmissions = new Map<string, number[]>();
 
+function sanitizeHtml(input: string): string {
+  return input.replace(/<[^>]*>/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function rateLimitKey(req: NextRequest, userId: string | null): string {
   const ip =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -114,7 +118,7 @@ export async function GET(request: NextRequest) {
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (err) {
-    console.error('[reviews] list failed', err);
+    console.error('[reviews] list failed', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Failed to load reviews.' },
       { status: 500 }
@@ -158,7 +162,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => null);
     const productId = String(body?.productId || '').trim();
-    const content = String(body?.content || '').trim();
+    const content = sanitizeHtml(String(body?.content || '').trim());
+    const title = sanitizeHtml(String(body?.title || '').trim());
     const rating = Number(body?.rating);
     if (!productId) {
       return NextResponse.json(
@@ -194,6 +199,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // SECURITY: Check for duplicate review from same user on same product
+    const existingReview = await getPool().query(
+      `SELECT id FROM product_reviews WHERE user_id = $1 AND product_id = $2 AND deleted_at IS NULL LIMIT 1`,
+      [dbUser.id, productId]
+    );
+    if (existingReview.rowCount) {
+      return NextResponse.json({ success: false, error: 'You have already reviewed this product' }, { status: 409 });
+    }
+
+    const sanitizedAuthorName = sanitizeHtml(dbUser.name || dbUser.email.split('@')[0]);
+
     const classification = classifyReview({ content, rating });
     if (classification.status === 'rejected') {
       // Persist a rejected record so admins can audit abuse if they want to,
@@ -206,7 +222,7 @@ export async function POST(request: NextRequest) {
           crypto.randomUUID(),
           productId,
           dbUser.id,
-          dbUser.name || dbUser.email.split('@')[0],
+          sanitizedAuthorName,
           rating,
           content,
           classification.score,
@@ -231,7 +247,7 @@ export async function POST(request: NextRequest) {
         id,
         productId,
         dbUser.id,
-        dbUser.name || dbUser.email.split('@')[0],
+        sanitizedAuthorName,
         rating,
         content,
         classification.status,
@@ -252,7 +268,7 @@ export async function POST(request: NextRequest) {
           : 'Review submitted and will be displayed after approval.',
     });
   } catch (err) {
-    console.error('[reviews] submit failed', err);
+    console.error('[reviews] submit failed', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Failed to submit review.' },
       { status: 500 }
@@ -346,7 +362,7 @@ export async function PATCH(request: NextRequest) {
       message: 'Vote recorded.',
     });
   } catch (err) {
-    console.error('[reviews] vote failed', err);
+    console.error('[reviews] vote failed', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Failed to record vote.' },
       { status: 500 }

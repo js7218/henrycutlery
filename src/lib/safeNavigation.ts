@@ -25,6 +25,8 @@ const ALLOWED_PRODUCT_CATEGORIES = new Set([
   'boning',
 ]);
 
+const BUSINESS_EMAIL = 'rjyy_88@qq.com';
+
 const ALLOWED_MAIL_RECIPIENTS = new Set([
   '845117447@qq.com',
   'rjyy_88@qq.com',
@@ -100,7 +102,7 @@ export function buildSafeMailtoLink(options: {
 }) {
   const recipient = String(options.to || '').trim().toLowerCase();
   if (!ALLOWED_MAIL_RECIPIENTS.has(recipient)) {
-    return 'mailto:845117447@qq.com';
+    return `mailto:${BUSINESS_EMAIL}`;
   }
 
   return `mailto:${recipient}?subject=${encodeURIComponent(options.subject)}&body=${encodeURIComponent(options.body)}`;

@@ -7,6 +7,7 @@
  */
 
 import crypto from 'crypto';
+import { randomInt } from 'crypto';
 import { getPool } from './db';
 
 const CODE_TTL_MS = 60 * 1000; // 1 minute
@@ -21,8 +22,8 @@ function hashCode(code: string): string {
 }
 
 function generateCode(): string {
-  // 6-digit numeric code
-  return String(Math.floor(100000 + Math.random() * 900000));
+  // 6-digit numeric code using cryptographically secure random
+  return String(randomInt(100000, 1000000));
 }
 
 function checkRateLimit(identifier: string): boolean {

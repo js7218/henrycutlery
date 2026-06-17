@@ -1326,6 +1326,15 @@ export function middleware(request: NextRequest) {
 
   // SECURITY: Block direct access to protected paths (config files, source maps, build output internals)
   // This prevents information disclosure and unauthorized access to sensitive files
+
+  // SECURITY: Request body size validation for API routes
+  if (path.startsWith('/api/') && method === 'POST') {
+    const contentLength = request.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > 1048576) {
+      return NextResponse.json({ error: 'Request body too large', code: 'PAYLOAD_TOO_LARGE' }, { status: 413 });
+    }
+  }
+
   if (isProtectedPath(path)) {
     const progressiveBlock = progressiveWafBlockResponse(ip, path, 'PROTECTED_PATH');
     if (progressiveBlock) return progressiveBlock;
@@ -1483,6 +1492,17 @@ export function middleware(request: NextRequest) {
     }
   } else {
     checkBruteForce(ip, false);
+  }
+
+  // SECURITY: Request body size limit for /api/ endpoints (1MB max)
+  if (path.startsWith('/api/')) {
+    const contentLength = request.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > 1048576) {
+      return NextResponse.json(
+        { error: 'Payload Too Large', code: 'PAYLOAD_TOO_LARGE' },
+        { status: 413 }
+      );
+    }
   }
 
   // 9. Rate Limiting

@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (err) {
-    console.error('[admin/reviews] list failed', err);
+    console.error('[admin/reviews] list failed', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Failed to load reviews.' },
       { status: 500 }
@@ -110,7 +110,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[admin/reviews] update failed', err);
+    console.error('[admin/reviews] update failed', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Failed to update review.' },
       { status: 500 }

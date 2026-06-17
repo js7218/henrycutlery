@@ -79,7 +79,7 @@ export async function GET(
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (err) {
-    console.error('[admin/customers/:id] failed', err);
+    console.error('[admin/customers/:id] failed', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
       { success: false, error: 'Query failed.' },
       { status: 500 }

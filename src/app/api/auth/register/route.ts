@@ -135,7 +135,7 @@ export async function POST(request: Request) {
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (err) {
-    console.error('[register] unhandled error', err);
+    console.error('[register] unhandled error', err instanceof Error ? err.message : 'Unknown error');
     const response = NextResponse.json(
       { success: false, error: 'Registration failed. Please try again later', code: 'REGISTER_ERROR' },
       { status: 500 }

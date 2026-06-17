@@ -119,7 +119,7 @@ export const changePasswordSchema = z.object({
   
   newPassword: z
     .string()
-    .min(8, 'New password must be at least 8 characters')
+    .min(12, 'New password must be at least 12 characters')
     .max(128, 'New password must not exceed 128 characters')
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/,
@@ -353,7 +353,8 @@ export function validateInput<T>(
     
     return { success: false, errors };
   } catch (error) {
-    console.error('Validation error:', error);
+    // Only log error type/message, not raw error object which may contain input data
+    console.error('Validation error:', error instanceof Error ? error.message : 'Unknown validation error');
     return {
       success: false,
       errors: [{ field: 'unknown', message: 'Validation process error' }],

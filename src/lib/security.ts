@@ -3,7 +3,7 @@
  * Simplified version
  */
 
-import { createHash, randomBytes } from 'crypto';
+import { randomBytes } from 'crypto';
 
 // Rate limiting
 interface RateLimitEntry {
@@ -73,7 +73,7 @@ export function validatePhone(phone: string): boolean {
 
 export function validatePasswordStrength(password: string): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  if (password.length < 8) errors.push('Password must be at least 8 characters');
+  if (password.length < 12) errors.push('Password must be at least 12 characters');
   if (!/[a-z]/.test(password)) errors.push('Password must contain lowercase');
   if (!/[A-Z]/.test(password)) errors.push('Password must contain uppercase');
   if (!/[0-9]/.test(password)) errors.push('Password must contain number');
@@ -81,21 +81,9 @@ export function validatePasswordStrength(password: string): { valid: boolean; er
   return { valid: errors.length === 0, errors };
 }
 
-// Password hashing (simplified)
-export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString('hex');
-  const hash = createHash('sha256').update(password + salt).digest('hex');
-  return `${salt}:${hash}`;
-}
-
-export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-  try {
-    const [salt, hash] = hashedPassword.split(':');
-    if (!salt || !hash) return false;
-    const newHash = createHash('sha256').update(password + salt).digest('hex');
-    return newHash === hash;
-  } catch { return false; }
-}
+// Password hashing has been moved to @/lib/password.ts which uses scrypt.
+// The weak SHA-256 hash functions have been removed to prevent accidental usage.
+// All password operations MUST use hashPassword/verifyPassword from @/lib/password.ts.
 
 // CSRF
 export function generateCSRFToken(): string {
@@ -132,8 +120,6 @@ export const security = {
   validateEmail,
   validatePhone,
   validatePasswordStrength,
-  hashPassword,
-  verifyPassword,
   generateCSRFToken,
   generateSecureToken,
   maskPhone,

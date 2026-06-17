@@ -21,6 +21,17 @@ interface MatchResult {
 }
 
 /**
+ * Sanitize a value for safe CSV export by prepending dangerous characters
+ * (=, +, -, @, tab, CR, LF) with a single quote to prevent CSV injection in Excel.
+ */
+function sanitizeCsvValue(value: string): string {
+  if (/^[=+\-@\t\r\n]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
+/**
  * Parse HSBC-style CSV bank statement.
  * Handles common HSBC export formats with Date, Description, Amount, Balance, Reference columns.
  */
@@ -128,7 +139,7 @@ async function matchTransactions(
       if (order) {
         // Verify amount matches (allow small difference for fees/rounding)
         const amountDiff = Math.abs(Number(order.total_amount) - tx.amount);
-        if (amountDiff <= 1) {
+        if (amountDiff <= 0.01) {
           results.push({
             transaction: tx,
             orderId: order.id,
@@ -158,7 +169,7 @@ async function matchTransactions(
       const orderDate = new Date(o.created_at);
       const daysDiff = Math.abs(txDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
       const amountDiff = Math.abs(Number(o.total_amount) - tx.amount);
-      return daysDiff <= 3 && amountDiff <= 1;
+      return daysDiff <= 1 && amountDiff <= 0.01;
     });
 
     if (matchingOrders.length === 1) {
@@ -263,7 +274,7 @@ export async function POST(request: NextRequest) {
             });
           }
         } catch (err) {
-          console.error('[bank-import] Failed to send email for order:', result.orderNumber, err);
+          console.error('[bank-import] Failed to send email for order:', result.orderNumber, err instanceof Error ? err.message : 'Unknown error');
         }
 
         processed.push({ orderNumber: result.orderNumber!, amount: result.transaction.amount });
@@ -311,13 +322,13 @@ export async function POST(request: NextRequest) {
       `;
 
       await sendTransactionalEmail({
-        to: process.env.ORDER_RECEIVER_EMAIL || 'rjyy_88@qq.com',
+        to: process.env.ORDER_RECEIVER_EMAIL || process.env.BUSINESS_EMAIL || 'info@adamcutlery.com',
         subject: `Bank Import Summary - ${new Date().toLocaleDateString()}`,
         html: summaryHtml,
         text: `Bank Statement Import Summary\nDate: ${new Date().toLocaleDateString()}\nTotal: ${transactions.length}\nMatched: ${totalMatched}\nNeeds Review: ${totalUnmatched}`,
       });
     } catch (err) {
-      console.error('[bank-import] Failed to send summary email:', err);
+      console.error('[bank-import] Failed to send summary email:', err instanceof Error ? err.message : 'Unknown error');
     }
 
     return NextResponse.json({
@@ -333,7 +344,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (err) {
-    console.error('[bank-import] error:', err);
+    console.error('[bank-import] error:', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json({ success: false, error: 'Failed to process bank statement' }, { status: 500 });
   }
 }

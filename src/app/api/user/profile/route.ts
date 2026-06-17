@@ -81,9 +81,22 @@ export async function PATCH(request: Request) {
         );
       }
 
-      if (!currentPassword || newPassword.length < 8 || newPassword.length > 128) {
+      if (!currentPassword || newPassword.length < 12 || newPassword.length > 128) {
         return NextResponse.json(
-          { success: false, error: 'Please enter the current password and a new password of 8-128 characters.' },
+          { success: false, error: 'Please enter the current password and a new password of 12-128 characters.' },
+          { status: 400 }
+        );
+      }
+
+      // Enforce same password policy as registration: 12+ chars, uppercase, lowercase, digit, special char
+      const hasLower = /[a-z]/.test(newPassword);
+      const hasUpper = /[A-Z]/.test(newPassword);
+      const hasDigit = /[0-9]/.test(newPassword);
+      const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword);
+      const weakPasswords = ['12345678', 'password', 'qwerty', 'admin123', 'letmein', '123456789', 'abc123', 'password1'];
+      if (!hasLower || !hasUpper || !hasDigit || !hasSpecial || weakPasswords.includes(newPassword.toLowerCase())) {
+        return NextResponse.json(
+          { success: false, error: 'Password is too weak. Use at least 12 characters with uppercase, lowercase, numbers and special characters.' },
           { status: 400 }
         );
       }
