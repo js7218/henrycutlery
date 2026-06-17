@@ -1288,23 +1288,20 @@ function addSecurityHeaders(response: NextResponse, nonce?: string): NextRespons
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'accelerometer=(), camera=(), microphone=(), geolocation=(), payment=(), display-capture=()');
   response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
-  response.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
-  response.headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
+  // Note: COEP/COOP removed - they block cross-origin resource loading and cause blank pages
   response.headers.set('Content-Security-Policy', [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${cspNonce}' https://www.googletagmanager.com`,
-    `style-src 'self' 'nonce-${cspNonce}'`,
-    "img-src 'self' data: https:",
-    "font-src 'self'",
-    "connect-src 'self' https://vitals.vercel-insights.com",
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com`,
+    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+    "img-src 'self' data: https: blob:",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "connect-src 'self' https: https://vitals.vercel-insights.com",
+    "frame-src 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "upgrade-insecure-requests",
+    "object-src 'none'",
   ].join('; '));
-  response.headers.set('X-CSP-Nonce', cspNonce);
-  response.headers.set('Reporting-Endpoints', 'csp-endpoint=\"https://vitals.vercel-insights.com/csp-report\"');
   response.headers.delete('X-Powered-By');
   response.headers.delete('Server');
   response.headers.delete('X-AspNet-Version');
