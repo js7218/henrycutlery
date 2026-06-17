@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard, AlertCircle } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard, AlertCircle, ShieldCheck, Globe, Package } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice, calculateShippingFee } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
@@ -59,6 +59,27 @@ function validateAddress(address: Address | null): string {
   return '';
 }
 
+/**
+ * Simple geocoding validation using OpenStreetMap Nominatim API.
+ * Returns true if the address appears valid (got at least one result).
+ */
+async function validateAddressGeocoding(address: Address): Promise<{ valid: boolean; displayName?: string }> {
+  try {
+    const query = encodeURIComponent(`${address.detail}, ${address.district}, ${address.city}, ${address.province}`);
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`, {
+      headers: { 'Accept-Language': 'en' },
+    });
+    if (!res.ok) return { valid: true }; // Fail open if API is down
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return { valid: true, displayName: data[0].display_name };
+    }
+    return { valid: false };
+  } catch {
+    return { valid: true }; // Fail open
+  }
+}
+
 export default function CheckoutPage() {
   const { state, dispatch, cartTotal } = useApp();
   const router = useRouter();
@@ -75,6 +96,8 @@ export default function CheckoutPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [paymentError, setPaymentError] = useState('');
   const [countryCode, setCountryCode] = useState('+86');
+  const [geocodingValid, setGeocodingValid] = useState<boolean | null>(null);
+  const [isValidatingAddress, setIsValidatingAddress] = useState(false);
   const lastPaymentAttemptRef = useRef(0);
 
   // New address form
@@ -158,7 +181,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
     const error = validateAddress(selectedAddress);
     if (error) {
       setAddressError(error);
@@ -167,6 +190,19 @@ export default function CheckoutPage() {
     setAddressError('');
     setFieldErrors({});
     setPaymentError('');
+
+    // Geocoding validation
+    if (selectedAddress) {
+      setIsValidatingAddress(true);
+      const geo = await validateAddressGeocoding(selectedAddress);
+      setIsValidatingAddress(false);
+      setGeocodingValid(geo.valid);
+      if (!geo.valid) {
+        setAddressError('Address could not be verified. Please check your address details.');
+        return;
+      }
+    }
+
     setCurrentStep('payment');
   };
 
@@ -266,15 +302,35 @@ export default function CheckoutPage() {
     }
   };
 
+  const getStepLabel = () => {
+    switch (currentStep) {
+      case 'confirm': return 'Step 1 / 3';
+      case 'payment': return 'Step 2 / 3';
+      case 'complete': return 'Step 3 / 3';
+    }
+  };
+
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case 'confirm': return 'Confirm Order';
+      case 'payment': return 'Select Payment Method';
+      case 'complete': return 'Order Complete';
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
       <CheckoutSteps currentStep={getStepNumber()} />
 
-      <h1 className="text-3xl font-bold text-foreground mb-8" style={{ fontFamily: 'Playfair Display, serif' }}>
-        {currentStep === 'confirm' && 'Confirm Order'}
-        {currentStep === 'payment' && 'Select Payment Method'}
-        {currentStep === 'complete' && 'Order Complete'}
-      </h1>
+      {/* Progress Indicator */}
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-foreground" style={{ fontFamily: 'Playfair Display, serif' }}>
+          {getStepTitle()}
+        </h1>
+        <span className="text-sm font-medium text-gold bg-gold/10 px-3 py-1 rounded-full">
+          {getStepLabel()}
+        </span>
+      </div>
 
       {/* Step 1: Confirm Order */}
       {currentStep === 'confirm' && (
@@ -432,6 +488,12 @@ export default function CheckoutPage() {
                           <span className="px-2 py-1 bg-gold/20 text-gold text-xs rounded">Default</span>
                         )}
                       </div>
+                      {geocodingValid === true && (
+                        <div className="mt-2 flex items-center gap-1 text-xs text-green-400">
+                          <ShieldCheck className="w-3 h-3" />
+                          Address verified
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-gray-400 text-center py-8">No shipping address</p>
@@ -473,7 +535,7 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Order Summary */}
+          {/* Order Summary - Sticky Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 bg-surface border border-border rounded-lg p-6">
               <h2 className="text-lg font-semibold text-foreground mb-6">Order Total</h2>
@@ -497,11 +559,33 @@ export default function CheckoutPage() {
                 </div>
                 <button
                   onClick={handleConfirmOrder}
-                  disabled={!selectedAddress || Boolean(validateAddress(selectedAddress))}
-                  className="w-full py-4 bg-gold text-background font-medium rounded-lg hover:bg-goldLight transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!selectedAddress || Boolean(validateAddress(selectedAddress)) || isValidatingAddress}
+                  className="w-full py-4 bg-gold text-background font-medium rounded-lg hover:bg-goldLight transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Confirm Order
+                  {isValidatingAddress ? (
+                    <>
+                      <span className="w-5 h-5 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                      Verifying Address...
+                    </>
+                  ) : (
+                    <>Confirm Order</>
+                  )}
                 </button>
+              </div>
+              {/* Trust Badges */}
+              <div className="mt-6 pt-4 border-t border-border space-y-2">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <ShieldCheck className="w-4 h-4 text-green-500" />
+                  <span>Secure SSL Checkout</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Globe className="w-4 h-4 text-blue-500" />
+                  <span>International Shipping Available</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Package className="w-4 h-4 text-gold" />
+                  <span>Free Shipping on Orders Over $500</span>
+                </div>
               </div>
             </div>
           </div>
@@ -549,11 +633,31 @@ export default function CheckoutPage() {
             </div>
           </div>
 
+          {/* Sticky Payment Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 bg-surface border border-border rounded-lg p-6">
               <div className="text-center mb-6">
                 <p className="text-sm text-gray-400 mb-2">Total Amount</p>
                 <p className="text-3xl font-bold text-gold">{formatPrice(totalAmount)}</p>
+              </div>
+              {/* Payment Method Icons */}
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="w-8 h-5 bg-gray-700 rounded flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-green-500" fill="currentColor">
+                    <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.269-.03-.406-.03zm-1.834 2.994c.536 0 .969.44.969.983a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.433-.983.97-.983zm4.857 0c.536 0 .969.44.969.983a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.433-.983.969-.983z"/>
+                  </svg>
+                </div>
+                <div className="w-8 h-5 bg-gray-700 rounded flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-blue-500" fill="currentColor">
+                    <path d="M12.39 1.199c-3.223-.05-6.063 1.532-7.323 4.084C3.818 6.912 3 9.13 3 11.538c0 3.237 1.86 6.09 4.638 7.41.33.158.738-.024.738-.329V17.16c0-.13.096-.225.225-.225h.825c.117 0 .217.085.232.2l.054.468c.009.086-.016.172-.07.235l-2.52 2.9c-.18.208-.014.525.28.525h3.81c.14 0 .256-.112.256-.249v-.393c0-.137.116-.25.256-.25h3.256c.205 0 .377-.164.377-.364 0-.105-.047-.203-.123-.268l-3.982-3.35a.522.522 0 0 1-.103-.205c0-.057.023-.11.063-.147l.14-.127c.158-.147.394-.235.631-.235h.805c.393 0 .726-.305.764-.697.003-.04.001-.08-.005-.12l-.36-3.58c-.043-.429.284-.805.713-.805h.33c.393 0 .718.313.718.703v2.927c0 .14.113.253.253.253h.253c.139 0 .253-.113.253-.253v-1.253a.258.258 0 0 0-.016-.092l-.37-2.28c-.06-.37-.374-.63-.744-.63h-3.256a.753.753 0 0 0-.744.608l-.54 2.58c-.058.278-.305.48-.59.48h-.81c-.393 0-.726-.305-.764-.697l-.21-2.1c-.018-.18-.14-.335-.31-.4l-3.24-1.23c-.15-.058-.25-.2-.25-.355 0-.18.13-.33.31-.368l.37-.08z"/>
+                  </svg>
+                </div>
+                <div className="w-8 h-5 bg-gray-700 rounded flex items-center justify-center">
+                  <CreditCard className="w-4 h-4 text-gray-300" />
+                </div>
+                <div className="w-8 h-5 bg-red-700 rounded flex items-center justify-center">
+                  <span className="text-[8px] font-bold text-white">HSBC</span>
+                </div>
               </div>
               {paymentError && (
                 <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400 flex items-start gap-2">
