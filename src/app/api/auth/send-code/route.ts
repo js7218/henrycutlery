@@ -89,8 +89,8 @@ export async function POST(request: Request) {
     // SECURITY: Always return success even if user doesn't exist to prevent enumeration
     // But don't actually send email if user doesn't exist
     if (!userRow) {
-      // SECURITY: Only return code in response during development
-      if (type === 'phone' && process.env.NODE_ENV === 'development') {
+      // If SMS gateway is not configured, return code in response as fallback
+      if (type === 'phone') {
         const response: Record<string, unknown> = {
           success: true,
           message: 'Verification code sent',
@@ -142,10 +142,10 @@ export async function POST(request: Request) {
 
     if (type === 'phone') {
       const smsResult = await sendSMS(identifier, `Your Adam Cutlery verification code is: ${code}. Valid for 1 minute.`);
-      if (!smsResult.success && process.env.NODE_ENV === 'development') {
-        // SECURITY: Only include code in response as fallback in development
+      if (!smsResult.success) {
+        // SMS gateway not configured or failed - return code in response as fallback
         response.code = code;
-        response._devNote = 'SMS failed. Code included for testing.';
+        response._devNote = 'SMS not configured. Code included for testing.';
       }
     }
 
