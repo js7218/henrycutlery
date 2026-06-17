@@ -101,8 +101,26 @@ function runCloudflareStyleCheck(): { suspicious: boolean; score: number; signal
   };
 }
 
+const WAF_PASSED_KEY = 'waf_check_passed';
+
+function isWafAlreadyPassed(): boolean {
+  try {
+    return sessionStorage.getItem(WAF_PASSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function markWafPassed(): void {
+  try {
+    sessionStorage.setItem(WAF_PASSED_KEY, 'true');
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export default function WafBrowserCheck({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<CheckState>('checking');
+  const [state, setState] = useState<CheckState>(() => isWafAlreadyPassed() ? 'passed' : 'checking');
   const [progress, setProgress] = useState(12);
   const statusText = useMemo(() => {
     if (state === 'blocked') return 'Access blocked. Automated browser or script behavior was detected.';
@@ -144,6 +162,7 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
 
       if (!result.suspicious) {
         finishAfterMinimumWait('passed');
+        markWafPassed();
         return;
       }
 
