@@ -1,12 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Performance
+  compress: true,
+  staticPageGenerationTimeout: 120,
+  distDir: '.next',
+
   // Security: Disable unnecessary features
   poweredByHeader: false,
   generateEtags: false,
-  
+
   // Security: Disable source maps in production
   productionBrowserSourceMaps: false,
-  
+
   // Security: Strict image handling
   images: {
     remotePatterns: [
@@ -23,7 +28,7 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
     formats: ['image/webp'],
-    minimumCacheTTL: 86400,
+    minimumCacheTTL: 604800,
     dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',
   },

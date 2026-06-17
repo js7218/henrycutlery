@@ -91,10 +91,12 @@ export default function Home() {
               '/images/factory8.jpg',
             ].map((src, index) => (
               <div key={index} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-border">
-                <img
+                <Image
                   src={src}
                   alt={`Factory ${index + 1}`}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                  fill
+                  loading="lazy"
+                  className="object-cover hover:scale-105 transition-transform duration-500"
                 />
               </div>
             ))}

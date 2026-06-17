@@ -55,13 +55,26 @@ export default function HumanVerificationGate() {
 
     checkChallenge();
     window.addEventListener('human-verification-required', checkChallenge);
-    const interval = window.setInterval(checkChallenge, 1500);
+    const interval = window.setInterval(checkChallenge, 5000);
 
     return () => {
       window.removeEventListener('human-verification-required', checkChallenge);
       window.clearInterval(interval);
     };
   }, [requireChallenge]);
+
+  // Clear interval once verified to stop polling
+  useEffect(() => {
+    if (!showChallenge) return;
+
+    const interval = window.setInterval(() => {
+      if (isRecentlyVerified()) {
+        setShowChallenge(false);
+      }
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [showChallenge]);
 
   const finishVerification = () => {
     const verifiedUntil = Date.now() + VERIFIED_MS;

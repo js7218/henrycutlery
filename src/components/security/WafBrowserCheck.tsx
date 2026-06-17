@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Ban, Loader2, ShieldCheck } from 'lucide-react';
 
-const WAF_MIN_CHECK_MS = 5000;
+const WAF_MIN_CHECK_MS = 800;
 
 type CheckState = 'checking' | 'blocked' | 'passed';
 
@@ -121,7 +121,7 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
 
     const progressTimer = window.setInterval(() => {
       setProgress(prev => Math.min(96, prev + Math.max(2, Math.round((100 - prev) / 8))));
-    }, 180);
+    }, 80);
 
     timers.push(progressTimer);
 
@@ -148,7 +148,7 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
       }
 
       finishAfterMinimumWait('blocked');
-    }, 900);
+    }, 200);
 
     timers.push(checkTimer);
 
