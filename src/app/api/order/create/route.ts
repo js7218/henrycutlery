@@ -71,6 +71,51 @@ function looksLikeNormalAddress(address: ValidatedAddress) {
   return hasCjk || hasStreetNumber || hasAddressWord;
 }
 
+/**
+ * Validate that province/city/district contain recognizable place names.
+ * Rejects random gibberish like "jdjsj", "asdf", "xyz123" etc.
+ */
+function isValidPlaceName(value: string): boolean {
+  // Chinese place names: must contain at least one CJK character
+  if (/[\u4e00-\u9fff]/.test(value)) return true;
+
+  // English place names: must look like a real word/place (at least 2 alpha chars, no random consonant strings)
+  const lower = value.toLowerCase().trim();
+
+  // Reject if it's all consonants with no vowels (gibberish like "jdjsj", "bcdfg")
+  const withoutSpaces = lower.replace(/[\s\-_.]/g, '');
+  if (withoutSpaces.length >= 3) {
+    const vowelCount = (withoutSpaces.match(/[aeiou]/g) || []).length;
+    const consonantCount = (withoutSpaces.match(/[bcdfghjklmnpqrstvwxyz]/g) || []).length;
+    // If consonant ratio is too high relative to length, it's likely gibberish
+    if (consonantCount > 0 && vowelCount / withoutSpaces.length < 0.15) {
+      return false;
+    }
+  }
+
+  // Must contain at least one recognizable place name pattern
+  const placePatterns = [
+    /\b(province|state|county|region|territory|prefecture|district|municipality)\b/i,
+    /\b(city|town|village|borough|canton|commune|suburb|metropolis)\b/i,
+    // Common real place name endings
+    /\b(shire|shire|land|ia|stan|burg|bourg|ford|bridge|port|field|wood|worth|ton|ville|polis|bad|pur|nagar|pura)\b/i,
+    // US states
+    /\b(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming)\b/i,
+    // UK regions
+    /\b(england|scotland|wales|northern ireland|london|manchester|birmingham|liverpool|leeds|sheffield|bristol|edinburgh|glasgow|cardiff)\b/i,
+    // Canadian provinces
+    /\b(ontario|quebec|british columbia|alberta|manitoba|saskatchewan|nova scotia|new brunswick)\b/i,
+    // Australian states
+    /\b(new south wales|victoria|queensland|western australia|south australia|tasmania)\b/i,
+    // Chinese provinces (pinyin)
+    /\b(guangdong|zhejiang|jiangsu|shandong|henan|hebei|sichuan|hubei|hunan|fujian|anhui|jiangxi|shanxi|guangxi|yunnan|guizhou|heilongjiang|jilin|liaoning|gansu|qinghai|hainan|xinjiang|inner mongolia|nei menggu|tibet|xizang|ningxia)\b/i,
+    // Common city names worldwide
+    /\b(new york|los angeles|chicago|houston|miami|san francisco|seattle|boston|toronto|vancouver|sydney|melbourne|london|paris|tokyo|beijing|shanghai|guangzhou|shenzhen|hong kong|singapore|dubai|berlin|munich|amsterdam|madrid|rome|milan|barcelona)\b/i,
+  ];
+
+  return placePatterns.some(p => p.test(lower));
+}
+
 interface ValidatedAddress {
   name: string;
   phone: string;
@@ -173,6 +218,9 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
   if (!validAddressPart(normalized.province)) {
     return { valid: false, address: null, error: 'Please enter a valid province/state (not "N/A", "province", etc.).', field: 'province' };
   }
+  if (!isValidPlaceName(normalized.province)) {
+    return { valid: false, address: null, error: '请输入真实的省份/州名称，例如 "Guangdong"、"California"', field: 'province' };
+  }
 
   if (!normalized.city) {
     return { valid: false, address: null, error: 'City is required.', field: 'city' };
@@ -180,12 +228,18 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
   if (!validAddressPart(normalized.city)) {
     return { valid: false, address: null, error: 'Please enter a valid city (not "N/A", "city", etc.).', field: 'city' };
   }
+  if (!isValidPlaceName(normalized.city)) {
+    return { valid: false, address: null, error: '请输入真实的城市名称，例如 "Yangjiang"、"London"', field: 'city' };
+  }
 
   if (!normalized.district) {
     return { valid: false, address: null, error: 'District/Area is required.', field: 'district' };
   }
   if (!validAddressPart(normalized.district)) {
     return { valid: false, address: null, error: 'Please enter a valid district/area (not "N/A", "district", etc.).', field: 'district' };
+  }
+  if (!isValidPlaceName(normalized.district)) {
+    return { valid: false, address: null, error: '请输入真实的地区名称，例如 "Jiangcheng"、"Manhattan"', field: 'district' };
   }
 
   if (!normalized.detail) {
@@ -370,16 +424,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let emailStatus: { sent: boolean; skipped: boolean; reason?: string } = {
-      sent: false,
-      skipped: false,
-    };
-
-    try {
-      emailStatus = await sendOrderNotificationEmail(order);
-    } catch {
-      emailStatus = { sent: false, skipped: false, reason: 'SMTP_SEND_FAILED' };
-    }
+    // NOTE: Email notification is NOT sent here.
+    // It will be sent when order status changes to 'paid' (payment confirmed).
+    // This prevents sending emails before the customer actually pays.
 
     return NextResponse.json({
       success: true,
@@ -392,7 +439,6 @@ export async function POST(request: NextRequest) {
       },
       // SECURITY: Return server-calculated total for client display
       serverTotal,
-      emailStatus,
       message: 'Order created with server-verified pricing',
     });
 

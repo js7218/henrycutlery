@@ -217,7 +217,7 @@ export default function CheckoutPage() {
       dispatch({ type: 'CLEAR_CART' });
 
       securityLogger.log('ORDER_CREATED', `Server-verified order ${serverOrder.orderNumber}, total: ${result.serverTotal}`);
-      router.replace('/profile?tab=orders');
+      setCurrentStep('complete');
     } catch (error) {
       securityLogger.log('ORDER_FAILED', 'Failed to create order via API');
       setPaymentError('Network error. Please check your connection and try again.');
