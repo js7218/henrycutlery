@@ -93,7 +93,7 @@ export async function POST(request: Request) {
       userQuery = `SELECT id, email, name, phone, password_hash, role, favorites, created_at FROM users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL LIMIT 1`;
       userParams = [identifier];
     } else {
-      userQuery = `SELECT id, email, name, phone, password_hash, role, favorites, created_at FROM users WHERE REPLACE(phone, ' ', '') = REPLACE($1, ' ', '') AND deleted_at IS NULL LIMIT 1`;
+      userQuery = `SELECT id, email, name, phone, password_hash, role, favorites, created_at FROM users WHERE REPLACE(phone, ' ', '') = REPLACE(REGEXP_REPLACE($1::text, '^\\+\\d{1,4}[\\s-]*', ''), ' ', '') AND deleted_at IS NULL LIMIT 1`;
       userParams = [identifier];
     }
 

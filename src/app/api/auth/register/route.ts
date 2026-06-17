@@ -23,6 +23,8 @@ export async function POST(request: Request) {
     const name = safeText(body.name, 100);
     const email = safeText(body.email, 254).toLowerCase();
     const phone = safeText(body.phone, 40);
+    // Normalize phone: strip country code prefix (e.g., "+86 ") so we store just the local number
+    const normalizedPhone = phone.replace(/^\+\d{1,4}[\s-]*/, '');
     const password = typeof body.password === 'string' ? body.password : '';
     const rateKey = `register:${getClientIp(request)}:${email || 'unknown'}`;
     const allowed = checkAuthAllowed(rateKey);
@@ -94,10 +96,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check phone number duplication
+    // Check phone number duplication (compare normalized form)
     const existingPhone = await getPool().query(
       `SELECT id FROM users WHERE REPLACE(phone, ' ', '') = REPLACE($1, ' ', '') AND deleted_at IS NULL LIMIT 1`,
-      [phone]
+      [normalizedPhone]
     );
 
     if (existingPhone.rowCount) {
@@ -117,7 +119,7 @@ export async function POST(request: Request) {
         VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id, email, name, phone, role, favorites, created_at
       `,
-      [userId, email, name, phone, passwordHash, role]
+      [userId, email, name, normalizedPhone, passwordHash, role]
     );
 
     const userRow = result.rows[0];
