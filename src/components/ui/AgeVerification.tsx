@@ -1,0 +1,91 @@
+'use client';
+
+import { useEffect, useState, ReactNode } from 'react';
+import { useApp } from '@/context/AppContext';
+import { AlertTriangle, Check } from 'lucide-react';
+
+export default function AgeVerification({ children }: { children?: ReactNode }) {
+  const { state, dispatch } = useApp();
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    if (!state.isAgeVerified) {
+      setShowModal(true);
+    }
+  }, [state.isAgeVerified]);
+
+  const handleVerify = (isAdult: boolean) => {
+    if (isAdult) {
+      dispatch({ type: 'SET_AGE_VERIFIED', verified: true });
+      localStorage.setItem('knife-age-verified', 'true');
+      localStorage.setItem('knife-age-verified-at', new Date().toISOString());
+      setShowModal(false);
+    } else {
+      window.location.href = 'https://www.baidu.com';
+    }
+  };
+
+  return (
+    <>
+      {children}
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-xl p-8 max-w-md w-full mx-4 animate-slide-up shadow-2xl">
+            {/* Logo */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gold-gradient mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
+                BLADE
+              </h1>
+              <p className="text-sm text-gray-400">刃艺精选 · 高端刀具专业平台</p>
+            </div>
+
+            {/* Warning Icon */}
+            <div className="flex justify-center mb-6">
+              <div className="w-20 h-20 bg-gold/10 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-10 h-10 text-gold" />
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="text-center mb-8">
+              <h2 className="text-xl font-semibold text-foreground mb-3">
+                年龄验证
+              </h2>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                根据相关法规，购买刀具需要确认您已年满18周岁。
+                <br />
+                请选择您的出生年份段：
+              </p>
+            </div>
+
+            {/* Options */}
+            <div className="space-y-4">
+              <button
+                onClick={() => handleVerify(true)}
+                className="w-full py-3 px-6 bg-gold text-background font-medium rounded-lg hover:bg-goldLight transition-colors flex items-center justify-center space-x-2"
+              >
+                <Check className="w-5 h-5" />
+                <span>我已年满18周岁</span>
+              </button>
+              
+              <button
+                onClick={() => handleVerify(false)}
+                className="w-full py-3 px-6 border border-border text-gray-400 rounded-lg hover:border-red-500 hover:text-red-400 transition-colors"
+              >
+                我未满18周岁
+              </button>
+            </div>
+
+            {/* Disclaimer */}
+            <p className="text-xs text-gray-500 text-center mt-6">
+              点击"我已年满18周岁"即表示您同意我们的
+              <a href="#" className="text-gold hover:underline ml-1">使用条款</a>
+              和
+              <a href="#" className="text-gold hover:underline ml-1">购买须知</a>
+            </p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
