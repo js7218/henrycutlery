@@ -76,7 +76,7 @@ function getSearchSuggestions(query: string): string[] {
   products.forEach((p) => {
     if (p.name.toLowerCase().includes(q)) suggestions.add(p.name);
     if (p.brand.toLowerCase().includes(q)) suggestions.add(p.brand);
-    if (p.category.toLowerCase().includes(q)) suggestions.add(p.category);
+    // Don't add category names to search suggestions to avoid confusion
     p.tags?.forEach((tag) => {
       if (tag.toLowerCase().includes(q)) suggestions.add(tag);
     });
@@ -163,19 +163,18 @@ function ProductsContent() {
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
 
-    // Search filter with fuzzy matching
+    // Search filter with fuzzy matching - search name, brand, description and tags only (NOT category)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter((p) =>
         fuzzyMatch(query, p.name) ||
         fuzzyMatch(query, p.brand) ||
         fuzzyMatch(query, p.description) ||
-        fuzzyMatch(query, p.category) ||
         (p.tags && p.tags.some((tag) => fuzzyMatch(query, tag)))
       );
     }
 
-    // Category filter
+    // Category filter - strict exact match, always applied even during search
     if (selectedCategory) {
       filtered = filtered.filter((p) => p.category === selectedCategory);
     }
