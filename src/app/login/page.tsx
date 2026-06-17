@@ -398,6 +398,7 @@ export default function LoginPage() {
   const [code, setCode] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [codeSending, setCodeSending] = useState(false);
+  const [devCode, setDevCode] = useState('');
 
   // Shared state
   const [isLoading, setIsLoading] = useState(false);
@@ -567,6 +568,10 @@ export default function LoginPage() {
       if (result.success) {
         setCountdown(60);
         setError('');
+        // If SMS gateway is not configured, show the code to the user
+        if (result.code) {
+          setDevCode(result.code);
+        }
       } else {
         setError(result.error || 'Failed to send, please try again');
       }
@@ -854,6 +859,14 @@ export default function LoginPage() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Verification Code
                 </label>
+                {devCode && (
+                  <div className="mb-2 p-3 bg-gold/10 border border-gold/30 rounded-lg">
+                    <p className="text-sm text-gold">
+                      Your verification code: <span className="font-mono text-lg font-bold tracking-widest">{devCode}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Copy this code and paste it below.</p>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />

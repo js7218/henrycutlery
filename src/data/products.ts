@@ -359,8 +359,6 @@ export const products: Product[] = [
     category: 'folding',
     images: [
       '/products/h-folder-1.jpg',
-      '/products/h-folder-2.jpg',
-      '/products/h-folder-3.jpg',
     ],
     specs: {
       bladeLength: 'TBD',

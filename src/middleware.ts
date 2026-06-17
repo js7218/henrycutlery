@@ -1334,7 +1334,8 @@ export function middleware(request: NextRequest) {
   }
 
   // 隐藏旧后台入口，私有后台只允许通过 /hc-control-2026 访问。
-  if (path === '/admin' || path.startsWith('/admin/')) {
+  // Allow /admin/bank-import as it's a legitimate admin tool page.
+  if ((path === '/admin' || path.startsWith('/admin/')) && path !== '/admin/bank-import') {
     return NextResponse.json({ error: 'Not Found', code: 'NOT_FOUND' }, { status: 404 });
   }
 
