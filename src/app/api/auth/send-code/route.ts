@@ -89,22 +89,17 @@ export async function POST(request: Request) {
     // SECURITY: Always return success even if user doesn't exist to prevent enumeration
     // But don't actually send email if user doesn't exist
     if (!userRow) {
-      // If SMS gateway is not configured, return code in response as fallback
       if (type === 'phone') {
-        const response: Record<string, unknown> = {
-          success: true,
-          message: 'Verification code sent',
-          expiresIn: 60,
-          code: code,
-          _devNote: 'SMS gateway not configured. Code included for testing only.',
-        };
-        return NextResponse.json(response, { status: 200 });
+        const smsResult = await sendSMS(identifier, `Your Adam Cutlery verification code is: ${code}. Valid for 1 minute.`);
+        if (!smsResult.success) {
+          return NextResponse.json(
+            { success: false, error: 'SMS service is not configured. Please contact support or use email login.' },
+            { status: 503 }
+          );
+        }
       }
       // For email type, return fake success to prevent user enumeration
-      return NextResponse.json(
-        { success: true, message: 'Verification code sent', expiresIn: 60 },
-        { status: 200 }
-      );
+      return NextResponse.json({ success: true, message: 'Verification code sent' }, { status: 200 });
     }
 
     // Send code
@@ -134,22 +129,17 @@ export async function POST(request: Request) {
     }
 
     // Send code via SMS for phone type
-    const response: Record<string, unknown> = {
-      success: true,
-      message: 'Verification code sent',
-      expiresIn: 60,
-    };
-
     if (type === 'phone') {
       const smsResult = await sendSMS(identifier, `Your Adam Cutlery verification code is: ${code}. Valid for 1 minute.`);
       if (!smsResult.success) {
-        // SMS gateway not configured or failed - return code in response as fallback
-        response.code = code;
-        response._devNote = 'SMS not configured. Code included for testing.';
+        return NextResponse.json(
+          { success: false, error: 'SMS service is not configured. Please contact support or use email login.' },
+          { status: 503 }
+        );
       }
     }
 
-    return NextResponse.json(response, { status: 200 });
+    return NextResponse.json({ success: true, message: 'Verification code sent', expiresIn: 60 }, { status: 200 });
   } catch (err) {
     console.error('[send-code] error', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(

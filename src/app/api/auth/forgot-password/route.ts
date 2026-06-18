@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       const baseUrl =
         process.env.SITE_URL ||
         process.env.NEXT_PUBLIC_SITE_URL ||
-        'http://localhost:3000';
+        'https://adamcutlery.com';
       const resetUrl = `${baseUrl.replace(/\/$/, '')}/reset-password?token=${rawToken}`;
 
       const html = `
