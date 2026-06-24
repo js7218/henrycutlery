@@ -951,6 +951,32 @@ export const products: Product[] = [
     tags: ['kitchen', 'fish head knife', '5Cr15Mov', 'yellow sandalwood', 'anti stick'],
     moq: 600,
   },
+  {
+    id: 'damascus-chef-knife-001',
+    name: 'DAMASCUS CHEF KNIFE',
+    brand: 'Adam Cutlery',
+    price: 75,
+    description: 'Hand forged Damascus blade, red sandalwood handle. Price: $75/pc. MOQ: 100pcs.',
+    longDescription: 'Hand forged Damascus blade, red sandalwood handle\n\nPrice: $75/pc\nMOQ: 100pcs\n\nMinimum order quantity is strictly 100 pieces. Orders below 100 pcs cannot be placed.',
+    category: 'kitchen',
+    images: [
+      '/products/kitchen/damascus-chef-knife-1.jpeg',
+      '/products/kitchen/damascus-chef-knife-2.jpeg',
+    ],
+    specs: {
+      bladeLength: 'TBD',
+      totalLength: 'TBD',
+      bladeMaterial: 'Hand Forged Damascus Steel',
+      handleMaterial: 'Red Sandalwood',
+      weight: 'TBD',
+      hardness: 'TBD',
+    },
+    stock: 999999,
+    featured: true,
+    isNew: true,
+    tags: ['kitchen', 'damascus', 'chef knife', 'red sandalwood', 'hand forged'],
+    moq: 100,
+  },
 ];
 
 export const brands = [
