@@ -57,7 +57,7 @@ const initialState: AppState = {
   cart: [],
   user: null,
   orders: [],
-  isAgeVerified: false,
+  isAgeVerified: true,
   lastActivity: Date.now(),
   sessionCreatedAt: Date.now(),
 };

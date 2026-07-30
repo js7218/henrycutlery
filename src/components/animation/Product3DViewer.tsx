@@ -27,6 +27,7 @@ export default function Product3DViewer({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const groupRef = useRef<THREE.Group | null>(null);
   const animFrameRef = useRef<number>(0);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const isDragging = useRef(false);
   const lastX = useRef(0);
   const lastY = useRef(0);
@@ -47,8 +48,15 @@ export default function Product3DViewer({
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    // Renderer (Three.js will create the WebGL context)
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    } catch {
+      setHasError(true);
+      setIsLoading(false);
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -109,7 +117,7 @@ export default function Product3DViewer({
     scene.add(group);
     groupRef.current = group;
 
-    // Resize
+    // Resize handler using ResizeObserver
     const resize = () => {
       if (!container || !renderer || !camera) return;
       const w = container.clientWidth;
@@ -119,6 +127,11 @@ export default function Product3DViewer({
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     };
+
+    resizeObserverRef.current = new ResizeObserver(() => {
+      resize();
+    });
+    resizeObserverRef.current.observe(container);
 
     // Render loop
     const clock = new THREE.Clock();
@@ -146,12 +159,12 @@ export default function Product3DViewer({
       renderer.render(scene, camera);
     };
 
-    resize();
+    // Initial resize after a frame to ensure layout is done
+    requestAnimationFrame(() => resize());
     animate();
-    window.addEventListener('resize', resize);
 
     return () => {
-      window.removeEventListener('resize', resize);
+      resizeObserverRef.current?.disconnect();
       cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
     };
@@ -162,7 +175,10 @@ export default function Product3DViewer({
 
   useEffect(() => {
     const group = groupRef.current;
-    if (!group) return;
+    const renderer = rendererRef.current;
+    const camera = cameraRef.current;
+    const container = containerRef.current;
+    if (!group || !renderer || !camera || !container) return;
 
     // Clear previous
     while (group.children.length > 0) {
@@ -180,7 +196,6 @@ export default function Product3DViewer({
     setHasError(false);
 
     const loader = new THREE.TextureLoader();
-    loader.crossOrigin = 'anonymous';
 
     loader.load(
       src,
@@ -262,7 +277,7 @@ export default function Product3DViewer({
           roughness: 0.25,
           metalness: 0.9,
         });
-        const fw = 0.04; // frame width
+        const fw = 0.04;
         // top bar
         const ftGeo = new THREE.BoxGeometry(planeW + fw * 2, fw, 0.025);
         const ft = new THREE.Mesh(ftGeo, frameMat);
@@ -285,6 +300,15 @@ export default function Product3DViewer({
         fr.position.set(planeW / 2 + fw / 2, 0, depth / 2 + 0.012);
         fr.castShadow = true;
         group.add(fr);
+
+        // Ensure renderer is properly sized after texture loads
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (w > 0 && h > 0) {
+          renderer.setSize(w, h, false);
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+        }
 
         setIsLoading(false);
       },
@@ -328,10 +352,12 @@ export default function Product3DViewer({
     isDragging.current = false;
   }, []);
 
+  // ── Render ──────────────────────────────────────────────────────────────
+
   return (
     <div
       ref={containerRef}
-      className={`relative select-none ${className}`}
+      className={className || 'relative w-full h-full'}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -340,7 +366,7 @@ export default function Product3DViewer({
     >
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full"
+        className="block w-full h-full"
         style={{ touchAction: 'none' }}
       />
 
@@ -352,7 +378,17 @@ export default function Product3DViewer({
 
       {hasError && (
         <div className="absolute inset-0 flex items-center justify-center bg-surfaceLight z-10">
-          <p className="text-gray-400 text-sm">Image failed to load</p>
+          <div className="text-center">
+            <p className="text-gray-400 text-sm mb-2">3D view unavailable</p>
+            <img
+              src={src}
+              alt={alt}
+              className="max-w-full max-h-full object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
         </div>
       )}
     </div>
