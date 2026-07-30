@@ -1,8 +1,8 @@
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
-import { Heart, ShoppingCart, Sparkles, Tag } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Heart, ShoppingCart, Flame } from 'lucide-react';
 import { Product } from '@/types';
 import { formatPrice, cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
@@ -19,6 +19,27 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [justAdded, setJustAdded] = useState(false);
   const isFavorite = state.user?.favorites.includes(product.id) || false;
 
+  // Vary the tilt subtly per card so the grid doesn't feel mechanically uniform.
+  // Derived deterministically from the product id so values stay stable across
+  // renders (no hydration mismatch, no flicker on re-render).
+  const { maxTilt, scale } = useMemo(() => {
+    let hash = 0;
+    for (let i = 0; i < product.id.length; i++) {
+      hash = (hash * 31 + product.id.charCodeAt(i)) | 0;
+    }
+    const seed = Math.abs(hash);
+    return {
+      maxTilt: 4 + (seed % 5), // 4, 5, 6, 7, 8 degrees
+      scale: 1.01 + (seed % 3) * 0.005, // 1.01, 1.015, 1.02
+    };
+  }, [product.id]);
+
+  // Show the actual saving instead of a generic "SALE" tag when there's a discount.
+  const discountPercent =
+    product.originalPrice && product.originalPrice > product.price
+      ? Math.round((1 - product.price / product.originalPrice) * 100)
+      : 0;
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -29,7 +50,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link href={getSafeProductPath(product.id)} className="group block">
-      <TiltCard maxTilt={6} scale={1.02} className="relative bg-surface border border-border rounded-lg overflow-hidden card-hover hover-soft-glow active:scale-[0.98] transition-transform duration-150">
+      <TiltCard maxTilt={maxTilt} scale={scale} className="relative bg-surface border border-border rounded-lg overflow-hidden card-hover hover-soft-glow active:scale-[0.98] transition-transform duration-150">
         {/* Image Container */}
         <div className="relative aspect-[4/3] overflow-hidden bg-surfaceLight">
           <Image
@@ -45,14 +66,13 @@ export default function ProductCard({ product }: ProductCardProps) {
           <div className="absolute top-3 left-3 flex flex-col space-y-2 z-10">
             {product.isNew && (
               <span className="flex items-center px-2 py-1 bg-gold text-background text-xs font-medium rounded shadow-lg">
-                <Sparkles className="w-3 h-3 mr-1" />
-                NEW
+                <Flame className="w-3 h-3 mr-1" />
+                Just Forged
               </span>
             )}
-            {product.originalPrice && (
+            {discountPercent > 0 && (
               <span className="flex items-center px-2 py-1 bg-red-500/90 text-white text-xs font-medium rounded shadow-lg">
-                <Tag className="w-3 h-3 mr-1" />
-                SALE
+                −{discountPercent}%
               </span>
             )}
           </div>
@@ -86,11 +106,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             >
               <ShoppingCart className="w-4 h-4" />
               <span>
-                {justAdded
-                  ? 'Added!'
-                  : product.moq
-                    ? `Add to Cart (MOQ: ${product.moq})`
-                    : 'Add to Cart'}
+                {justAdded ? 'Added!' : 'Add to Cart'}
               </span>
             </button>
           </div>
@@ -105,7 +121,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           
           {/* Name */}
           <h3 className="text-foreground font-medium mb-2 line-clamp-1 group-hover:text-gold group-active:text-gold transition-colors">
-            {product.name.toUpperCase()}
+            {product.name}
           </h3>
 
           {/* Specs */}
@@ -129,6 +145,9 @@ export default function ProductCard({ product }: ProductCardProps) {
               <span className="text-xs text-orange-400">Only {product.stock} left</span>
             )}
           </div>
+          {product.moq && product.moq > 1 && (
+            <p className="text-[11px] text-gray-500 mt-1.5">Minimum order: {product.moq} pcs</p>
+          )}
         </div>
       </TiltCard>
     </Link>

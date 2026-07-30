@@ -27,14 +27,40 @@ interface BotReply {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Static data (FAQ / contact kept from the original widget)          */
+/*  Static data — FAQ rewritten as real knife questions in Adam's voice */
 /* ------------------------------------------------------------------ */
 
 const faqLinks = [
-  { question: 'What is your shipping policy?', answer: 'We offer worldwide shipping. Orders are processed within 1-2 business days. Delivery times vary by location.' },
-  { question: 'How do I track my order?', answer: 'Once your order ships, you will receive an email with a tracking number and link.' },
-  { question: 'What is your return policy?', answer: 'We accept returns within 30 days of delivery. Items must be unused and in original packaging.' },
-  { question: 'Do you offer wholesale pricing?', answer: 'Yes, we offer wholesale pricing for bulk orders. Please contact us for more information.' },
+  {
+    question: "What's the difference between D2 and Damascus steel?",
+    answer:
+      "D2 is a high-carbon tool steel — tough, holds an edge really well, and it's what we use on most of our folders. Damascus is layered steel, folded over and over, so you get that wavy pattern on the blade. It's gorgeous and performs great too, but it's more about the look and the craftsmanship. If you want rugged everyday use, D2's your steel. If you want something that turns heads, go Damascus.",
+  },
+  {
+    question: 'Can I get my logo on the knives?',
+    answer:
+      "Absolutely. We do laser engraving and etching on blades and handles, plus custom packaging if you want the full branding treatment. For most folders it starts around 300 pieces, but it depends on the model. Tell me what you've got in mind and I'll figure out the details.",
+  },
+  {
+    question: 'How sharp are the knives when they arrive?',
+    answer:
+      "Every knife leaves here sharp enough to use right away — we hone them before they ship. The kitchen knives especially; we grind a single-sided 11-degree edge on the Damascus and VG-10 ones, so they're scary sharp out of the box. Just keep them honed and they'll stay that way.",
+  },
+  {
+    question: "What's the lead time on a bulk order?",
+    answer:
+      "Depends on the size and whether it's custom. Stock items we can usually turn around in a week or two. A full custom run — say, your own steel and handle with an engraved logo — is more like 30 to 45 days since we're making them from scratch. I can give you a proper estimate once I know the quantity.",
+  },
+  {
+    question: 'Do you make kitchen knife sets?',
+    answer:
+      "We do. Our Damascus Rose set is a four-piece — hand-forged seamless Damascus with sandalwood handles and copper mosaic pins. We also do individual chef, boning, sashimi, and vegetable knives if you'd rather build your own set piece by piece.",
+  },
+  {
+    question: "What's your best knife for a gift?",
+    answer:
+      "Honestly, it depends who it's for. For a foodie, the Damascus chef knife or the sashimi knife is gorgeous and practical. For a collector or someone who appreciates fine work, our M390 collection piece with the mammoth molar handle is the one — it comes in a brocade box and feels like an heirloom. Tell me about the recipient and I'll point you the right way.",
+  },
 ];
 
 const businessHours = [
@@ -44,7 +70,7 @@ const businessHours = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Rule-based response engine                                         */
+/*  Rule-based response engine — rewritten in Adam's voice              */
 /* ------------------------------------------------------------------ */
 
 const pickByCategory = (category: string, limit = 3): Product[] =>
@@ -68,8 +94,24 @@ const featuredOverview: Product[] = [
 const DEFAULT_QUICK_REPLIES = [
   'Show me folding knives',
   "What's your MOQ?",
-  'How to order?',
+  'How do I order?',
 ];
+
+/* Human touches — occasionally prepended to "lookup" answers so Adam
+   sounds like he's actually thinking, not just firing back a script. */
+const HUMAN_FILLERS = [
+  'Let me think for a second... ',
+  'From what I know, ',
+  'Let me check... ',
+];
+
+const withFiller = (text: string): string => {
+  if (Math.random() < 0.35) {
+    const filler = HUMAN_FILLERS[Math.floor(Math.random() * HUMAN_FILLERS.length)];
+    return filler + text.charAt(0).toLowerCase() + text.slice(1);
+  }
+  return text;
+};
 
 function getBotResponse(input: string): BotReply {
   const q = input.toLowerCase().trim();
@@ -79,8 +121,7 @@ function getBotResponse(input: string): BotReply {
   /* 1. Greeting */
   if (greeting.test(q) && !has('moq', 'ship', 'pay', 'order', 'price')) {
     return {
-      text:
-        "Hi there! I'm Adam, your Adam Cutlery support assistant. I can help you find the right knives, explain MOQ & pricing, OEM/ODM customization, shipping, and payment. What would you like to know?",
+      text: "Hey there, Adam here. Looking for something in particular, or just browsing?",
       quickReplies: DEFAULT_QUICK_REPLIES,
     };
   }
@@ -88,91 +129,87 @@ function getBotResponse(input: string): BotReply {
   /* 2. Thanks */
   if (has('thank', 'thanks', 'thx', 'appreciate')) {
     return {
-      text:
-        "You're very welcome! Is there anything else I can help you with — maybe browsing knives or ordering details?",
-      quickReplies: ['Show me knives', 'How to order?', "What's your MOQ?"],
+      text: "Anytime! Anything else I can help with — maybe a specific knife, or walking you through the order?",
+      quickReplies: ['Show me knives', 'How do I order?', "What's your MOQ?"],
     };
   }
 
   /* 3. Product categories */
   if (has('folding', 'fold', 'ball bearing', 'ball-bearing', 'edc', 'pocket')) {
     return {
-      text:
-        "We have a great selection of folding / ball-bearing knives — from CNC titanium & Damascus models to affordable D2 + G10 EDC folders. Here are a few popular ones:",
+      text: "Ah, folding knives — that's our bread and butter. We do everything from budget D2 and G10 EDC folders up to CNC titanium and Damascus pieces. Let me pull a few popular ones for you.",
       products: pickByCategory('folding'),
-      quickReplies: ['Show kitchen knives', "What's your MOQ?", 'OEM/ODM services'],
+      quickReplies: ['Show kitchen knives', "What's your MOQ?", 'Can you do custom?'],
     };
   }
 
   if (has('kitchen', 'chef', 'cooking', 'vegetable', 'sashimi', 'fish head', 'boning', 'culinary')) {
     return {
-      text:
-        "Our kitchen knives include Damascus chef sets, boning, sashimi, and vegetable knives — hand-forged and VG-10 options available. Take a look:",
+      text: "Kitchen knives? Great choice. We hand-forge Damascus chef sets, plus boning, sashimi, and vegetable knives — VG-10 and Damascus options in there. Here are a few I'd recommend.",
       products: pickByCategory('kitchen'),
-      quickReplies: ['Show folding knives', "What's your MOQ?", 'How to order?'],
+      quickReplies: ['Show me folding knives', "What's your MOQ?", 'How do I order?'],
     };
   }
 
   if (has('hunting', 'outdoor', 'fixed blade', 'fixed-blade', 'survival', 'camp', 'bushcraft')) {
     return {
-      text:
-        "Our hunting & outdoor fixed-blade knives come with D2 or 5Cr15 blades, full-tang G10/wood handles, and leather or Kydex sheaths. Here are some options:",
+      text: "Outdoor and hunting — we've got a solid lineup of fixed blades. D2 or 5Cr15 steel, full-tang G10 or wood handles, and they come with leather or Kydex sheaths. Take a look at these.",
       products: pickByCategory('hunting'),
-      quickReplies: ['Show folding knives', "What's your MOQ?", 'Shipping info'],
+      quickReplies: ['Show me folding knives', "What's your MOQ?", "How's shipping work?"],
     };
   }
 
   if (has('collection', 'collect', 'collector', 'high-end', 'luxury', 'heirloom')) {
     return {
-      text:
-        "For collectors, our flagship piece is a true heirloom — Austrian M390 powder steel, mammoth molar & ebony handle, and an Italian vegetable-tanned leather sheath. MOQ starts at just 1 piece:",
+      text: "Now if you're after something special, our flagship piece is a real heirloom. Austrian M390 powder steel, mammoth molar and ebony handle, hand-carved, and it comes in an Italian vegetable-tanned leather sheath. Best part is you can order just one. Here it is.",
       products: pickByCategory('collection'),
-      quickReplies: ["What's your MOQ?", 'OEM/ODM services', 'How to order?'],
+      quickReplies: ["What's your MOQ?", 'Can you do custom?', 'How do I order?'],
     };
   }
 
   if (has('damascus')) {
     return {
-      text:
-        "We craft several Damascus knives across folding, kitchen, and collection lines. Here are some standout Damascus pieces:",
+      text: "Damascus — yeah, we do a fair bit of that, across folding, kitchen, and our collection line. These are a few standouts from what we've got.",
       products: pickDamascus(),
-      quickReplies: ['Show folding knives', 'Show kitchen knives', "What's your MOQ?"],
+      quickReplies: ['Show me folding knives', 'Show kitchen knives', "What's your MOQ?"],
     };
   }
 
   /* 4. MOQ */
   if (has('moq', 'minimum', 'min order', 'how many', 'quantity', 'how much can i order')) {
     return {
-      text:
-        "MOQ (Minimum Order Quantity) varies by product — every product lists its own MOQ. As a guide:\n• Collection knives: MOQ from 1 pc\n• Folding knives: 100–600 pcs\n• Kitchen knives: 100–1200 pcs\n• Hunting knives: typically 1200 pcs\nYou'll find the exact MOQ on each product page. Want me to show you some products?",
-      quickReplies: ['Show folding knives', 'Show kitchen knives', 'How to order?'],
+      text: withFiller(
+        "Most of our folding knives start at 100 pieces, and kitchen knives can go up to 1200 since they're produced in larger batches. Collection pieces are the exception — you can order just one of those. What type are you looking at?"
+      ),
+      quickReplies: ['Show me folding knives', 'Show kitchen knives', 'How do I order?'],
     };
   }
 
   /* 5. OEM / ODM */
   if (has('oem', 'odm', 'custom', 'customize', 'customization', 'logo', 'branding', 'engrav', 'private label')) {
     return {
-      text:
-        "Yes! We offer full OEM/ODM services:\n• Custom blade steel (D2, M390, VG-10, Damascus, 440)\n• Custom handles (titanium, G10, wood, sandalwood)\n• Logo engraving & custom packaging\n• Small-batch customization (e.g. our Titanium alloy folder accepts custom builds from 300 pcs)\nTell us your idea and we'll make it happen — you can also reach us via the Contact tab.",
-      quickReplies: ["What's your MOQ?", 'Show folding knives', 'How to order?'],
+      text: "Custom work — yeah, we do a lot of that. You can pick your blade steel (D2, M390, VG-10, Damascus, 440), your handle material (titanium, G10, wood, sandalwood), and we'll do logo engraving and custom packaging too. We even take small batches — our titanium alloy folder, for instance, you can customize from 300 pieces. Got something specific in mind? Drop the details in the Contact tab and we'll work it out.",
+      quickReplies: ["What's your MOQ?", 'Show me folding knives', 'How do I order?'],
     };
   }
 
   /* 6. Shipping */
   if (has('ship', 'deliver', 'freight', 'tracking', 'express', 'dhl', 'fedex', 'ups', 'lead time')) {
     return {
-      text:
-        "We ship worldwide! Here's what to expect:\n• Orders processed within 1–2 business days\n• Express: DHL / FedEx / UPS — 3–7 business days\n• Bulk orders: sea freight — 15–35 days\n• A tracking number is emailed once your order ships\nNeed a shipping quote for a specific quantity? Use the Contact tab.",
-      quickReplies: ['Payment methods', 'How to order?', "What's your MOQ?"],
+      text: withFiller(
+        "Shipping-wise, we send things out worldwide. Most orders get processed in a day or two, then it's express via DHL, FedEx, or UPS — usually 3 to 7 business days to your door. For big bulk orders we go sea freight, which is more like 15 to 35 days but a lot cheaper. Either way, you'll get a tracking number by email the moment it leaves us. Want a real quote for a specific quantity? Ping us through the Contact tab."
+      ),
+      quickReplies: ['How do I pay?', 'How do I order?', "What's your MOQ?"],
     };
   }
 
   /* 7. Payment */
   if (has('pay', 'payment', 'bank', 'hsbc', 'transfer', 'deposit', 't/t', 'wire', 'invoice', 'pi ')) {
     return {
-      text:
-        "We accept payment via HSBC bank transfer (T/T) in USD:\n• 30% deposit to confirm your order\n• 70% balance before shipment\n• A Proforma Invoice (PI) is provided for every order\nThis keeps things secure and simple for bulk / B2B orders.",
-      quickReplies: ['How to order?', 'Shipping info', "What's your MOQ?"],
+      text: withFiller(
+        "For payment, we go through HSBC bank transfer in USD — pretty standard for B2B. It's 30% deposit to lock in the order, then the 70% balance before we ship. You'll get a Proforma Invoice for everything so it's all above board. Keeps it simple and secure."
+      ),
+      quickReplies: ['How do I order?', "How's shipping work?", "What's your MOQ?"],
     };
   }
 
@@ -180,53 +217,51 @@ function getBotResponse(input: string): BotReply {
   if (has('how to order', 'place order', 'how to buy', 'purchase', 'order process', 'ordering') ||
       (has('order') && !has('moq', 'quantity', 'tracking'))) {
     return {
-      text:
-        "Ordering is easy:\n1. Browse products and pick what you like (or tell us your needs)\n2. Confirm specs, quantity & MOQ with us\n3. We send a Proforma Invoice (PI)\n4. Pay 30% deposit via HSBC bank transfer\n5. Production begins\n6. Pay 70% balance, then we ship\nReady to start? Use the Contact tab to send details.",
-      quickReplies: ['Payment methods', 'Shipping info', "What's your MOQ?"],
+      text: "Ordering's pretty straightforward. You browse and pick what you like, or just tell us what you're after. We'll confirm the specs, quantity, and MOQ together, then I'll send you a Proforma Invoice. From there it's a 30% deposit via HSBC to kick off production, and the 70% balance before we ship. Ready to get started? Drop your details in the Contact tab.",
+      quickReplies: ['How do I pay?', "How's shipping work?", "What's your MOQ?"],
     };
   }
 
   /* 9. Pricing */
   if (has('price', 'cost', 'how much', 'quote', 'pricing', 'expensive', 'cheap')) {
     return {
-      text:
-        "Prices vary by model and material — every product page shows the unit price. For reference:\n• EDC folding knives: from $6.50\n• CNC titanium folders: $86–$96\n• Kitchen knives: $30–$75\n• Collection pieces: from $1,200\nFor bulk pricing, share your target quantity and we'll quote via the Contact tab.",
-      quickReplies: ['Show folding knives', 'Show kitchen knives', "What's your MOQ?"],
+      text: withFiller(
+        "Pricing depends a lot on the model and materials — every product page shows the unit price. Just to give you a feel, our EDC folders start around $6.50, CNC titanium folders run $86 to $96, kitchen knives are $30 to $75, and the collection pieces start at $1,200. If you're buying in bulk, tell us your target quantity and we'll get you a proper quote through the Contact tab."
+      ),
+      quickReplies: ['Show me folding knives', 'Show kitchen knives', "What's your MOQ?"],
     };
   }
 
   /* 10. Contact */
   if (has('contact', 'email', 'phone', 'whatsapp', 'reach you', 'reach us', 'talk to')) {
     return {
-      text:
-        "You can reach us here:\n• Email: support@adamcutlery.com\n• Phone: +1 (800) 555-0199\nOr use the Contact tab in this widget to send a message directly. We typically reply within one business day.",
-      quickReplies: ['Business hours', 'How to order?', 'Shipping info'],
+      text: "Easiest way is email — support@adamcutlery.com — or give us a ring at +1 (800) 555-0199. You can also just use the Contact tab right here to send a message straight through. We usually get back to you within a business day.",
+      quickReplies: ['When are you open?', 'How do I order?', "How's shipping work?"],
     };
   }
 
   /* 11. Business hours */
   if (has('hour', 'open', 'close', 'business', 'when can')) {
     return {
-      text:
-        "Our business hours:\n• Monday–Friday: 9:00 AM – 6:00 PM EST\n• Saturday: 10:00 AM – 4:00 PM EST\n• Sunday: Closed\nLeave a message anytime and we'll respond during business hours.",
-      quickReplies: ['How to order?', 'Contact info', "What's your MOQ?"],
+      text: withFiller(
+        "We're around Monday to Friday, 9 to 6 EST, and Saturdays 10 to 4. Sundays we're closed, but leave a message anytime and we'll pick it up when we're back in."
+      ),
+      quickReplies: ['How do I order?', 'How do I reach you?', "What's your MOQ?"],
     };
   }
 
   /* 12. General product / catalog browse */
   if (has('product', 'catalog', 'knife', 'knives', 'show me', 'what do you', 'browse', 'recommend')) {
     return {
-      text:
-        "We carry four main categories:\n• Folding / Ball-bearing knives\n• Kitchen knives\n• Hunting & outdoor knives\n• Collection pieces\nHere are a few featured products to get you started:",
+      text: "We make four main kinds of knives — folding and ball-bearing folders, kitchen knives, hunting and outdoor fixed blades, and a collection line for the really special stuff. Here are a few featured pieces to get you started.",
       products: featuredOverview,
-      quickReplies: ['Show folding knives', 'Show kitchen knives', "What's your MOQ?"],
+      quickReplies: ['Show me folding knives', 'Show kitchen knives', "What's your MOQ?"],
     };
   }
 
   /* 13. Fallback */
   return {
-    text:
-      "I'm not quite sure I caught that, but I'm here to help! I can assist with product recommendations, MOQ, OEM/ODM, shipping, payment, and ordering. Try one of these:",
+    text: "Hmm, I'm not sure I caught that. But hey, I'm here — I can help you find the right knife, walk you through MOQ and pricing, custom work, shipping, that sort of thing. What would you like to know?",
     quickReplies: DEFAULT_QUICK_REPLIES,
   };
 }
@@ -241,8 +276,7 @@ const formatTime = (date: Date): string =>
 const GREETING_MESSAGE: ChatMessage = {
   id: 'greeting',
   sender: 'bot',
-  text:
-    "Hi there! I'm Adam, your Adam Cutlery support assistant. I can help you find the right knives, explain MOQ & pricing, OEM/ODM customization, shipping, and payment. What would you like to know?",
+  text: "Hey there, Adam here. Looking for something in particular, or just browsing?",
   timestamp: new Date(),
   quickReplies: DEFAULT_QUICK_REPLIES,
 };
@@ -287,10 +321,12 @@ export default function ChatWidget() {
     setInput('');
     setIsTyping(true);
 
-    // Simulate the bot "thinking"
-    const delay = 650 + Math.random() * 600;
+    // Work out the reply up front so the "thinking" pause can scale with
+    // how long the answer is — feels more like real typing.
+    const reply = getBotResponse(text);
+    const typingDelay = Math.min(2200, 600 + reply.text.length * 12) + Math.random() * 250;
+
     window.setTimeout(() => {
-      const reply = getBotResponse(text);
       const botMsg: ChatMessage = {
         id: newId(),
         sender: 'bot',
@@ -301,7 +337,7 @@ export default function ChatWidget() {
       };
       setMessages((prev) => [...prev, botMsg]);
       setIsTyping(false);
-    }, delay);
+    }, typingDelay);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -339,10 +375,10 @@ export default function ChatWidget() {
                 <Bot size={20} className="text-[#1a1a1a]" />
               </div>
               <div className="flex-1">
-                <h3 className="text-[#1a1a1a] font-semibold text-lg leading-tight">Customer Support</h3>
+                <h3 className="text-[#1a1a1a] font-semibold text-lg leading-tight">Adam</h3>
                 <p className="text-[#1a1a1a]/70 text-xs flex items-center gap-1.5">
                   <span className="inline-block w-2 h-2 rounded-full bg-green-600/80" />
-                  Adam assistant • online
+                  online now
                 </p>
               </div>
             </div>
@@ -446,7 +482,7 @@ export default function ChatWidget() {
                         sendMessage(input);
                       }
                     }}
-                    placeholder="Ask about knives, MOQ, shipping…"
+                    placeholder="Ask me anything — knives, MOQ, shipping…"
                     className="flex-1 bg-[#1a1a1a] border border-[#c9a962]/20 rounded-full px-4 py-2.5 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-[#c9a962] transition-colors"
                   />
                   <button

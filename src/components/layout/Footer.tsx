@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Heart, Mail, Phone, MapPin } from 'lucide-react';
+import { Heart, Mail, Phone, MapPin, Instagram, Facebook, Twitter } from 'lucide-react';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -16,17 +16,35 @@ export default function Footer() {
               ADAM CUTLERY
             </h3>
             <p className="text-sm text-gray-400 leading-relaxed mb-6">
-              Professional premium knife platform, featuring masterworks from top forgers worldwide.
+              What started as a weekend obsession in a Yangjiang workshop turned into a small shop run by people who genuinely love a sharp edge. Every blade here is one we'd carry ourselves—hand-picked from forges we trust, checked by hand, and shipped with care.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="w-10 h-10 bg-surfaceLight rounded-full flex items-center justify-center text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors">
-                <span className="text-sm">W</span>
+              <a
+                href="https://instagram.com/adamcutlery"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Adam Cutlery on Instagram"
+                className="w-10 h-10 bg-surfaceLight rounded-full flex items-center justify-center text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"
+              >
+                <Instagram className="w-4 h-4" />
               </a>
-              <a href="#" className="w-10 h-10 bg-surfaceLight rounded-full flex items-center justify-center text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors">
-                <span className="text-sm">B</span>
+              <a
+                href="https://facebook.com/adamcutlery"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Adam Cutlery on Facebook"
+                className="w-10 h-10 bg-surfaceLight rounded-full flex items-center justify-center text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"
+              >
+                <Facebook className="w-4 h-4" />
               </a>
-              <a href="#" className="w-10 h-10 bg-surfaceLight rounded-full flex items-center justify-center text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors">
-                <span className="text-sm">I</span>
+              <a
+                href="https://twitter.com/adamcutlery"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Adam Cutlery on Twitter"
+                className="w-10 h-10 bg-surfaceLight rounded-full flex items-center justify-center text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"
+              >
+                <Twitter className="w-4 h-4" />
               </a>
             </div>
           </div>
@@ -78,7 +96,7 @@ export default function Footer() {
             </div>
           </div>
           <p className="text-xs text-gray-600 text-center mt-4">
-            Knives displayed on this website are for collection and legitimate use only. Purchasers must be 18 years or older.
+            A quick note from us: these knives are made for collectors, cooks, and everyday carriers who'll use them with respect. You must be 18 or older to order—please handle each blade with the care it deserves.
           </p>
         </div>
       </div>

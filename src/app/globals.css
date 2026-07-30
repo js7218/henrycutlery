@@ -5,8 +5,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #1a1a1a;
-  --foreground: #f5f5f5;
+  --background: #1c1a17;
+  --foreground: #f5f3ef;
 }
 
 * {
@@ -28,7 +28,7 @@ body {
 }
 
 body {
-  background: linear-gradient(135deg, #1a1a1a 0%, #242424 50%, #1a1a1a 100%);
+  background: linear-gradient(135deg, #1c1a17 0%, #252320 50%, #1c1a17 100%);
   min-height: 100vh;
 }
 
@@ -44,11 +44,11 @@ a {
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1a1a;
+  background: #1c1a17;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3a3a3a;
+  background: #3d3a34;
   border-radius: 4px;
 }
 
@@ -83,7 +83,7 @@ a {
 
 /* Glass effect */
 .glass {
-  background: rgba(36, 36, 36, 0.8);
+  background: rgba(37, 35, 32, 0.8);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(201, 169, 98, 0.2);
 }
@@ -95,7 +95,7 @@ a {
 
 .card-hover:hover {
   transform: translateY(-5px);
-  box-shadow: 0 20px 40px rgba(201, 169, 98, 0.1);
+  box-shadow: 0 20px 40px rgba(45, 41, 38, 0.2), 0 0 15px rgba(201, 169, 98, 0.08);
 }
 
 /* Button styles */
@@ -428,7 +428,7 @@ img {
 
 .card-gold-glow:hover {
   border-color: rgba(201, 169, 98, 0.4);
-  box-shadow: 0 0 20px rgba(201, 169, 98, 0.1), 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 20px rgba(201, 169, 98, 0.1), 0 8px 32px rgba(45, 41, 38, 0.3);
 }
 
 /* Smooth scroll momentum on iOS */
@@ -459,7 +459,7 @@ img {
 
 .hover-lift:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(201, 169, 98, 0.15);
+  box-shadow: 0 12px 40px rgba(45, 41, 38, 0.2), 0 0 20px rgba(201, 169, 98, 0.1);
 }
 
 /* Gold gradient border animation */
@@ -504,7 +504,7 @@ img {
   border-color: rgba(180, 140, 80, 0.25);
   box-shadow:
     0 0 0 1px rgba(180, 140, 80, 0.08),
-    0 8px 30px rgba(0, 0, 0, 0.3),
+    0 8px 30px rgba(45, 41, 38, 0.3),
     0 0 20px rgba(180, 140, 80, 0.05);
 }
 
@@ -514,7 +514,7 @@ img {
     border-color: rgba(180, 140, 80, 0.2);
     box-shadow:
       0 0 0 1px rgba(180, 140, 80, 0.06),
-      0 4px 15px rgba(0, 0, 0, 0.2);
+      0 4px 15px rgba(45, 41, 38, 0.2);
     transition: all 0.15s ease;
   }
 }
@@ -918,7 +918,7 @@ img {
 }
 
 .animate-bg-shift {
-  background: linear-gradient(135deg, #1a1a1a, #242424, #1a1a1a);
+  background: linear-gradient(135deg, #1c1a17, #252320, #1c1a17);
   background-size: 200% 200%;
 }
 

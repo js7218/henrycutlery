@@ -9,15 +9,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: '#1a1a1a',
-        foreground: '#f5f5f5',
-        surface: '#242424',
-        surfaceLight: '#2d2d2d',
-        border: '#3a3a3a',
+        // Warm dark palette — not pure gray. Hints of brown/amber
+        // simulate forged metal and leather, avoiding the "cold AI" look.
+        background: '#1c1a17',     // warm charcoal instead of cold #1a1a1a
+        foreground: '#f5f3ef',     // warm white instead of cold #f5f5f5
+        surface: '#252320',        // warm dark surface
+        surfaceLight: '#2e2b26',   // warm mid surface
+        border: '#3d3a34',         // warm border
         gold: '#c9a962',
         goldLight: '#d4b978',
         steel: '#8a9a9a',
         steelLight: '#a8b8b8',
+        copper: '#b87333',         // warm copper accent
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)'],
