@@ -6,11 +6,10 @@ import Image from 'next/image';
 import { ArrowRight, Shield, Truck, Award, Factory, Globe2, Wrench } from 'lucide-react';
 import { gsap, useGSAP, ScrollTrigger, onAgeVerified } from '@/lib/gsap';
 import ScrollReveal from '@/components/animation/ScrollReveal';
+import UniversalReveal, { RevealChild } from '@/components/animation/UniversalReveal';
 import MagneticButton from '@/components/animation/MagneticButton';
 import TextSplitReveal from '@/components/animation/TextSplitReveal';
 import ImageReveal from '@/components/animation/ImageReveal';
-import GoldParticles from '@/components/animation/GoldParticles';
-import ParticleField from '@/components/animation/ParticleField';
 import HorizontalPinScroll, { HorizontalPanel } from '@/components/animation/HorizontalPinScroll';
 import { products } from '@/data/products';
 import { formatPrice } from '@/lib/utils';
@@ -19,37 +18,18 @@ export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
   const [animReady, setAnimReady] = useState(false);
 
-  // Wait for age verification before running entrance animations
+  // Wait for age verification before running GSAP enhancements
   useEffect(() => {
     onAgeVerified(() => setAnimReady(true));
   }, []);
 
-  // Hero entrance + scroll animations (responsive via matchMedia)
+  // GSAP enhancement layer: smooth parallax + stats counter
   useGSAP(
     () => {
       if (!animReady) return;
 
-      // ---- Entrance timeline (uses fromTo for reliability) ----
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' }, delay: 0.2 });
-
-      tl.fromTo('.hero-eyebrow', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, onStart: () => markDone('.hero-eyebrow') })
-        .fromTo('.hero-title-line', { y: 120, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.2, duration: 1.1, onStart: () => markDone('.hero-title-line') }, '-=0.3')
-        .fromTo('.hero-sub', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, onStart: () => markDone('.hero-sub') }, '-=0.5')
-        .fromTo('.hero-desc', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, onStart: () => markDone('.hero-desc') }, '-=0.5')
-        .fromTo('.hero-cta', { y: 40, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.15, duration: 0.7, onStart: () => markDone('.hero-cta') }, '-=0.4')
-        .fromTo('.hero-image', { scale: 1.2, opacity: 0 }, { scale: 1, opacity: 1, duration: 1.5, ease: 'power2.out', onStart: () => markDone('.hero-image') }, '-=1.2')
-        .to('.hero-image > div', {
-          boxShadow: '0 0 40px rgba(201, 169, 98, 0.3)',
-          duration: 1.5,
-          ease: 'power2.inOut',
-          yoyo: true,
-          repeat: 1,
-        }, '-=0.5');
-
-      // ---- Responsive animations via matchMedia ----
+      // ---- Desktop parallax ----
       const mm = gsap.matchMedia();
-
-      // Desktop / tablet (≥768px): parallax + scrub
       mm.add('(min-width: 768px)', () => {
         gsap.to('.hero-bg', {
           yPercent: 30,
@@ -63,46 +43,30 @@ export default function Home() {
         });
       });
 
-      // All devices: stats counter
-      mm.add(
-        {
-          isDesktop: '(min-width: 768px)',
-          isMobile: '(max-width: 767px)',
-        },
-        (ctx) => {
-          const stats = document.querySelectorAll('[data-counter]');
-          stats.forEach((stat) => {
-            const target = parseInt(stat.getAttribute('data-counter') || '0', 10);
-            const obj = { val: 0 };
-            gsap.to(obj, {
-              val: target,
-              duration: ctx.isMobile ? 1.2 : 2,
-              ease: 'power2.out',
-              scrollTrigger: { trigger: stat, start: 'top 90%', once: true },
-              onUpdate: () => {
-                stat.textContent = Math.floor(obj.val).toLocaleString();
-              },
-            });
-          });
-        }
-      );
+      // ---- Stats counter ----
+      const stats = document.querySelectorAll('[data-counter]');
+      stats.forEach((stat) => {
+        const target = parseInt(stat.getAttribute('data-counter') || '0', 10);
+        const obj = { val: 0 };
+        gsap.to(obj, {
+          val: target,
+          duration: 2,
+          ease: 'power2.out',
+          scrollTrigger: { trigger: stat, start: 'top 90%', once: true },
+          onUpdate: () => {
+            stat.textContent = Math.floor(obj.val).toLocaleString();
+          },
+        });
+      });
 
-      // Refresh ScrollTrigger after entrance animation settles
       setTimeout(() => ScrollTrigger.refresh(), 500);
     },
     { scope: heroRef, dependencies: [animReady] }
   );
 
-  /** Mark elements as animation-done so the safety net skips them */
-  function markDone(selector: string) {
-    document.querySelectorAll(selector).forEach((el) => {
-      el.setAttribute('data-gsap-done', 'true');
-    });
-  }
-
   return (
     <div className="min-h-screen">
-      {/* ===== HERO: Asymmetric split layout with parallax ===== */}
+      {/* ===== HERO ===== */}
       <section ref={heroRef} className="relative min-h-[90vh] flex items-center overflow-hidden">
         {/* Parallax background */}
         <div className="hero-bg absolute inset-0 z-0">
@@ -117,58 +81,53 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-br from-background via-background/85 to-background/40" />
         </div>
 
-        {/* 3D Golden particle field - S+ tier visual */}
-        <ParticleField className="absolute inset-0 z-[2]" count={2000} />
-
-        {/* Floating gold particles */}
-        <GoldParticles count={35} className="z-[5]" />
-
         <div className="relative z-10 w-full px-4 md:px-8 lg:px-16 max-w-7xl mx-auto pt-20 pb-16">
           <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8 lg:gap-16 items-center">
-            {/* Left: Text */}
+            {/* Left: Text — CSS animations auto-play immediately */}
             <div className="order-2 lg:order-1">
-              <p className="hero-eyebrow text-gold text-sm tracking-[0.3em] uppercase mb-6" data-gsap-anim>
+              <p className="text-gold text-sm tracking-[0.3em] uppercase mb-6 animate-hero-sub">
                 Premium Cutlery Manufacturing
               </p>
               <h1
                 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-[0.95]"
                 style={{ fontFamily: 'Playfair Display, serif' }}
               >
-                <TextSplitReveal className="hero-title-line block text-gold-gradient" delay={0.3} stagger={0.06} duration={0.7}>
+                <span className="block text-gold-gradient animate-hero-title">
                   ADAM
-                </TextSplitReveal>
-                <TextSplitReveal className="hero-title-line block text-foreground" delay={0.6} stagger={0.06} duration={0.7}>
+                </span>
+                <span className="block text-foreground animate-hero-title" style={{ animationDelay: '0.2s' }}>
                   CUTLERY
-                </TextSplitReveal>
+                </span>
               </h1>
-              <p className="hero-sub text-xl md:text-2xl text-gray-300 mb-4 max-w-xl" data-gsap-anim>
+              <p className="text-xl md:text-2xl text-gray-300 mb-4 max-w-xl animate-hero-sub" style={{ animationDelay: '0.5s' }}>
                 Precision-forged blades for global wholesale.
               </p>
-              <p className="hero-desc text-gray-400 mb-10 max-w-xl leading-relaxed" data-gsap-anim>
+              <p className="text-gray-400 mb-10 max-w-xl leading-relaxed animate-hero-sub" style={{ animationDelay: '0.6s' }}>
                 From Damascus chef knives to titanium folding blades, we manufacture
                 premium cutlery with CNC precision. OEM customization, competitive MOQ
                 pricing, and worldwide shipping.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <MagneticButton
+                <Link
                   href="/products"
-                  className="hero-cta inline-flex items-center justify-center px-8 py-4 bg-gold text-background font-semibold rounded-lg hover:bg-goldLight transition-colors"
+                  className="animate-hero-cta inline-flex items-center justify-center px-8 py-4 bg-gold text-background font-semibold rounded-lg animate-glow-pulse"
                 >
                   Browse Products
                   <ArrowRight className="w-5 h-5 ml-2" />
-                </MagneticButton>
-                <MagneticButton
+                </Link>
+                <Link
                   href="/products?category=folding"
-                  className="hero-cta inline-flex items-center justify-center px-8 py-4 border border-gold/50 text-gold font-semibold rounded-lg hover:bg-gold/10 transition-colors"
+                  className="animate-hero-cta inline-flex items-center justify-center px-8 py-4 border border-gold/50 text-gold font-semibold rounded-lg animate-border-glow"
+                  style={{ animationDelay: '0.9s' }}
                 >
                   Folding Knives
-                </MagneticButton>
+                </Link>
               </div>
             </div>
 
-            {/* Right: Image with curtain reveal */}
-            <div className="hero-image order-1 lg:order-2 relative" data-gsap-anim>
-              <ImageReveal direction="left" duration={1.4} delay={0.4} className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl">
+            {/* Right: Image */}
+            <div className="order-1 lg:order-2 relative animate-hero-img">
+              <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl">
                 <Image
                   src="/products/collection/the-best-collection-1.jpeg"
                   alt="The Best Collection knife"
@@ -178,10 +137,10 @@ export default function Home() {
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />
-              </ImageReveal>
+              </div>
               {/* Floating accent */}
-              <div className="absolute -bottom-6 -left-6 bg-surface/90 backdrop-blur-md border border-gold/20 rounded-xl p-5 shadow-xl hidden md:block">
-                <p className="text-3xl font-bold text-gold" data-counter="500">0</p>
+              <div className="absolute -bottom-6 -left-6 bg-surface/90 backdrop-blur-md border border-gold/20 rounded-xl p-5 shadow-xl hidden md:block animate-hero-float">
+                <p className="text-3xl font-bold text-gold" data-counter="500">500</p>
                 <p className="text-xs text-gray-400 uppercase tracking-wider">Global Clients</p>
               </div>
             </div>
@@ -199,33 +158,33 @@ export default function Home() {
       {/* ===== STATS BAR ===== */}
       <section className="border-y border-border bg-surface/50">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          <UniversalReveal stagger={0.1} className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
               { value: 500, label: 'Global Clients', suffix: '+' },
               { value: 15, label: 'Years Experience', suffix: '+' },
               { value: 50, label: 'Countries Shipped', suffix: '+' },
               { value: 100, label: 'Product Styles', suffix: '+' },
             ].map((stat, i) => (
-              <ScrollReveal key={i} direction="up" delay={i * 0.1}>
+              <RevealChild key={i}>
                 <div>
-                  <p className="text-3xl md:text-4xl font-bold text-gold">
-                    <span data-counter={stat.value}>0</span>{stat.suffix}
+                  <p className="text-3xl md:text-4xl font-bold text-gold animate-stat-pulse">
+                    <span data-counter={stat.value}>{stat.value}</span>{stat.suffix}
                   </p>
                   <p className="text-xs md:text-sm text-gray-400 uppercase tracking-wider mt-1">
                     {stat.label}
                   </p>
                 </div>
-              </ScrollReveal>
+              </RevealChild>
             ))}
-          </div>
+          </UniversalReveal>
         </div>
       </section>
 
-      {/* ===== FACTORY: Asymmetric with parallax ===== */}
+      {/* ===== FACTORY ===== */}
       <section className="py-24 px-4 md:px-8 overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-[1fr_1.3fr] gap-12 lg:gap-20 items-center mb-16">
-            <ScrollReveal direction="left">
+            <UniversalReveal anim="slide-left">
               <p className="text-gold text-sm tracking-[0.3em] uppercase mb-4">Our Factory</p>
               <h2
                 className="text-4xl md:text-5xl font-bold text-foreground mb-6 leading-tight"
@@ -249,30 +208,27 @@ export default function Home() {
                   </span>
                 ))}
               </div>
-            </ScrollReveal>
+            </UniversalReveal>
 
-            <ScrollReveal direction="right" delay={0.2}>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { icon: Factory, title: 'In-House Production', desc: 'Full CNC machining, heat treatment, and quality control under one roof.' },
-                  { icon: Wrench, title: 'Custom Engineering', desc: 'From design drawings to finished product, we handle every step.' },
-                  { icon: Shield, title: 'Quality Assurance', desc: 'Material selection, machining, polishing, inspection, and secure packing.' },
-                  { icon: Globe2, title: 'Global Export', desc: 'Worldwide shipping with tracking and customs documentation support.' },
-                ].map((item, i) => (
-                  <div
-                    key={i}
-                    className="p-5 bg-surface rounded-xl border border-border hover-soft-glow group"
-                  >
-                    <item.icon className="w-7 h-7 text-gold mb-3 group-hover:scale-110 transition-transform" />
+            <UniversalReveal anim="slide-right" className="grid grid-cols-2 gap-4">
+              {[
+                { icon: Factory, title: 'In-House Production', desc: 'Full CNC machining, heat treatment, and quality control under one roof.' },
+                { icon: Wrench, title: 'Custom Engineering', desc: 'From design drawings to finished product, we handle every step.' },
+                { icon: Shield, title: 'Quality Assurance', desc: 'Material selection, machining, polishing, inspection, and secure packing.' },
+                { icon: Globe2, title: 'Global Export', desc: 'Worldwide shipping with tracking and customs documentation support.' },
+              ].map((item, i) => (
+                <RevealChild key={i} delay={i * 0.1}>
+                  <div className="p-5 bg-surface rounded-xl border border-border hover-soft-glow">
+                    <item.icon className="w-7 h-7 text-gold mb-3 animate-icon-pulse" />
                     <h3 className="text-foreground font-semibold text-sm mb-1">{item.title}</h3>
                     <p className="text-xs text-gray-500 leading-relaxed">{item.desc}</p>
                   </div>
-                ))}
-              </div>
-            </ScrollReveal>
+                </RevealChild>
+              ))}
+            </UniversalReveal>
           </div>
 
-          {/* Factory images with reveal animation */}
+          {/* Factory images */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
               { src: '/images/factory1.jpg', span: 'col-span-2 row-span-2' },
@@ -305,25 +261,25 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===== CATEGORIES: Bento grid, not equal cards ===== */}
+      {/* ===== CATEGORIES ===== */}
       <section className="py-24 px-4 md:px-8 bg-surface/30">
         <div className="max-w-7xl mx-auto">
-          <ScrollReveal direction="up">
-            <p className="text-gold text-sm tracking-[0.3em] uppercase mb-4 text-center">Our Collections</p>
+          <UniversalReveal className="text-center mb-16">
+            <p className="text-gold text-sm tracking-[0.3em] uppercase mb-4">Our Collections</p>
             <h2
-              className="text-4xl md:text-5xl font-bold text-center text-gold-gradient mb-16"
+              className="text-4xl md:text-5xl font-bold text-gold-gradient mb-4"
               style={{ fontFamily: 'Playfair Display, serif' }}
             >
               Explore by Category
             </h2>
-          </ScrollReveal>
+          </UniversalReveal>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 auto-rows-[200px]">
             {/* Large card */}
-            <ScrollReveal direction="up" className="md:col-span-2 lg:col-span-2 row-span-2">
+            <UniversalReveal anim="scale-in" className="md:col-span-2 lg:col-span-2 row-span-2">
               <Link
                 href="/products?category=collection"
-                className="group relative h-full block rounded-2xl overflow-hidden border border-gold/20"
+                className="group relative h-full block rounded-2xl overflow-hidden border border-gold/20 animate-border-glow"
               >
                 <Image
                   src="/products/collection/the-best-collection-1.jpeg"
@@ -343,7 +299,7 @@ export default function Home() {
                   </span>
                 </div>
               </Link>
-            </ScrollReveal>
+            </UniversalReveal>
 
             {/* Medium cards */}
             {[
@@ -351,7 +307,7 @@ export default function Home() {
               { name: 'Kitchen', desc: 'Professional chef knives', href: '/products?category=kitchen', img: '/images/ca1d285711b90eaa22a99762c802bd48.jpg' },
               { name: 'Hunting', desc: 'Field dressing & skinning', href: '/products?category=hunting', img: '/images/hunting1.jpg' },
             ].map((cat, i) => (
-              <ScrollReveal key={cat.name} direction="up" delay={0.15 * (i + 1)}>
+              <UniversalReveal key={cat.name} anim="fade-up" className={`${i === 0 ? 'lg:col-start-3' : ''}`}>
                 <Link
                   href={cat.href}
                   className="group relative h-full block rounded-2xl overflow-hidden border border-border hover:border-gold/40 transition-colors"
@@ -371,28 +327,26 @@ export default function Home() {
                     <p className="text-gray-400 text-xs">{cat.desc}</p>
                   </div>
                 </Link>
-              </ScrollReveal>
+              </UniversalReveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ===== FEATURES: Horizontal scroll-like layout ===== */}
+      {/* ===== FEATURES ===== */}
       <section className="py-24 px-4 md:px-8">
         <div className="max-w-7xl mx-auto">
-          <ScrollReveal direction="up">
-            <div className="text-center mb-16">
-              <p className="text-gold text-sm tracking-[0.3em] uppercase mb-4">Why Choose Us</p>
-              <h2
-                className="text-4xl md:text-5xl font-bold text-foreground"
-                style={{ fontFamily: 'Playfair Display, serif' }}
-              >
-                Built for wholesale buyers
-              </h2>
-            </div>
-          </ScrollReveal>
+          <UniversalReveal className="text-center mb-16">
+            <p className="text-gold text-sm tracking-[0.3em] uppercase mb-4">Why Choose Us</p>
+            <h2
+              className="text-4xl md:text-5xl font-bold text-foreground"
+              style={{ fontFamily: 'Playfair Display, serif' }}
+            >
+              Built for wholesale buyers
+            </h2>
+          </UniversalReveal>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <UniversalReveal stagger={0.15} className="grid md:grid-cols-3 gap-6">
             {[
               {
                 icon: Shield,
@@ -410,24 +364,24 @@ export default function Home() {
                 desc: 'Flexible minimum order quantities starting from 100 pieces. Sample confirmation and production planning for international buyers.',
               },
             ].map((feat, i) => (
-              <ScrollReveal key={i} direction="up" delay={i * 0.15}>
-                <div className="p-8 bg-surface rounded-2xl border border-border hover-soft-glow group h-full">
-                  <div className="w-14 h-14 rounded-xl bg-gold/10 flex items-center justify-center mb-6 group-hover:bg-gold/20 transition-colors">
+              <RevealChild key={i}>
+                <div className="p-8 bg-surface rounded-2xl border border-border hover-soft-glow h-full">
+                  <div className="w-14 h-14 rounded-xl bg-gold/10 flex items-center justify-center mb-6 animate-icon-pulse" style={{ animationDelay: `${i * 0.3}s` }}>
                     <feat.icon className="w-7 h-7 text-gold" />
                   </div>
                   <h3 className="text-xl font-semibold text-foreground mb-3">{feat.title}</h3>
                   <p className="text-gray-400 leading-relaxed">{feat.desc}</p>
                 </div>
-              </ScrollReveal>
+              </RevealChild>
             ))}
-          </div>
+          </UniversalReveal>
         </div>
       </section>
 
-      {/* ===== HORIZONTAL PIN SCROLL: Premium product showcase ===== */}
+      {/* ===== PRODUCT SHOWCASE ===== */}
       <section className="py-20 md:py-32 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 md:px-8 mb-10 md:mb-16">
-          <ScrollReveal direction="up">
+          <UniversalReveal>
             <p className="text-gold text-sm tracking-[0.3em] uppercase mb-4 text-center md:text-left">
               Signature Collection
             </p>
@@ -440,7 +394,7 @@ export default function Home() {
             <p className="text-gray-400 mt-4 text-center md:text-left max-w-2xl">
               Scroll to explore our finest blades — each forged with precision and passion.
             </p>
-          </ScrollReveal>
+          </UniversalReveal>
         </div>
 
         <HorizontalPinScroll panels={5} gap={32} className="hidden md:block">
@@ -462,9 +416,6 @@ export default function Home() {
                   </h3>
                   <div className="flex items-center justify-between">
                     <span className="text-2xl font-bold text-gold">{formatPrice(product.price)}</span>
-                    <span className="inline-flex items-center text-gold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                      View <ArrowRight className="w-4 h-4 ml-1" />
-                    </span>
                   </div>
                 </div>
               </Link>
@@ -472,17 +423,21 @@ export default function Home() {
           ))}
         </HorizontalPinScroll>
 
-        {/* Mobile: native horizontal scroll */}
-        <div className="md:hidden flex gap-4 overflow-x-auto snap-x snap-mandatory px-4 pb-4 -mx-4 scrollbar-hide">
-          {products.slice(0, 8).map((product) => (
-            <div key={product.id} className="flex-shrink-0 w-[80vw] snap-center">
+        {/* Mobile: horizontal scroll */}
+        <div className="md:hidden flex gap-4 overflow-x-auto snap-x snap-mandatory px-4 pb-4 scrollbar-hide">
+          {products.slice(0, 8).map((product, i) => (
+            <div
+              key={product.id}
+              className="flex-shrink-0 w-[80vw] snap-center animate-card-enter"
+              style={{ animationDelay: `${i * 0.1}s` }}
+            >
               <Link href={`/products/${product.id}`} className="group block relative aspect-[3/4] rounded-2xl overflow-hidden border border-border active:border-gold/40 transition-colors">
                 <Image
                   src={product.images[0] || '/products/test-product-placeholder.png'}
                   alt={product.name}
                   fill
                   sizes="80vw"
-                  className="object-cover group-hover:scale-110 transition-transform duration-700"
+                  className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6">
@@ -511,7 +466,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-b from-background via-background/90 to-background" />
         </div>
         <div className="relative z-10 max-w-3xl mx-auto text-center">
-          <ScrollReveal direction="up">
+          <UniversalReveal>
             <h2
               className="text-4xl md:text-5xl font-bold text-gold-gradient mb-6"
               style={{ fontFamily: 'Playfair Display, serif' }}
@@ -522,14 +477,14 @@ export default function Home() {
               Browse our full catalog and place your wholesale order today.
               Minimum order quantities apply per product.
             </p>
-            <MagneticButton
+            <Link
               href="/products"
-              className="inline-flex items-center justify-center px-10 py-4 bg-gold text-background font-semibold rounded-lg hover:bg-goldLight transition-colors text-lg"
+              className="inline-flex items-center justify-center px-10 py-4 bg-gold text-background font-semibold rounded-lg text-lg animate-glow-pulse"
             >
               View All Products
               <ArrowRight className="w-5 h-5 ml-2" />
-            </MagneticButton>
-          </ScrollReveal>
+            </Link>
+          </UniversalReveal>
         </div>
       </section>
     </div>

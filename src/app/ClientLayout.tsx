@@ -12,15 +12,17 @@ import WafBrowserCheck from '@/components/security/WafBrowserCheck';
 import ChatWidget from '@/components/support/ChatWidget';
 import ScrollProgress from '@/components/animation/ScrollProgress';
 
-// Dynamically import effects that use browser APIs (no SSR)
+// CSS-only effects (always reliable, all browsers)
+const FilmGrain = dynamic(() => import('@/components/animation/FilmGrain'), { ssr: false });
+const Vignette = dynamic(() => import('@/components/animation/Vignette'), { ssr: false });
+const AmbientLight = dynamic(() => import('@/components/animation/AmbientLight'), { ssr: false });
+const SmoothFadeIn = dynamic(() => import('@/components/animation/SmoothFadeIn'), { ssr: false });
+
+// Canvas-based effects (enhancement layer, desktop-first)
 const PageTransition = dynamic(() => import('@/components/animation/PageTransition'), { ssr: false });
 const CustomCursor = dynamic(() => import('@/components/animation/CustomCursor'), { ssr: false });
 const TouchTrail = dynamic(() => import('@/components/animation/TouchTrail'), { ssr: false });
-const FilmGrain = dynamic(() => import('@/components/animation/FilmGrain'), { ssr: false });
-const Vignette = dynamic(() => import('@/components/animation/Vignette'), { ssr: false });
 const RippleEffect = dynamic(() => import('@/components/animation/RippleEffect'), { ssr: false });
-const AmbientLight = dynamic(() => import('@/components/animation/AmbientLight'), { ssr: false });
-const SmoothFadeIn = dynamic(() => import('@/components/animation/SmoothFadeIn'), { ssr: false });
 
 export default function ClientLayout({
   children,
@@ -29,15 +31,19 @@ export default function ClientLayout({
 }) {
   return (
     <AppProvider>
+      {/* CSS-only effects: always work, no JS needed after load */}
       <ScrollProgress />
       <SmoothFadeIn />
       <AmbientLight />
+      <FilmGrain opacity={0.04} />
+      <Vignette intensity={0.25} />
+
+      {/* Canvas enhancements: gracefully degrade on unsupported browsers */}
       <PageTransition />
       <CustomCursor />
       <TouchTrail />
-      <FilmGrain opacity={0.04} />
-      <Vignette intensity={0.25} />
       <RippleEffect />
+
       <Suspense fallback={null}>
         <HumanVerificationGate />
       </Suspense>
