@@ -6,6 +6,7 @@ import { useApp } from '@/context/AppContext';
 import { formatPrice } from '@/lib/utils';
 import { getSafeProductPath } from '@/lib/safeNavigation';
 import { useCallback, useRef, useEffect } from 'react';
+import ThreeDButton from '@/components/animation/ThreeDButton';
 
 export default function CartItem({ item }: { item: { product: any; quantity: number } }) {
   const { updateQuantity, removeFromCart } = useApp();
@@ -166,9 +167,9 @@ export function EmptyCart() {
       <ShoppingBag className="w-16 h-16 text-gray-600 mb-4" />
       <h3 className="text-xl font-medium text-gray-400 mb-2">Your cart is empty</h3>
       <p className="text-sm text-gray-500 mb-6">Browse our premium knife collection</p>
-      <Link href="/products" className="btn-primary">
+      <ThreeDButton href="/products" variant="primary">
         Browse Products
-      </Link>
+      </ThreeDButton>
     </div>
   );
 }

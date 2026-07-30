@@ -20,6 +20,7 @@ import { useApp } from '@/context/AppContext';
 import { formatPrice, formatDate, cn } from '@/lib/utils';
 import { products } from '@/data/products';
 import ProductCard from '@/components/product/ProductCard';
+import ThreeDButton from '@/components/animation/ThreeDButton';
 
 type Tab = 'orders' | 'favorites' | 'addresses' | 'settings';
 
@@ -307,9 +308,9 @@ function ProfileContent() {
                   <ShoppingBag className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-400 mb-2">No Orders Yet</h3>
                   <p className="text-sm text-gray-500 mb-6">Go shop for your favorite knives</p>
-                  <Link href="/products" className="btn-primary">
+                  <ThreeDButton href="/products" variant="primary">
                     Browse Products
-                  </Link>
+                  </ThreeDButton>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -372,9 +373,9 @@ function ProfileContent() {
                   <Heart className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-400 mb-2">No Favorites</h3>
                   <p className="text-sm text-gray-500 mb-6">Click the heart icon on product pages to add favorites</p>
-                  <Link href="/products" className="btn-primary">
+                  <ThreeDButton href="/products" variant="primary">
                     Browse Products
-                  </Link>
+                  </ThreeDButton>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

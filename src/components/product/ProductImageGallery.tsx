@@ -2,7 +2,11 @@
 
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, RotateCw } from 'lucide-react';
+import ThreeDImage from '@/components/animation/ThreeDImage';
+import Product360Viewer from '@/components/animation/Product360Viewer';
+
+type ViewMode = 'tilt' | 'rotate';
 
 interface ProductImageGalleryProps {
   images: string[];
@@ -12,6 +16,7 @@ interface ProductImageGalleryProps {
 export default function ProductImageGallery({ images, productName }: ProductImageGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const [viewMode, setViewMode] = useState<ViewMode>('tilt');
   const safeImages = images.length > 0 ? images : ['/products/test-product-placeholder.png'];
   const currentSrc = failedImages[safeImages[currentIndex]]
     ? '/products/test-product-placeholder.png'
@@ -30,32 +35,75 @@ export default function ProductImageGallery({ images, productName }: ProductImag
     setCurrentIndex((prev) => (prev === safeImages.length - 1 ? 0 : prev + 1));
   };
 
+  const handleImageError = () => {
+    setFailedImages((prev) => ({ ...prev, [safeImages[currentIndex]]: true }));
+  };
+
   return (
     <div className="space-y-4">
-      {/* Main Image */}
-      <div className="relative aspect-[4/3] bg-surfaceLight rounded-lg overflow-hidden">
-        <Image
-          src={currentSrc}
-          alt={`${productName} - Image ${currentIndex + 1}`}
-          fill
-          className="object-cover"
-          priority
-          sizes="(max-width: 1024px) 100vw, 50vw"
-          onError={() => setFailedImages((prev) => ({ ...prev, [safeImages[currentIndex]]: true }))}
-        />
+      {/* Main Image — 3D interactive */}
+      <div className="relative aspect-[4/3] bg-surfaceLight rounded-lg overflow-hidden group/gallery">
+        {/* View mode toggle */}
+        <div className="absolute top-4 right-4 z-30 flex gap-1.5">
+          <button
+            onClick={() => setViewMode('tilt')}
+            className={`p-2 rounded-lg text-xs font-medium transition-all backdrop-blur-sm border ${
+              viewMode === 'tilt'
+                ? 'bg-gold/20 border-gold/50 text-gold'
+                : 'bg-background/60 border-border/50 text-gray-400 hover:text-gold hover:border-gold/30'
+            }`}
+            title="3D Tilt View"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setViewMode('rotate')}
+            className={`p-2 rounded-lg text-xs font-medium transition-all backdrop-blur-sm border ${
+              viewMode === 'rotate'
+                ? 'bg-gold/20 border-gold/50 text-gold'
+                : 'bg-background/60 border-border/50 text-gray-400 hover:text-gold hover:border-gold/30'
+            }`}
+            title="360° Rotate View"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {viewMode === 'tilt' ? (
+          <ThreeDImage
+            src={currentSrc}
+            alt={`${productName} - Image ${currentIndex + 1}`}
+            fill
+            fillContainer
+            priority
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            className="object-cover"
+            maxTilt={15}
+            scale={1.03}
+            shadowIntensity={0.35}
+            onError={handleImageError}
+          />
+        ) : (
+          <Product360Viewer
+            src={currentSrc}
+            alt={`${productName} - Image ${currentIndex + 1}`}
+            className="absolute inset-0"
+            sensitivity={0.5}
+          />
+        )}
         
         {/* Navigation Arrows */}
         {safeImages.length > 1 && (
           <>
             <button
               onClick={goToPrevious}
-              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-background/80 backdrop-blur-sm rounded-full text-gray-400 hover:text-gold transition-colors"
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 bg-background/80 backdrop-blur-sm rounded-full text-gray-400 hover:text-gold transition-colors"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
             <button
               onClick={goToNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-background/80 backdrop-blur-sm rounded-full text-gray-400 hover:text-gold transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 bg-background/80 backdrop-blur-sm rounded-full text-gray-400 hover:text-gold transition-colors"
             >
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -63,7 +111,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
         )}
 
         {/* Image Counter */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-background/80 backdrop-blur-sm rounded-full text-sm text-gray-400">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-1 bg-background/80 backdrop-blur-sm rounded-full text-sm text-gray-400">
           {currentIndex + 1} / {safeImages.length}
         </div>
       </div>

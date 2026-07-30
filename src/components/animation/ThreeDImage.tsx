@@ -14,6 +14,8 @@ interface ThreeDImageProps {
   sizes?: string;
   className?: string;
   containerClassName?: string;
+  /** Fill parent container (absolute inset-0). Default: false */
+  fillContainer?: boolean;
   /** Max tilt in degrees. Default: 20 */
   maxTilt?: number;
   /** Scale on hover. Default: 1.05 */
@@ -26,6 +28,8 @@ interface ThreeDImageProps {
   floatSpeed?: number;
   /** Shadow intensity. Default: 0.4 */
   shadowIntensity?: number;
+  /** Image load error handler */
+  onError?: () => void;
 }
 
 /**
@@ -42,12 +46,14 @@ export default function ThreeDImage({
   sizes,
   className = '',
   containerClassName = '',
+  fillContainer = false,
   maxTilt = 20,
   scale = 1.05,
   glare = true,
   edgeHighlight = true,
   floatSpeed = 5,
   shadowIntensity = 0.4,
+  onError,
 }: ThreeDImageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -173,10 +179,14 @@ export default function ThreeDImage({
     { scope: containerRef }
   );
 
+  const containerClass = fillContainer
+    ? `absolute inset-0 ${containerClassName}`
+    : `relative ${containerClassName}`;
+
   return (
     <div
       ref={containerRef}
-      className={`relative ${containerClassName}`}
+      className={containerClass}
       style={{ perspective: '800px' }}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
@@ -226,6 +236,7 @@ export default function ThreeDImage({
           priority={priority}
           sizes={sizes}
           className={`object-cover ${className}`}
+          onError={onError}
         />
 
         {/* Gold glare overlay */}

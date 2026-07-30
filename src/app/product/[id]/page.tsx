@@ -25,6 +25,7 @@ import { buildSafeMailtoLink, getSafeCategoryPath } from '@/lib/safeNavigation';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import ProductCard from '@/components/product/ProductCard';
 import ScrollReveal from '@/components/animation/ScrollReveal';
+import ThreeDButton from '@/components/animation/ThreeDButton';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -148,9 +149,9 @@ export default function ProductDetailPage() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-20">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">Product not found</h1>
-          <Link href="/products" className="btn-primary">
+          <ThreeDButton href="/products" variant="primary">
             Back to Products
-          </Link>
+          </ThreeDButton>
         </div>
       </div>
     );
@@ -397,14 +398,16 @@ export default function ProductDetailPage() {
               <span className="text-sm text-gray-500">Stock: {product.stock} pcs</span>
             </div>
             <div className="flex flex-wrap gap-4">
-              <button
+              <ThreeDButton
                 onClick={handleAddToCart}
                 disabled={product.stock === 0}
-                className="flex-1 min-w-[200px] flex items-center justify-center gap-2 py-4 bg-gold text-background font-medium rounded-lg hover:bg-goldLight transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="cta"
+                size="lg"
+                className="flex-1 min-w-[200px]"
               >
                 <ShoppingCart className="w-5 h-5" />
                 Add to Cart
-              </button>
+              </ThreeDButton>
               <button
                 onClick={() => toggleFavorite(product.id)}
                 disabled={!state.user}
@@ -432,20 +435,24 @@ export default function ProductDetailPage() {
               Customer Reviews / Write a Review
             </button>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <a
+              <ThreeDButton
                 href={buildMailtoLink('contact')}
-                className="flex items-center justify-center gap-2 py-3 px-4 border border-gold/60 text-gold rounded-lg hover:bg-gold/10 transition-colors"
+                variant="outline"
+                size="md"
+                className="w-full"
               >
                 <Mail className="w-5 h-5" />
                 Contact Email
-              </a>
-              <a
+              </ThreeDButton>
+              <ThreeDButton
                 href={buildMailtoLink('photos')}
-                className="flex items-center justify-center gap-2 py-3 px-4 border border-border text-gray-300 rounded-lg hover:border-gold hover:text-gold transition-colors"
+                variant="secondary"
+                size="md"
+                className="w-full"
               >
                 <Images className="w-5 h-5" />
                 Ask for More Photos
-              </a>
+              </ThreeDButton>
             </div>
           </div>
 
@@ -585,12 +592,15 @@ export default function ProductDetailPage() {
                   placeholder="Share your experience with this product..."
                   className="mb-4 w-full rounded-lg border border-border bg-surfaceLight px-3 py-2 text-foreground placeholder:text-gray-500 focus:border-gold focus:outline-none"
                 />
-                <button
+                <ThreeDButton
                   disabled={reviewLoading || !state.user}
-                  className="w-full rounded-lg bg-gold py-3 font-medium text-background hover:bg-goldLight disabled:opacity-60"
+                  variant="primary"
+                  size="md"
+                  className="w-full"
+                  type="submit"
                 >
                   {reviewLoading ? 'Submitting...' : 'Submit Review'}
-                </button>
+                </ThreeDButton>
                 <p className="mt-3 text-xs text-gray-500">
                   Reviews with spam, links, attacks, abuse, or suspicious content may be held for admin review or rejected.
                 </p>

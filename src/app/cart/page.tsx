@@ -6,6 +6,7 @@ import { useApp } from '@/context/AppContext';
 import { formatPrice, calculateShippingFee, FREE_SHIPPING_THRESHOLD } from '@/lib/utils';
 import CartItem from '@/components/cart/CartItem';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
+import ThreeDButton from '@/components/animation/ThreeDButton';
 
 export default function CartPage() {
   const { state, cartTotal, clearCart } = useApp();
@@ -26,9 +27,9 @@ export default function CartPage() {
           <ShoppingBag className="w-20 h-20 text-gray-600 mb-6" />
           <h2 className="text-2xl font-bold text-gray-400 mb-4">Your Shopping Cart is Empty</h2>
           <p className="text-gray-500 mb-8">Go pick your favorite knives</p>
-          <Link href="/products" className="btn-primary">
+          <ThreeDButton href="/products" variant="primary">
             Browse Products
-          </Link>
+          </ThreeDButton>
         </div>
       </div>
     );
@@ -102,12 +103,15 @@ export default function CartPage() {
                 <span className="text-2xl font-bold text-gold">{formatPrice(totalAmount)}</span>
               </div>
 
-              <Link href={state.user ? '/checkout' : '/login?next=/checkout'} className="block">
-                <button className="w-full py-4 bg-gold text-background font-medium rounded-lg hover:bg-goldLight transition-colors flex items-center justify-center gap-2">
-                  {state.user ? 'Checkout' : 'Sign In to Checkout'}
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </Link>
+              <ThreeDButton
+                href={state.user ? '/checkout' : '/login?next=/checkout'}
+                variant="cta"
+                size="lg"
+                className="w-full"
+                showArrow
+              >
+                {state.user ? 'Checkout' : 'Sign In to Checkout'}
+              </ThreeDButton>
               {!state.user && (
                 <p className="mt-3 text-xs text-center text-gray-500">
                   Please log in or register before placing an order.

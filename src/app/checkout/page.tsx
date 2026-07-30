@@ -12,6 +12,7 @@ import { Address, PaymentMethod } from '@/types';
 import { products as currentProducts } from '@/data/products';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
 import PaymentSelector from '@/components/checkout/PaymentSelector';
+import ThreeDButton from '@/components/animation/ThreeDButton';
 
 type CheckoutStep = 'confirm' | 'payment' | 'complete';
 
@@ -133,12 +134,12 @@ export default function CheckoutPage() {
           <h2 className="text-2xl font-bold text-gray-400 mb-4">Please Sign In to Checkout</h2>
           <p className="text-gray-500 mb-8">You need to log in or register before placing an order.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/login?next=/checkout" className="btn-primary">
+            <ThreeDButton href="/login?next=/checkout" variant="primary">
               Sign In
-            </Link>
-            <Link href="/register?next=/checkout" className="px-6 py-3 border border-gold text-gold rounded-lg hover:bg-gold/10 transition-colors">
+            </ThreeDButton>
+            <ThreeDButton href="/register?next=/checkout" variant="outline">
               Register
-            </Link>
+            </ThreeDButton>
           </div>
         </div>
       </div>
@@ -173,9 +174,9 @@ export default function CheckoutPage() {
               ? 'The items in your cart have been removed from our catalog. Please browse our current products.'
               : 'You need to add items to your cart before checkout.'}
           </p>
-          <Link href="/products" className="btn-primary">
+          <ThreeDButton href="/products" variant="primary">
             Go Shopping
-          </Link>
+          </ThreeDButton>
         </div>
       </div>
     );
