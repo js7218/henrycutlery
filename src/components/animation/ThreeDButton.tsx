@@ -15,9 +15,9 @@ interface ThreeDButtonProps {
   size?: ButtonSize;
   className?: string;
   disabled?: boolean;
-  /** Depth of the 3D extrusion in px. Default: 6 */
+  /** Depth of the 3D extrusion in px. Default: 8 */
   depth?: number;
-  /** Magnetic pull strength (0-1). Default: 0.2 */
+  /** Magnetic pull strength (0-1). Default: 0.25 */
   magneticStrength?: number;
   /** Show icon arrow on hover. Default: false */
   showArrow?: boolean;
@@ -31,46 +31,44 @@ const sizeClasses: Record<ButtonSize, string> = {
   xl: 'px-10 py-5 text-xl',
 };
 
-const variantStyles: Record<ButtonVariant, { bg: string; text: string; border: string; glow: string }> = {
+const variantStyles: Record<ButtonVariant, { bg: string; text: string; border: string; glow: string; cssClass: string }> = {
   primary: {
     bg: 'linear-gradient(135deg, #c9a962 0%, #d4b978 50%, #c9a962 100%)',
     text: '#1c1a17',
     border: 'rgba(201,169,98,0.5)',
     glow: 'rgba(201,169,98,0.4)',
+    cssClass: 'btn-3d-extrude btn-3d-gold',
   },
   secondary: {
     bg: 'linear-gradient(135deg, #2e2b26 0%, #3d3a34 100%)',
     text: '#c9a962',
     border: 'rgba(201,169,98,0.4)',
     glow: 'rgba(201,169,98,0.2)',
+    cssClass: 'btn-3d-extrude btn-3d-dark',
   },
   outline: {
     bg: 'transparent',
     text: '#c9a962',
     border: 'rgba(201,169,98,0.5)',
     glow: 'rgba(201,169,98,0.15)',
+    cssClass: 'btn-3d-extrude',
   },
   ghost: {
     bg: 'transparent',
     text: '#f5f3ef',
     border: 'transparent',
     glow: 'rgba(255,255,255,0.05)',
+    cssClass: '',
   },
   cta: {
     bg: 'linear-gradient(135deg, #c9a962 0%, #e8c97a 30%, #d4b978 60%, #c9a962 100%)',
     text: '#1c1a17',
     border: 'rgba(201,169,98,0.6)',
     glow: 'rgba(201,169,98,0.5)',
+    cssClass: 'btn-3d-extrude btn-3d-gold',
   },
 };
 
-/**
- * 3D button with realistic extrusion depth, dynamic shadow,
- * magnetic hover, and satisfying press animation.
- *
- * Creates a physical 3D button feel using layered box-shadows
- * as the "side faces" of the extrusion.
- */
 export default function ThreeDButton({
   children,
   href,
@@ -79,8 +77,8 @@ export default function ThreeDButton({
   size = 'md',
   className = '',
   disabled = false,
-  depth = 6,
-  magneticStrength = 0.2,
+  depth = 8,
+  magneticStrength = 0.25,
   showArrow = false,
   type = 'button',
 }: ThreeDButtonProps) {
@@ -88,14 +86,12 @@ export default function ThreeDButton({
   const isPressed = useRef(false);
   const styles = variantStyles[variant];
 
-  // Build the 3D shadow extrusion
   const buildShadow = useCallback(
     (isHovered: boolean, depthOffset: number = 0) => {
       const d = depth + depthOffset;
       const layers: string[] = [];
 
       if (variant === 'ghost') {
-        // Ghost has minimal depth
         if (isHovered) {
           layers.push(`0 2px 8px rgba(0,0,0,0.15)`);
           layers.push(`0 0 20px ${styles.glow}`);
@@ -104,7 +100,6 @@ export default function ThreeDButton({
       }
 
       if (variant === 'outline') {
-        // Outline has subtle depth
         if (isHovered) {
           layers.push(`0 ${d}px 0 rgba(201,169,98,0.15)`);
           layers.push(`0 ${d * 2}px ${d * 3}px rgba(0,0,0,0.25)`);
@@ -116,9 +111,7 @@ export default function ThreeDButton({
         return layers.join(', ');
       }
 
-      // Primary, secondary, cta: full 3D extrusion
       if (isHovered) {
-        // Lifted state
         layers.push(`0 ${d + 2}px 0 rgba(0,0,0,0.25)`);
         layers.push(`0 ${d + 4}px 0 rgba(0,0,0,0.12)`);
         layers.push(`0 ${d * 2 + 4}px ${d * 3 + 10}px rgba(0,0,0,0.35)`);
@@ -129,7 +122,6 @@ export default function ThreeDButton({
           layers.push(`0 0 25px ${styles.glow}`);
         }
       } else {
-        // Resting state
         layers.push(`0 ${d}px 0 rgba(0,0,0,0.3)`);
         layers.push(`0 ${d + 2}px 0 rgba(0,0,0,0.15)`);
         layers.push(`0 ${d * 2}px ${d * 3}px rgba(0,0,0,0.25)`);
@@ -145,13 +137,13 @@ export default function ThreeDButton({
     [depth, variant, styles.glow]
   );
 
-  // Magnetic hover effect
+  // Magnetic hover (desktop only)
   useGSAP(
-    (context, contextSafe) => {
+    () => {
       const btn = btnRef.current;
       if (!btn || isTouchDevice || disabled) return;
 
-      const onMove = contextSafe!((e: MouseEvent) => {
+      const onMove = (e: MouseEvent) => {
         if (isPressed.current) return;
         const rect = btn.getBoundingClientRect();
         const x = e.clientX - rect.left - rect.width / 2;
@@ -159,20 +151,13 @@ export default function ThreeDButton({
 
         gsap.to(btn, {
           x: x * magneticStrength,
-          y: y * magneticStrength,
-          duration: 0.4,
-          ease: 'power2.out',
-        });
-
-        // Lift the button on hover (appears to float up)
-        gsap.to(btn, {
           y: y * magneticStrength - 2,
           duration: 0.4,
           ease: 'power2.out',
         });
-      });
+      };
 
-      const onLeave = contextSafe!(() => {
+      const onLeave = () => {
         if (isPressed.current) return;
         gsap.to(btn, {
           x: 0,
@@ -180,7 +165,7 @@ export default function ThreeDButton({
           duration: 0.5,
           ease: 'elastic.out(1, 0.4)',
         });
-      });
+      };
 
       btn.addEventListener('mousemove', onMove);
       btn.addEventListener('mouseleave', onLeave);
@@ -190,7 +175,7 @@ export default function ThreeDButton({
         btn.removeEventListener('mouseleave', onLeave);
       };
     },
-    { scope: btnRef, dependencies: [magneticStrength, disabled] }
+    { scope: btnRef }
   );
 
   // Press animation
@@ -240,20 +225,20 @@ export default function ThreeDButton({
     { scope: btnRef }
   );
 
-  const baseClasses = `
-    inline-flex items-center justify-center font-semibold rounded-lg
-    cursor-pointer select-none relative
-    transition-colors duration-200
-    ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-    ${sizeClasses[size]}
-    ${className}
-  `.replace(/\s+/g, ' ').trim();
+  const baseClasses = [
+    'inline-flex items-center justify-center font-semibold rounded-lg',
+    'cursor-pointer select-none relative',
+    'transition-colors duration-200',
+    disabled ? 'opacity-50 cursor-not-allowed' : '',
+    styles.cssClass,
+    sizeClasses[size],
+    className,
+  ].filter(Boolean).join(' ');
 
   const style: React.CSSProperties = {
     background: variant === 'ghost' ? 'transparent' : styles.bg,
-    color: variant === 'ghost' ? styles.text : styles.text,
+    color: styles.text,
     border: variant === 'ghost' ? 'none' : `1px solid ${styles.border}`,
-    transform: 'translateY(0)',
     backgroundSize: variant === 'cta' ? '200% auto' : undefined,
     willChange: 'transform, box-shadow',
   };
@@ -286,7 +271,6 @@ export default function ThreeDButton({
         style={style}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
       >
         {content}
       </Link>
@@ -303,7 +287,6 @@ export default function ThreeDButton({
       style={style}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
     >
       {content}
     </button>
