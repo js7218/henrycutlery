@@ -8,6 +8,8 @@ import UniversalReveal, { RevealChild } from '@/components/animation/UniversalRe
 import ScrollReveal from '@/components/animation/ScrollReveal';
 import ImageReveal from '@/components/animation/ImageReveal';
 import HorizontalPinScroll, { HorizontalPanel } from '@/components/animation/HorizontalPinScroll';
+import ThreeDImage from '@/components/animation/ThreeDImage';
+import ThreeDButton from '@/components/animation/ThreeDButton';
 import { products } from '@/data/products';
 import { formatPrice } from '@/lib/utils';
 
@@ -19,13 +21,17 @@ export default function Home() {
       {/* ===== HERO ===== */}
       <section ref={heroRef} className="relative min-h-[90vh] flex items-center overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <Image
+          <ThreeDImage
             src="/products/collection/the-best-collection-1.jpeg"
             alt=""
             fill
             priority
             sizes="100vw"
             className="object-cover opacity-25"
+            maxTilt={0}
+            glare={false}
+            edgeHighlight={false}
+            floatSpeed={0}
           />
           <div className="absolute inset-0 bg-gradient-to-br from-background via-background/85 to-background/40" />
         </div>
@@ -55,36 +61,38 @@ export default function Home() {
                 and ship direct to buyers in 50+ countries. D2, M390, Damascus
                 — whatever steel your market needs, we'll build it.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link
+              <div className="flex flex-col sm:flex-row gap-4 hero-enter-6">
+                <ThreeDButton
                   href="/products"
-                  className="hero-enter-6 inline-flex items-center justify-center px-8 py-4 bg-gold text-background font-semibold rounded-lg animate-glow-pulse"
+                  variant="cta"
+                  size="lg"
+                  showArrow
+                  depth={8}
                 >
                   See what we make
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
-                <Link
+                </ThreeDButton>
+                <ThreeDButton
                   href="/products?category=folding"
-                  className="hero-enter-7 inline-flex items-center justify-center px-8 py-4 border border-gold/50 text-gold font-semibold rounded-lg animate-border-glow"
+                  variant="outline"
+                  size="lg"
+                  depth={5}
                 >
                   Folding knives
-                </Link>
+                </ThreeDButton>
               </div>
             </div>
 
             <div className="order-1 lg:order-2 relative hero-enter-img">
-              <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl">
-                <Image
-                  src="/products/collection/the-best-collection-1.jpeg"
-                  alt="The Best Collection knife"
-                  fill
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 40vw"
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />
-              </div>
-              <div className="absolute -bottom-6 -left-6 bg-surface/90 backdrop-blur-md border border-gold/20 rounded-xl p-5 shadow-xl hidden md:block animate-hero-float">
+              <ThreeDImage
+                src="/products/collection/the-best-collection-1.jpeg"
+                alt="The Best Collection knife"
+                fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 40vw"
+                maxTilt={12}
+                containerClassName="aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl"
+              />
+              <div className="absolute -bottom-6 -left-6 bg-surface/90 backdrop-blur-md border border-gold/20 rounded-xl p-5 shadow-xl hidden md:block animate-hero-float z-20">
                 <p className="text-3xl font-bold text-gold">500+</p>
                 <p className="text-xs text-gray-400 uppercase tracking-wider">Buyers worldwide</p>
               </div>
@@ -99,7 +107,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===== STATS BAR — shorter, less templated ===== */}
+      {/* ===== STATS BAR ===== */}
       <section className="border-y border-border bg-surface/50">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-10">
           <UniversalReveal stagger={0.1} className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
@@ -124,7 +132,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===== FACTORY — founder's voice, not corporate copy ===== */}
+      {/* ===== FACTORY ===== */}
       <section className="py-20 md:py-28 px-4 md:px-8 overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-[1fr_1.3fr] gap-12 lg:gap-20 items-center mb-16">
@@ -172,7 +180,7 @@ export default function Home() {
             </UniversalReveal>
           </div>
 
-          {/* Factory images */}
+          {/* Factory images — 3D */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
               { src: '/images/factory1.jpg', span: 'col-span-2 row-span-2' },
@@ -189,14 +197,15 @@ export default function Home() {
                 delay={i * 0.08}
                 className={img.span}
               >
-                <ImageReveal direction={i % 2 === 0 ? 'left' : 'right'} duration={1} delay={i * 0.05} scrollTrigger start="top 85%" className={`relative rounded-xl overflow-hidden border border-border ${i === 0 ? 'aspect-square md:aspect-[4/3]' : 'aspect-[4/3]'}`}>
-                  <Image
+                <ImageReveal direction={i % 2 === 0 ? 'left' : 'right'} duration={1} delay={i * 0.05} scrollTrigger start="top 85%">
+                  <ThreeDImage
                     src={img.src}
                     alt={`Factory ${i + 1}`}
                     fill
-                    loading="lazy"
                     sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    className="object-cover hover:scale-105 transition-transform duration-500"
+                    maxTilt={10}
+                    scale={1.02}
+                    containerClassName={`rounded-xl overflow-hidden border border-border ${i === 0 ? 'aspect-square md:aspect-[4/3]' : 'aspect-[4/3]'}`}
                   />
                 </ImageReveal>
               </ScrollReveal>
@@ -205,7 +214,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===== CATEGORIES — varied spacing, less centered ===== */}
+      {/* ===== CATEGORIES ===== */}
       <section className="py-16 md:py-20 px-4 md:px-8 bg-surface/30">
         <div className="max-w-7xl mx-auto">
           <UniversalReveal className="mb-12">
@@ -224,12 +233,13 @@ export default function Home() {
                 href="/products?category=collection"
                 className="group relative h-full block rounded-2xl overflow-hidden border border-gold/20 animate-border-glow"
               >
-                <Image
+                <ThreeDImage
                   src="/products/collection/the-best-collection-1.jpeg"
                   alt="Collection"
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  maxTilt={8}
+                  containerClassName="absolute inset-0"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
                 <div className="absolute bottom-0 left-0 p-8">
@@ -254,12 +264,13 @@ export default function Home() {
                   href={cat.href}
                   className="group relative h-full block rounded-2xl overflow-hidden border border-border hover:border-gold/40 transition-colors"
                 >
-                  <Image
+                  <ThreeDImage
                     src={cat.img}
                     alt={cat.name}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    maxTilt={8}
+                    containerClassName="absolute inset-0"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/30 to-transparent" />
                   <div className="absolute bottom-0 left-0 p-5">
@@ -275,7 +286,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===== FEATURES — less centered, more conversational ===== */}
+      {/* ===== FEATURES ===== */}
       <section className="py-20 md:py-24 px-4 md:px-8">
         <div className="max-w-7xl mx-auto">
           <UniversalReveal className="mb-12">
@@ -307,7 +318,7 @@ export default function Home() {
               },
             ].map((feat, i) => (
               <RevealChild key={i}>
-                <div className="p-8 bg-surface rounded-2xl border border-border hover-soft-glow h-full">
+                <div className="p-8 bg-surface rounded-2xl border border-border hover-soft-glow h-full card-3d">
                   <div className="w-14 h-14 rounded-xl bg-gold/10 flex items-center justify-center mb-6">
                     <feat.icon className="w-7 h-7 text-gold" />
                   </div>
@@ -343,12 +354,13 @@ export default function Home() {
           {products.slice(0, 8).map((product) => (
             <HorizontalPanel key={product.id}>
               <Link href={`/products/${product.id}`} className="group block relative aspect-[3/4] rounded-2xl overflow-hidden border border-border hover:border-gold/40 transition-colors">
-                <Image
+                <ThreeDImage
                   src={product.images[0] || '/products/test-product-placeholder.png'}
                   alt={product.name}
                   fill
                   sizes="(max-width: 1024px) 40vw, 30vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  maxTilt={10}
+                  containerClassName="absolute inset-0"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6">
@@ -372,12 +384,16 @@ export default function Home() {
               style={{ animationDelay: `${i * 0.1}s` }}
             >
               <Link href={`/products/${product.id}`} className="group block relative aspect-[3/4] rounded-2xl overflow-hidden border border-border active:border-gold/40 transition-colors">
-                <Image
+                <ThreeDImage
                   src={product.images[0] || '/products/test-product-placeholder.png'}
                   alt={product.name}
                   fill
                   sizes="80vw"
-                  className="object-cover"
+                  maxTilt={0}
+                  glare={false}
+                  edgeHighlight={false}
+                  floatSpeed={0}
+                  containerClassName="absolute inset-0"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6">
@@ -393,7 +409,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===== CTA — less aggressive, more honest ===== */}
+      {/* ===== CTA ===== */}
       <section className="py-20 md:py-28 px-4 md:px-8 relative overflow-hidden">
         <div className="absolute inset-0 z-0">
           <Image
@@ -418,13 +434,15 @@ export default function Home() {
               send us what you're looking for. We'll get back to you with
               pricing and a timeline.
             </p>
-            <Link
+            <ThreeDButton
               href="/products"
-              className="inline-flex items-center justify-center px-10 py-4 bg-gold text-background font-semibold rounded-lg text-lg animate-glow-pulse"
+              variant="cta"
+              size="xl"
+              showArrow
+              depth={10}
             >
               Browse the catalog
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Link>
+            </ThreeDButton>
           </UniversalReveal>
         </div>
       </section>
