@@ -3,8 +3,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import * as THREE from 'three';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
 interface Product3DViewerProps {
   src: string;
   alt: string;
@@ -14,8 +12,6 @@ interface Product3DViewerProps {
   autoRotateSpeed?: number;
 }
 
-type Stage = 'loading' | 'removing-bg' | 'building-3d' | 'ready' | 'error';
-
 // ─── RDP polygon simplification ─────────────────────────────────────────────
 
 function simplifyRDP(
@@ -23,26 +19,19 @@ function simplifyRDP(
   epsilon: number,
 ): { x: number; y: number }[] {
   if (points.length <= 2) return points;
-
   let maxDist = 0;
   let maxIdx = 0;
   const first = points[0];
   const last = points[points.length - 1];
-
   for (let i = 1; i < points.length - 1; i++) {
     const d = perpDist(points[i], first, last);
-    if (d > maxDist) {
-      maxDist = d;
-      maxIdx = i;
-    }
+    if (d > maxDist) { maxDist = d; maxIdx = i; }
   }
-
   if (maxDist > epsilon) {
     const left = simplifyRDP(points.slice(0, maxIdx + 1), epsilon);
     const right = simplifyRDP(points.slice(maxIdx), epsilon);
     return [...left.slice(0, -1), ...right];
   }
-
   return [first, last];
 }
 
@@ -51,29 +40,27 @@ function perpDist(
   a: { x: number; y: number },
   b: { x: number; y: number },
 ): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
+  const dx = b.x - a.x, dy = b.y - a.y;
   const lenSq = dx * dx + dy * dy;
   if (lenSq === 0) return Math.hypot(p.x - a.x, p.y - a.y);
   const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq));
-  const px = a.x + t * dx;
-  const py = a.y + t * dy;
-  return Math.hypot(p.x - px, p.y - py);
+  return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
 }
 
-// ─── Contour extraction from alpha mask ─────────────────────────────────────
+// ─── Foreground mask from edge detection + flood fill ───────────────────────
 
-function extractContourFromAlpha(
+function extractForegroundMask(
   imageData: ImageData,
   gridSize: number = 128,
-): THREE.Shape | null {
+): { grid: boolean[][]; minX: number; maxX: number; minY: number; maxY: number } | null {
   const { data, width: iw, height: ih } = imageData;
   const cellW = iw / gridSize;
   const cellH = ih / gridSize;
 
-  // 1. Build binary grid
-  const grid: boolean[][] = Array.from({ length: gridSize }, () =>
-    Array(gridSize).fill(false),
+  // 1. Compute average color per cell
+  type CellInfo = { r: number; g: number; b: number; count: number };
+  const cells: CellInfo[][] = Array.from({ length: gridSize }, () =>
+    Array.from({ length: gridSize }, () => ({ r: 0, g: 0, b: 0, count: 0 })),
   );
 
   for (let gy = 0; gy < gridSize; gy++) {
@@ -82,23 +69,64 @@ function extractContourFromAlpha(
       const sy = Math.floor(gy * cellH);
       const ex = Math.floor((gx + 1) * cellW);
       const ey = Math.floor((gy + 1) * cellH);
-      let sum = 0;
-      let n = 0;
+      const c = cells[gy][gx];
       for (let y = sy; y < ey; y++) {
         for (let x = sx; x < ex; x++) {
-          sum += data[(y * iw + x) * 4 + 3]; // alpha
-          n++;
+          const i = (y * iw + x) * 4;
+          c.r += data[i];
+          c.g += data[i + 1];
+          c.b += data[i + 2];
+          c.count++;
         }
       }
-      grid[gy][gx] = sum / n > 80;
     }
   }
 
-  // 2. Find bounding box
+  // 2. Estimate background color from border cells (top row, bottom row, left/right columns)
+  let bgR = 0, bgG = 0, bgB = 0, bgN = 0;
+  const sampleBg = (gy: number, gx: number) => {
+    const c = cells[gy][gx];
+    if (c.count > 0) {
+      bgR += c.r / c.count;
+      bgG += c.g / c.count;
+      bgB += c.b / c.count;
+      bgN++;
+    }
+  };
+  // Top & bottom rows
+  for (let gx = 0; gx < gridSize; gx++) {
+    sampleBg(0, gx);
+    sampleBg(gridSize - 1, gx);
+  }
+  // Left & right columns (skip corners, already sampled)
+  for (let gy = 1; gy < gridSize - 1; gy++) {
+    sampleBg(gy, 0);
+    sampleBg(gy, gridSize - 1);
+  }
+
+  if (bgN === 0) return null;
+  bgR /= bgN; bgG /= bgN; bgB /= bgN;
+
+  // 3. Build foreground mask: cells that differ from background
+  const threshold = 35; // color distance threshold
+  const grid: boolean[][] = Array.from({ length: gridSize }, () =>
+    Array(gridSize).fill(false),
+  );
+
   let minX = gridSize, maxX = 0, minY = gridSize, maxY = 0;
+
   for (let gy = 0; gy < gridSize; gy++) {
     for (let gx = 0; gx < gridSize; gx++) {
-      if (grid[gy][gx]) {
+      const c = cells[gy][gx];
+      if (c.count === 0) continue;
+      const cr = c.r / c.count;
+      const cg = c.g / c.count;
+      const cb = c.b / c.count;
+      const dist = Math.sqrt(
+        (cr - bgR) ** 2 + (cg - bgG) ** 2 + (cb - bgB) ** 2,
+      );
+      if (dist > threshold) {
+        grid[gy][gx] = true;
         if (gx < minX) minX = gx;
         if (gx > maxX) maxX = gx;
         if (gy < minY) minY = gy;
@@ -106,15 +134,99 @@ function extractContourFromAlpha(
       }
     }
   }
+
   if (minX > maxX) return null;
 
-  // Pad slightly
+  // 4. Flood fill from center of bounding box to fill holes
+  const cx = Math.floor((minX + maxX) / 2);
+  const cy = Math.floor((minY + maxY) / 2);
+
+  // Find the closest foreground cell to center
+  let bestDist = Infinity;
+  let seedX = cx, seedY = cy;
+  for (let gy = minY; gy <= maxY; gy++) {
+    for (let gx = minX; gx <= maxX; gx++) {
+      if (grid[gy][gx]) {
+        const d = (gx - cx) ** 2 + (gy - cy) ** 2;
+        if (d < bestDist) {
+          bestDist = d;
+          seedX = gx;
+          seedY = gy;
+        }
+      }
+    }
+  }
+
+  if (bestDist === Infinity) return null;
+
+  // BFS flood fill — only keep the connected component
+  const visited = new Set<string>();
+  const queue: [number, number][] = [[seedX, seedY]];
+  visited.add(`${seedX},${seedY}`);
+  const cleanGrid: boolean[][] = Array.from({ length: gridSize }, () =>
+    Array(gridSize).fill(false),
+  );
+
+  // Also expand: fill in "holes" — cells surrounded by foreground
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) {
+      if (!grid[gy][gx]) {
+        // Check if this cell is surrounded by foreground cells
+        let fgNeighbors = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const ny = gy + dy, nx = gx + dx;
+            if (ny >= 0 && ny < gridSize && nx >= 0 && nx < gridSize && grid[ny][nx]) {
+              fgNeighbors++;
+            }
+          }
+        }
+        if (fgNeighbors >= 6) {
+          grid[gy][gx] = true;
+        }
+      }
+    }
+  }
+
+  while (queue.length > 0) {
+    const [x, y] = queue.shift()!;
+    cleanGrid[y][x] = true;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+
+    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+        const key = `${nx},${ny}`;
+        if (grid[ny][nx] && !visited.has(key)) {
+          visited.add(key);
+          queue.push([nx, ny]);
+        }
+      }
+    }
+  }
+
+  // Pad
   minX = Math.max(0, minX - 1);
   maxX = Math.min(gridSize - 1, maxX + 1);
   minY = Math.max(0, minY - 1);
   maxY = Math.min(gridSize - 1, maxY + 1);
 
-  // 3. Find all edge cells
+  return { grid: cleanGrid, minX, maxX, minY, maxY };
+}
+
+// ─── Contour extraction from binary grid ────────────────────────────────────
+
+function extractContour(
+  grid: boolean[][],
+  minX: number, maxX: number, minY: number, maxY: number,
+  gridSize: number,
+  aspect: number,
+): THREE.Shape | null {
+  // Find edge cells
   const edgeSet = new Set<string>();
   for (let gy = minY; gy <= maxY; gy++) {
     for (let gx = minX; gx <= maxX; gx++) {
@@ -123,11 +235,8 @@ function extractContourFromAlpha(
       for (let dy = -1; dy <= 1 && !isEdge; dy++) {
         for (let dx = -1; dx <= 1 && !isEdge; dx++) {
           if (dx === 0 && dy === 0) continue;
-          const ny = gy + dy;
-          const nx = gx + dx;
-          if (ny < 0 || ny >= gridSize || nx < 0 || nx >= gridSize) {
-            isEdge = true;
-          } else if (!grid[ny][nx]) {
+          const ny = gy + dy, nx = gx + dx;
+          if (ny < 0 || ny >= gridSize || nx < 0 || nx >= gridSize || !grid[ny][nx]) {
             isEdge = true;
           }
         }
@@ -135,103 +244,66 @@ function extractContourFromAlpha(
       if (isEdge) edgeSet.add(`${gx},${gy}`);
     }
   }
-
   if (edgeSet.size === 0) return null;
 
-  // 4. Moore-neighbor contour tracing
-  const contour: { x: number; y: number }[] = [];
-
-  // Find start: topmost-leftmost edge cell
+  // Moore-neighbor tracing
   let sx = gridSize, sy = gridSize;
   for (const key of edgeSet) {
     const [gx, gy] = key.split(',').map(Number);
-    if (gy < sy || (gy === sy && gx < sx)) {
-      sx = gx;
-      sy = gy;
-    }
+    if (gy < sy || (gy === sy && gx < sx)) { sx = gx; sy = gy; }
   }
 
-  // 8-direction Moore neighborhood, clockwise starting from "up"
   const dirs = [
     [0, -1], [1, -1], [1, 0], [1, 1],
     [0, 1], [-1, 1], [-1, 0], [-1, -1],
   ];
 
-  let cx = sx, cy = sy;
-  let dir = 0; // start looking up
+  let cx = sx, cy = sy, dir = 0;
   const visited = new Set<string>();
-  const maxSteps = 5000;
+  const contour: { x: number; y: number }[] = [];
 
-  for (let step = 0; step < maxSteps; step++) {
-    const key = `${cx},${cy}`;
+  for (let step = 0; step < 5000; step++) {
     contour.push({ x: cx, y: cy });
-
     if (step > 0 && cx === sx && cy === sy) break;
-    visited.add(key);
+    visited.add(`${cx},${cy}`);
 
-    // Backtrack direction: look clockwise from behind
-    let searchDir = (dir + 5) % 8; // roughly opposite + 1
+    let searchDir = (dir + 5) % 8;
     let found = false;
-
     for (let i = 0; i < 8; i++) {
       const d = (searchDir + i) % 8;
       const [dx, dy] = dirs[d];
-      const nx = cx + dx;
-      const ny = cy + dy;
+      const nx = cx + dx, ny = cy + dy;
       const nkey = `${nx},${ny}`;
-
       if (edgeSet.has(nkey) && (!visited.has(nkey) || (nx === sx && ny === sy && step > 2))) {
-        cx = nx;
-        cy = ny;
-        dir = d;
-        found = true;
-        break;
+        cx = nx; cy = ny; dir = d; found = true; break;
       }
     }
-
     if (!found) break;
   }
 
   if (contour.length < 3) return null;
 
-  // 5. Simplify
   const simplified = simplifyRDP(contour, 0.6);
 
-  // 6. Create THREE.Shape (normalized to image aspect ratio)
-  const aspect = iw / ih;
   const scaleX = aspect / gridSize;
   const scaleY = 1 / gridSize;
+  const centerX = (maxX + minX) / 2;
+  const centerY = (maxY + minY) / 2;
 
   const shape = new THREE.Shape();
-  const first = simplified[0];
-  // Center the shape
-  const cx_ = (maxX + minX) / 2;
-  const cy_ = (maxY + minY) / 2;
   shape.moveTo(
-    (first.x - cx_) * scaleX,
-    -(first.y - cy_) * scaleY,
+    (simplified[0].x - centerX) * scaleX,
+    -(simplified[0].y - centerY) * scaleY,
   );
-
   for (let i = 1; i < simplified.length; i++) {
     shape.lineTo(
-      (simplified[i].x - cx_) * scaleX,
-      -(simplified[i].y - cy_) * scaleY,
+      (simplified[i].x - centerX) * scaleX,
+      -(simplified[i].y - centerY) * scaleY,
     );
   }
   shape.closePath();
 
   return shape;
-}
-
-// ─── Dynamic background removal loader ──────────────────────────────────────
-
-let removeBgFn: ((src: string) => Promise<Blob>) | null = null;
-
-async function loadRemoveBg(): Promise<(src: string) => Promise<Blob>> {
-  if (removeBgFn) return removeBgFn;
-  const mod = await import('@imgly/background-removal');
-  removeBgFn = mod.removeBackground as (src: string) => Promise<Blob>;
-  return removeBgFn;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -262,7 +334,8 @@ export default function Product3DViewer({
   const currentRotX = useRef(0);
   const buildIdRef = useRef(0);
 
-  const [stage, setStage] = useState<Stage>('loading');
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   // ── Scene init ──────────────────────────────────────────────────────────
 
@@ -288,8 +361,7 @@ export default function Product3DViewer({
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    // ── Lighting ──
-
+    // Lights
     const ambient = new THREE.AmbientLight('#fff5e8', 0.75);
     scene.add(ambient);
 
@@ -316,8 +388,6 @@ export default function Product3DViewer({
     fill.position.set(0, -2, 2);
     scene.add(fill);
 
-    // ── Ground ──
-
     const groundGeo = new THREE.PlaneGeometry(20, 20);
     const groundMat = new THREE.ShadowMaterial({ opacity: 0.2 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -326,13 +396,9 @@ export default function Product3DViewer({
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // ── Product group ──
-
     const group = new THREE.Group();
     scene.add(group);
     groupRef.current = group;
-
-    // ── Resize ──
 
     const resize = () => {
       if (!container || !renderer || !camera) return;
@@ -344,13 +410,10 @@ export default function Product3DViewer({
       camera.updateProjectionMatrix();
     };
 
-    // ── Render loop ──
-
     const clock = new THREE.Clock();
     const animate = () => {
       animFrameRef.current = requestAnimationFrame(animate);
       const dt = Math.min(clock.getDelta(), 0.1);
-
       if (group) {
         if (!isDragging.current) {
           velocityX.current *= 0.95;
@@ -367,7 +430,6 @@ export default function Product3DViewer({
         group.rotation.y = currentRotY.current;
         group.rotation.x = currentRotX.current;
       }
-
       renderer.render(scene, camera);
     };
 
@@ -382,7 +444,7 @@ export default function Product3DViewer({
     };
   }, [autoRotate, autoRotateSpeed]);
 
-  // ── Build 3D mesh from product image ────────────────────────────────────
+  // ── Build 3D mesh ───────────────────────────────────────────────────────
 
   useEffect(() => {
     const group = groupRef.current;
@@ -404,155 +466,160 @@ export default function Product3DViewer({
       group.remove(child);
     }
 
-    setStage('loading');
+    setIsLoading(true);
+    setHasError(false);
 
-    (async () => {
-      try {
-        // ── Step 1: Remove background ──
-        setStage('removing-bg');
-        const removeBg = await loadRemoveBg();
-        const blob = await removeBg(src);
+    // Load image → extract foreground → build 3D extrusion
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (buildId !== buildIdRef.current) return;
 
-        if (buildId !== buildIdRef.current) return;
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      const aspect = w / h;
 
-        // Convert blob → ImageData
-        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-          const i = new Image();
-          i.crossOrigin = 'anonymous';
-          i.onload = () => resolve(i);
-          i.onerror = reject;
-          i.src = URL.createObjectURL(blob);
-        });
+      // Draw to canvas and extract foreground mask
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, w, h);
 
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      if (buildId !== buildIdRef.current) return;
 
-        if (buildId !== buildIdRef.current) return;
+      const mask = extractForegroundMask(imageData, 128);
 
-        // ── Step 2: Extract contour & build 3D ──
-        setStage('building-3d');
+      if (buildId !== buildIdRef.current) return;
 
-        const shape = extractContourFromAlpha(imageData, 128);
+      let shape: THREE.Shape | null = null;
 
-        if (buildId !== buildIdRef.current) return;
-
-        if (!shape) {
-          // Fallback: use a rounded rectangle shape
-          setStage('error');
-          return;
-        }
-
-        const aspect = img.naturalWidth / img.naturalHeight;
-        const shapeW = aspect;
-        const shapeH = 1;
-
-        // Extrude settings
-        const extrudeSettings: THREE.ExtrudeGeometryOptions = {
-          steps: 1,
-          depth: 0.18,
-          bevelEnabled: true,
-          bevelThickness: 0.03,
-          bevelSize: 0.02,
-          bevelSegments: 2,
-        };
-
-        const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-
-        // Center the geometry
-        geo.computeBoundingBox();
-        const bb = geo.boundingBox!;
-        const offsetX = -(bb.max.x + bb.min.x) / 2;
-        const offsetY = -(bb.max.y + bb.min.y) / 2;
-        const offsetZ = -(bb.max.z + bb.min.z) / 2;
-        geo.translate(offsetX, offsetY, offsetZ);
-
-        // ── Texture for front face ──
-        // Use the original image (with background) for better appearance
-        const texLoader = new THREE.TextureLoader();
-        texLoader.crossOrigin = 'anonymous';
-
-        texLoader.load(
-          src,
-          (texture) => {
-            if (buildId !== buildIdRef.current) return;
-
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.minFilter = THREE.LinearMipmapLinearFilter;
-            texture.magFilter = THREE.LinearFilter;
-            texture.generateMipmaps = true;
-
-            // Front material: product image
-            const frontMat = new THREE.MeshStandardMaterial({
-              map: texture,
-              roughness: 0.35,
-              metalness: 0.05,
-              color: '#ffffff',
-            });
-
-            // Side material: gold metallic
-            const sideMat = new THREE.MeshStandardMaterial({
-              color: '#2a2520',
-              roughness: 0.3,
-              metalness: 0.7,
-            });
-
-            // Bevel material: gold accent
-            const bevelMat = new THREE.MeshStandardMaterial({
-              color: '#c9a962',
-              roughness: 0.22,
-              metalness: 0.9,
-            });
-
-            // Assign materials by material index
-            // ExtrudeGeometry: group 0 = sides, group 1 = front/back
-            const mesh = new THREE.Mesh(geo, [sideMat, frontMat]);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            group.add(mesh);
-
-            // ── Gold outline frame ──
-            const frameShape = new THREE.Shape();
-            const outlinePts = shape.getPoints(64);
-            for (let i = 0; i < outlinePts.length; i++) {
-              if (i === 0) frameShape.moveTo(outlinePts[i].x, outlinePts[i].y);
-              else frameShape.lineTo(outlinePts[i].x, outlinePts[i].y);
-            }
-            frameShape.closePath();
-
-            const frameGeo = new THREE.ExtrudeGeometry(frameShape, {
-              steps: 1,
-              depth: 0.015,
-              bevelEnabled: false,
-            });
-            frameGeo.computeBoundingBox();
-            const fbb = frameGeo.boundingBox!;
-            frameGeo.translate(
-              -(fbb.max.x + fbb.min.x) / 2,
-              -(fbb.max.y + fbb.min.y) / 2,
-              extrudeSettings.depth! / 2 + 0.005,
-            );
-
-            const frameMesh = new THREE.Mesh(frameGeo, bevelMat);
-            frameMesh.castShadow = true;
-            group.add(frameMesh);
-
-            setStage('ready');
-          },
-          undefined,
-          () => {
-            setStage('error');
-          },
+      if (mask) {
+        shape = extractContour(
+          mask.grid, mask.minX, mask.maxX, mask.minY, mask.maxY, 128, aspect,
         );
-      } catch {
-        if (buildId === buildIdRef.current) {
-          setStage('error');
-        }
       }
-    })();
+
+      if (!shape) {
+        // Fallback: rounded rectangle
+        const rw = aspect * 0.9;
+        const rh = 0.9;
+        const rr = 0.06;
+        shape = new THREE.Shape();
+        shape.moveTo(-rw / 2 + rr, -rh / 2);
+        shape.lineTo(rw / 2 - rr, -rh / 2);
+        shape.quadraticCurveTo(rw / 2, -rh / 2, rw / 2, -rh / 2 + rr);
+        shape.lineTo(rw / 2, rh / 2 - rr);
+        shape.quadraticCurveTo(rw / 2, rh / 2, rw / 2 - rr, rh / 2);
+        shape.lineTo(-rw / 2 + rr, rh / 2);
+        shape.quadraticCurveTo(-rw / 2, rh / 2, -rw / 2, rh / 2 - rr);
+        shape.lineTo(-rw / 2, -rh / 2 + rr);
+        shape.quadraticCurveTo(-rw / 2, -rh / 2, -rw / 2 + rr, -rh / 2);
+      }
+
+      const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+        steps: 1,
+        depth: 0.18,
+        bevelEnabled: true,
+        bevelThickness: 0.03,
+        bevelSize: 0.02,
+        bevelSegments: 2,
+      };
+
+      const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      geo.computeBoundingBox();
+      const bb = geo.boundingBox!;
+      geo.translate(
+        -(bb.max.x + bb.min.x) / 2,
+        -(bb.max.y + bb.min.y) / 2,
+        -(bb.max.z + bb.min.z) / 2,
+      );
+
+      // Load original image as texture
+      const texLoader = new THREE.TextureLoader();
+      texLoader.crossOrigin = 'anonymous';
+
+      texLoader.load(
+        src,
+        (texture) => {
+          if (buildId !== buildIdRef.current) return;
+
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.minFilter = THREE.LinearMipmapLinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.generateMipmaps = true;
+
+          const frontMat = new THREE.MeshStandardMaterial({
+            map: texture,
+            roughness: 0.35,
+            metalness: 0.05,
+            color: '#ffffff',
+          });
+
+          const sideMat = new THREE.MeshStandardMaterial({
+            color: '#2a2520',
+            roughness: 0.3,
+            metalness: 0.7,
+          });
+
+          const bevelMat = new THREE.MeshStandardMaterial({
+            color: '#c9a962',
+            roughness: 0.22,
+            metalness: 0.9,
+          });
+
+          const mesh = new THREE.Mesh(geo, [sideMat, frontMat]);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          group.add(mesh);
+
+          // Gold outline frame
+          const frameShape = new THREE.Shape();
+          const outlinePts = shape!.getPoints(64);
+          frameShape.moveTo(outlinePts[0].x, outlinePts[0].y);
+          for (let i = 1; i < outlinePts.length; i++) {
+            frameShape.lineTo(outlinePts[i].x, outlinePts[i].y);
+          }
+          frameShape.closePath();
+
+          const frameGeo = new THREE.ExtrudeGeometry(frameShape, {
+            steps: 1,
+            depth: 0.015,
+            bevelEnabled: false,
+          });
+          frameGeo.computeBoundingBox();
+          const fbb = frameGeo.boundingBox!;
+          frameGeo.translate(
+            -(fbb.max.x + fbb.min.x) / 2,
+            -(fbb.max.y + fbb.min.y) / 2,
+            (extrudeSettings.depth ?? 0.18) / 2 + 0.005,
+          );
+
+          const frameMesh = new THREE.Mesh(frameGeo, bevelMat);
+          frameMesh.castShadow = true;
+          group.add(frameMesh);
+
+          setIsLoading(false);
+        },
+        undefined,
+        () => {
+          if (buildId === buildIdRef.current) {
+            setHasError(true);
+            setIsLoading(false);
+          }
+        },
+      );
+    };
+
+    img.onerror = () => {
+      if (buildId === buildIdRef.current) {
+        setHasError(true);
+        setIsLoading(false);
+      }
+    };
+
+    img.src = src;
   }, [src]);
 
   // ── Pointer handlers ────────────────────────────────────────────────────
@@ -587,8 +654,6 @@ export default function Product3DViewer({
     isDragging.current = false;
   }, []);
 
-  // ── Render ──────────────────────────────────────────────────────────────
-
   return (
     <div
       ref={containerRef}
@@ -597,7 +662,6 @@ export default function Product3DViewer({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      onMouseEnter={() => {}}
       onMouseLeave={handlePointerUp}
     >
       <canvas
@@ -606,30 +670,16 @@ export default function Product3DViewer({
         style={{ touchAction: 'none' }}
       />
 
-      {stage === 'loading' && (
+      {isLoading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-surfaceLight/60 z-10 gap-2">
           <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
-          <p className="text-gray-400 text-xs">Loading image...</p>
+          <p className="text-gray-400 text-xs">Building 3D model...</p>
         </div>
       )}
 
-      {stage === 'removing-bg' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surfaceLight/60 z-10 gap-2">
-          <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
-          <p className="text-gray-400 text-xs">AI extracting product...</p>
-        </div>
-      )}
-
-      {stage === 'building-3d' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surfaceLight/60 z-10 gap-2">
-          <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
-          <p className="text-gray-400 text-xs">Building 3D mesh...</p>
-        </div>
-      )}
-
-      {stage === 'error' && (
+      {hasError && (
         <div className="absolute inset-0 flex items-center justify-center bg-surfaceLight z-10">
-          <p className="text-gray-400 text-sm">Could not build 3D model</p>
+          <p className="text-gray-400 text-sm">Image failed to load</p>
         </div>
       )}
     </div>
