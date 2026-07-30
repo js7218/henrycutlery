@@ -24,6 +24,18 @@ export default function AmbientLight() {
     const glow = glowRef.current;
     if (!glow) return;
 
+    // Mobile: brighter glow for visibility on small screens
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      glow.style.background =
+        'radial-gradient(circle, rgba(200, 160, 90, 0.16) 0%, rgba(200, 160, 90, 0.08) 40%, transparent 70%)';
+      glow.style.width = '500px';
+      glow.style.height = '500px';
+    } else {
+      glow.style.background =
+        'radial-gradient(circle, rgba(190, 150, 85, 0.12) 0%, rgba(190, 150, 85, 0.05) 40%, transparent 70%)';
+    }
+
     let targetX = window.innerWidth / 2;
     let targetY = window.innerHeight / 2;
     let currentX = targetX;
@@ -88,7 +100,7 @@ export default function AmbientLight() {
           height: '600px',
           borderRadius: '50%',
           background:
-            'radial-gradient(circle, rgba(180, 140, 80, 0.06) 0%, rgba(180, 140, 80, 0.03) 40%, transparent 70%)',
+            'radial-gradient(circle, rgba(190, 150, 85, 0.12) 0%, rgba(190, 150, 85, 0.05) 40%, transparent 70%)',
           willChange: 'transform',
         }}
       />

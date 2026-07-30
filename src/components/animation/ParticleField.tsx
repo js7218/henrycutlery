@@ -55,17 +55,17 @@ export default function ParticleField({
       resize();
       window.addEventListener('resize', resize);
 
-      // Mobile: fewer but larger, brighter particles
-      const particleCount = 80;
+      // Mobile: fewer but MUCH larger, brighter particles
+      const particleCount = 60;
       const particles = Array.from({ length: particleCount }, () => ({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        size: Math.random() * 3 + 1.5,
-        speedX: (Math.random() - 0.5) * 0.4,
-        speedY: (Math.random() - 0.5) * 0.3 - 0.1,
+        size: Math.random() * 4 + 3,
+        speedX: (Math.random() - 0.5) * 0.5,
+        speedY: (Math.random() - 0.5) * 0.4 - 0.15,
         life: Math.random(),
-        lifeSpeed: 0.003 + Math.random() * 0.005,
-        hue: 40 + Math.random() * 15,
+        lifeSpeed: 0.002 + Math.random() * 0.004,
+        hue: 38 + Math.random() * 18,
       }));
 
       let rafId: number;
@@ -108,20 +108,20 @@ export default function ParticleField({
           // Pulse life
           p.life += p.lifeSpeed;
           if (p.life > 1 || p.life < 0) p.lifeSpeed = -p.lifeSpeed;
-          const alpha = 0.3 + Math.abs(p.life) * 0.7;
+          const alpha = 0.5 + Math.abs(p.life) * 0.5;
 
-          // Glow
-          const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 6);
-          glow.addColorStop(0, `hsla(${p.hue}, 80%, 70%, ${alpha * 0.6})`);
-          glow.addColorStop(0.4, `hsla(${p.hue}, 70%, 55%, ${alpha * 0.2})`);
+          // Large bright glow
+          const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 8);
+          glow.addColorStop(0, `hsla(${p.hue}, 85%, 72%, ${alpha * 0.8})`);
+          glow.addColorStop(0.35, `hsla(${p.hue}, 75%, 58%, ${alpha * 0.35})`);
           glow.addColorStop(1, `hsla(${p.hue}, 70%, 45%, 0)`);
           ctx.fillStyle = glow;
           ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size * 6, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, p.size * 8, 0, Math.PI * 2);
           ctx.fill();
 
-          // Core
-          ctx.fillStyle = `hsla(${p.hue}, 90%, 80%, ${alpha})`;
+          // Bright hot core
+          ctx.fillStyle = `hsla(${p.hue}, 95%, 85%, ${alpha})`;
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
           ctx.fill();

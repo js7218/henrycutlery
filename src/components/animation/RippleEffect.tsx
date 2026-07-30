@@ -6,11 +6,10 @@ import { useRef, useEffect } from 'react';
  * S Tier: Touch/Mouse Ripple Effect
  *
  * Creates elegant water-ripple circles that expand outward from every tap or click.
- * Subtle, organic, and deeply satisfying — like touching a calm surface.
+ * Filled with a warm radial gradient for better visibility on mobile.
  *
- * Mobile: ripples on touchstart + touchmove
+ * Mobile: ripples on touchstart + touchmove, larger ripples
  * Desktop: ripples on click
- * Auto-pauses when tab is hidden.
  */
 
 interface Ripple {
@@ -19,7 +18,6 @@ interface Ripple {
   radius: number;
   maxRadius: number;
   opacity: number;
-  lineWidth: number;
   hue: number;
 }
 
@@ -47,16 +45,15 @@ export default function RippleEffect() {
     window.addEventListener('resize', resize);
 
     const spawnRipple = (x: number, y: number) => {
+      const isMobile = window.innerWidth < 768;
       ripples.push({
         x,
         y,
         radius: 0,
-        maxRadius: 60 + Math.random() * 60,
-        opacity: 0.4 + Math.random() * 0.3,
-        lineWidth: 1.5 + Math.random(),
-        hue: 40 + Math.random() * 15, // gold tones
+        maxRadius: (isMobile ? 80 : 60) + Math.random() * 60,
+        opacity: 0.5 + Math.random() * 0.3,
+        hue: 40 + Math.random() * 15,
       });
-      // Cap ripples
       if (ripples.length > 20) ripples.shift();
     };
 
@@ -70,30 +67,32 @@ export default function RippleEffect() {
 
       for (let i = ripples.length - 1; i >= 0; i--) {
         const r = ripples[i];
-        r.radius += 1.5;
-        r.opacity -= 0.008;
-        r.lineWidth *= 0.99;
+        r.radius += 2;
+        r.opacity -= 0.01;
 
         if (r.opacity <= 0 || r.radius >= r.maxRadius) {
           ripples.splice(i, 1);
           continue;
         }
 
-        // Outer ring
+        // Filled gradient ripple - much more visible than stroke only
+        const grad = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, r.radius);
+        grad.addColorStop(0, `hsla(${r.hue}, 80%, 60%, 0)`);
+        grad.addColorStop(0.7, `hsla(${r.hue}, 70%, 55%, ${r.opacity * 0.15})`);
+        grad.addColorStop(0.9, `hsla(${r.hue}, 80%, 65%, ${r.opacity * 0.4})`);
+        grad.addColorStop(1, `hsla(${r.hue}, 90%, 70%, 0)`);
+
+        ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `hsla(${r.hue}, 60%, 55%, ${r.opacity})`;
-        ctx.lineWidth = r.lineWidth;
-        ctx.stroke();
+        ctx.fill();
 
-        // Inner ring (smaller, faster)
-        if (r.radius > 10) {
-          ctx.beginPath();
-          ctx.arc(r.x, r.y, r.radius * 0.6, 0, Math.PI * 2);
-          ctx.strokeStyle = `hsla(${r.hue}, 50%, 65%, ${r.opacity * 0.5})`;
-          ctx.lineWidth = r.lineWidth * 0.6;
-          ctx.stroke();
-        }
+        // Bright ring outline
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `hsla(${r.hue}, 85%, 70%, ${r.opacity * 0.6})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
       }
 
       rafId = requestAnimationFrame(animate);
@@ -101,12 +100,10 @@ export default function RippleEffect() {
 
     animate();
 
-    // Desktop: click
     const handleClick = (e: MouseEvent) => {
       spawnRipple(e.clientX, e.clientY);
     };
 
-    // Mobile: touch
     const handleTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       if (touch) spawnRipple(touch.clientX, touch.clientY);
@@ -114,7 +111,7 @@ export default function RippleEffect() {
 
     const handleTouchMove = (e: TouchEvent) => {
       const touch = e.touches[0];
-      if (touch && Math.random() > 0.7) {
+      if (touch && Math.random() > 0.6) {
         spawnRipple(touch.clientX, touch.clientY);
       }
     };
