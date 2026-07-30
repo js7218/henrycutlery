@@ -3,6 +3,114 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import * as THREE from 'three';
 
+/* ------------------------------------------------------------------ */
+/*  Silhouette extraction: detect foreground pixels from a 2D photo   */
+/*  and trace a closed polygon outline.                                */
+/* ------------------------------------------------------------------ */
+
+const PROCESS_W = 200; // processing resolution width
+
+interface Silhouette {
+  outline: [number, number][]; // normalized [0..1] coordinates
+  imgW: number;
+  imgH: number;
+}
+
+function extractSilhouette(img: HTMLImageElement): Silhouette {
+  const aspect = img.width / img.height;
+  const pw = PROCESS_W;
+  const ph = Math.round(PROCESS_W / aspect);
+  if (ph < 40) return { outline: [[0, 0], [1, 0], [1, 1], [0, 1]], imgW: img.width, imgH: img.height };
+
+  const canvas = document.createElement('canvas');
+  canvas.width = pw;
+  canvas.height = ph;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0, pw, ph);
+  const data = ctx.getImageData(0, 0, pw, ph).data;
+
+  /* ── Determine background colour from corner / edge samples ── */
+  const samples: [number, number, number][] = [];
+  const step = Math.max(1, Math.floor(pw / 8));
+  for (let x = 0; x < pw; x += step) {
+    for (const y of [0, 1, ph - 2, ph - 1]) {
+      const i = (y * pw + x) * 4;
+      samples.push([data[i], data[i + 1], data[i + 2]]);
+    }
+  }
+  for (let y = 0; y < ph; y += step) {
+    for (const x of [0, 1, pw - 2, pw - 1]) {
+      const i = (y * pw + x) * 4;
+      samples.push([data[i], data[i + 1], data[i + 2]]);
+    }
+  }
+  const bgR = samples.reduce((s, c) => s + c[0], 0) / samples.length;
+  const bgG = samples.reduce((s, c) => s + c[1], 0) / samples.length;
+  const bgB = samples.reduce((s, c) => s + c[2], 0) / samples.length;
+
+  /* ── Build binary mask ── */
+  const threshold = 35; // colour distance
+  const mask = new Uint8Array(pw * ph);
+  for (let y = 0; y < ph; y++) {
+    for (let x = 0; x < pw; x++) {
+      const i = (y * pw + x) * 4;
+      const dr = data[i] - bgR, dg = data[i + 1] - bgG, db = data[i + 2] - bgB;
+      mask[y * pw + x] = (dr * dr + dg * dg + db * db > threshold * threshold) ? 1 : 0;
+    }
+  }
+
+  /* ── Trace outline via row scanning ── */
+  // Top half: for each column, find the highest foreground pixel
+  const top: [number, number][] = [];
+  for (let x = 0; x < pw; x++) {
+    for (let y = 0; y < ph; y++) {
+      if (mask[y * pw + x]) { top.push([x, y]); break; }
+    }
+  }
+  // Bottom half: for each column, find the lowest foreground pixel (reverse)
+  const bottom: [number, number][] = [];
+  for (let x = pw - 1; x >= 0; x--) {
+    for (let y = ph - 1; y >= 0; y--) {
+      if (mask[y * pw + x]) { bottom.push([x, y]); break; }
+    }
+  }
+
+  if (top.length < 3 || bottom.length < 3) {
+    return { outline: [[0, 0], [1, 0], [1, 1], [0, 1]], imgW: img.width, imgH: img.height };
+  }
+
+  // Combine: top left→right, then bottom right→left (already reversed)
+  const raw = [...top, ...bottom];
+
+  /* ── Simplify (Douglas–Peucker) ── */
+  const simplified = simplifyPolyline(raw, 2.0);
+
+  /* ── Normalise to [0..1] ── */
+  const norm: [number, number][] = simplified.map(([x, y]) => [x / pw, y / ph]);
+
+  return { outline: norm, imgW: img.width, imgH: img.height };
+}
+
+function simplifyPolyline(pts: [number, number][], epsilon: number): [number, number][] {
+  if (pts.length < 4) return pts;
+  const stack: [number, number][] = [pts[0]];
+  let last = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const dx = pts[i][0] - pts[last][0];
+    const dy = pts[i][1] - pts[last][1];
+    if (dx * dx + dy * dy > epsilon * epsilon) {
+      stack.push(pts[i]);
+      last = i;
+    }
+  }
+  stack.push(pts[pts.length - 1]);
+  return stack;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
+
 interface Product3DViewerProps {
   src: string;
   alt: string;
@@ -41,14 +149,13 @@ export default function Product3DViewer({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // ── Init scene (runs once) ──────────────────────────────────────────────
+  /* ── Init Three.js scene ─────────────────────────────────────────── */
 
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    // Renderer (Three.js will create the WebGL context)
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -65,22 +172,19 @@ export default function Product3DViewer({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     rendererRef.current = renderer;
 
-    // Scene
     const scene = new THREE.Scene();
-    scene.background = null;
+    scene.background = new THREE.Color('#1a1815');
     sceneRef.current = scene;
 
-    // Camera
     const camera = new THREE.PerspectiveCamera(40, 4 / 3, 0.1, 30);
-    camera.position.set(0, 0, 6.5);
+    camera.position.set(0, 0, 5.5);
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    // Lighting
-    const ambient = new THREE.AmbientLight('#fff5e8', 0.6);
-    scene.add(ambient);
+    /* Lighting */
+    scene.add(new THREE.AmbientLight('#fff5e8', 0.7));
 
-    const key = new THREE.DirectionalLight('#ffffff', 3);
+    const key = new THREE.DirectionalLight('#ffffff', 3.5);
     key.position.set(4, 3, 5);
     key.castShadow = true;
     key.shadow.mapSize.width = 1024;
@@ -94,30 +198,29 @@ export default function Product3DViewer({
     key.shadow.bias = -0.0001;
     scene.add(key);
 
-    const rim = new THREE.DirectionalLight('#c9a962', 0.6);
+    const rim = new THREE.DirectionalLight('#c9a962', 0.8);
     rim.position.set(-3, 1, -3);
     scene.add(rim);
 
-    const fill = new THREE.DirectionalLight('#8899bb', 0.3);
+    const fill = new THREE.DirectionalLight('#8899bb', 0.4);
     fill.position.set(0, -2, 2);
     scene.add(fill);
 
-    // Ground (shadow receiver)
+    /* Ground */
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(20, 20),
-      new THREE.ShadowMaterial({ opacity: 0.18 }),
+      new THREE.ShadowMaterial({ opacity: 0.2 }),
     );
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -2.4;
+    ground.position.y = -2.2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Product group
     const group = new THREE.Group();
     scene.add(group);
     groupRef.current = group;
 
-    // Resize handler using ResizeObserver
+    /* Resize */
     const resize = () => {
       if (!container || !renderer || !camera) return;
       const w = container.clientWidth;
@@ -128,12 +231,10 @@ export default function Product3DViewer({
       camera.updateProjectionMatrix();
     };
 
-    resizeObserverRef.current = new ResizeObserver(() => {
-      resize();
-    });
+    resizeObserverRef.current = new ResizeObserver(() => resize());
     resizeObserverRef.current.observe(container);
 
-    // Render loop
+    /* Render loop */
     const clock = new THREE.Clock();
     const animate = () => {
       animFrameRef.current = requestAnimationFrame(animate);
@@ -159,7 +260,6 @@ export default function Product3DViewer({
       renderer.render(scene, camera);
     };
 
-    // Initial resize after a frame to ensure layout is done
     requestAnimationFrame(() => resize());
     animate();
 
@@ -171,7 +271,7 @@ export default function Product3DViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load texture & build mesh ───────────────────────────────────────────
+  /* ── Load image → extract silhouette → build 3D mesh ─────────────── */
 
   useEffect(() => {
     const group = groupRef.current;
@@ -195,132 +295,102 @@ export default function Product3DViewer({
     setIsLoading(true);
     setHasError(false);
 
-    const loader = new THREE.TextureLoader();
-
-    loader.load(
-      src,
-      (texture) => {
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.minFilter = THREE.LinearMipmapLinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.generateMipmaps = true;
-
-        const aspect = texture.image
-          ? texture.image.width / texture.image.height
-          : 4 / 3;
-        const planeH = 3.2;
-        const planeW = planeH * aspect;
-        const depth = 0.15;
-
-        // ── Front face (product image) ──
-        const frontGeo = new THREE.PlaneGeometry(planeW, planeH);
-        const frontMat = new THREE.MeshStandardMaterial({
-          map: texture,
-          roughness: 0.35,
-          metalness: 0.05,
-          color: '#ffffff',
-        });
-        const frontPlane = new THREE.Mesh(frontGeo, frontMat);
-        frontPlane.position.z = depth / 2;
-        frontPlane.castShadow = true;
-        frontPlane.receiveShadow = true;
-        group.add(frontPlane);
-
-        // ── Back plate ──
-        const backGeo = new THREE.PlaneGeometry(planeW, planeH);
-        const backMat = new THREE.MeshStandardMaterial({
-          color: '#1a1815',
-          roughness: 0.4,
-          metalness: 0.5,
-        });
-        const backPlane = new THREE.Mesh(backGeo, backMat);
-        backPlane.position.z = -depth / 2;
-        backPlane.rotation.y = Math.PI;
-        backPlane.receiveShadow = true;
-        group.add(backPlane);
-
-        // ── Side edges (4 strips) ──
-        const edgeMat = new THREE.MeshStandardMaterial({
-          color: '#2a2520',
-          roughness: 0.3,
-          metalness: 0.7,
-        });
-        const edgeThick = 0.015;
-
-        // top
-        const topGeo = new THREE.BoxGeometry(planeW, edgeThick, depth);
-        const topEdge = new THREE.Mesh(topGeo, edgeMat);
-        topEdge.position.y = planeH / 2;
-        group.add(topEdge);
-
-        // bottom
-        const bottomGeo = new THREE.BoxGeometry(planeW, edgeThick, depth);
-        const bottomEdge = new THREE.Mesh(bottomGeo, edgeMat);
-        bottomEdge.position.y = -planeH / 2;
-        group.add(bottomEdge);
-
-        // left
-        const leftGeo = new THREE.BoxGeometry(edgeThick, planeH, depth);
-        const leftEdge = new THREE.Mesh(leftGeo, edgeMat);
-        leftEdge.position.x = -planeW / 2;
-        group.add(leftEdge);
-
-        // right
-        const rightGeo = new THREE.BoxGeometry(edgeThick, planeH, depth);
-        const rightEdge = new THREE.Mesh(rightGeo, edgeMat);
-        rightEdge.position.x = planeW / 2;
-        group.add(rightEdge);
-
-        // ── Gold frame on front ──
-        const frameMat = new THREE.MeshStandardMaterial({
-          color: '#c9a962',
-          roughness: 0.25,
-          metalness: 0.9,
-        });
-        const fw = 0.04;
-        // top bar
-        const ftGeo = new THREE.BoxGeometry(planeW + fw * 2, fw, 0.025);
-        const ft = new THREE.Mesh(ftGeo, frameMat);
-        ft.position.set(0, planeH / 2 + fw / 2, depth / 2 + 0.012);
-        ft.castShadow = true;
-        group.add(ft);
-        // bottom bar
-        const fb = new THREE.Mesh(ftGeo, frameMat);
-        fb.position.set(0, -planeH / 2 - fw / 2, depth / 2 + 0.012);
-        fb.castShadow = true;
-        group.add(fb);
-        // left bar
-        const flGeo = new THREE.BoxGeometry(fw, planeH, 0.025);
-        const fl = new THREE.Mesh(flGeo, frameMat);
-        fl.position.set(-planeW / 2 - fw / 2, 0, depth / 2 + 0.012);
-        fl.castShadow = true;
-        group.add(fl);
-        // right bar
-        const fr = new THREE.Mesh(flGeo, frameMat);
-        fr.position.set(planeW / 2 + fw / 2, 0, depth / 2 + 0.012);
-        fr.castShadow = true;
-        group.add(fr);
-
-        // Ensure renderer is properly sized after texture loads
-        const w = container.clientWidth;
-        const h = container.clientHeight;
-        if (w > 0 && h > 0) {
-          renderer.setSize(w, h, false);
-          camera.aspect = w / h;
-          camera.updateProjectionMatrix();
-        }
-
-        setIsLoading(false);
-      },
-      undefined,
-      () => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const sil = extractSilhouette(img);
+        buildMesh(sil, img);
+      } catch {
         setHasError(true);
         setIsLoading(false);
-      },
-    );
+      }
+    };
+    img.onerror = () => {
+      setHasError(true);
+      setIsLoading(false);
+    };
+    img.src = src;
+
+    function buildMesh(sil: Silhouette, image: HTMLImageElement) {
+      /* ── Create Three.js Shape from outline ── */
+      const shape = new THREE.Shape();
+      const pts = sil.outline;
+      shape.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i][0], pts[i][1]);
+      shape.closePath();
+
+      /* ── Scale to a reasonable world size ── */
+      const targetH = 3.2;
+      const scale = targetH; // outline is normalised 0..1
+      const geoW = sil.imgW / sil.imgH * targetH;
+
+      /* ── Extrude geometry ── */
+      const depth = 0.12;
+      const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+        steps: 1,
+        depth: depth,
+        bevelEnabled: true,
+        bevelThickness: 0.015,
+        bevelSize: 0.015,
+        bevelSegments: 2,
+      };
+      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+
+      // The shape is 0..1, apply scale and center
+      geometry.scale(geoW, targetH, 1);
+      geometry.translate(-geoW / 2, -targetH / 2, -depth / 2);
+      geometry.computeVertexNormals();
+
+      /* ── Texture ── */
+      const texture = new THREE.Texture(image);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = true;
+      texture.needsUpdate = true;
+
+      /* ── Front material (textured) ── */
+      const frontMat = new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: 0.35,
+        metalness: 0.05,
+        color: '#ffffff',
+      });
+
+      /* ── Side/back material (metallic) ── */
+      const sideMat = new THREE.MeshStandardMaterial({
+        color: '#3a3530',
+        roughness: 0.25,
+        metalness: 0.8,
+      });
+
+      /* ── Multi-material mesh ── */
+      // ExtrudeGeometry groups: 0=front, 1=back, 2+=sides/bevel
+      const mesh = new THREE.Mesh(geometry, [frontMat, sideMat, sideMat]);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      groupRef.current?.add(mesh);
+
+      /* ── Resize ── */
+      const ctn = containerRef.current;
+      const cam = cameraRef.current;
+      const rnd = rendererRef.current;
+      if (ctn && rnd && cam) {
+        const w = ctn.clientWidth;
+        const h = ctn.clientHeight;
+        if (w > 0 && h > 0) {
+          rnd.setSize(w, h, false);
+          cam.aspect = w / h;
+          cam.updateProjectionMatrix();
+        }
+      }
+
+      setIsLoading(false);
+    }
   }, [src]);
 
-  // ── Pointer handlers ────────────────────────────────────────────────────
+  /* ── Pointer handlers ─────────────────────────────────────────────── */
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
@@ -352,7 +422,7 @@ export default function Product3DViewer({
     isDragging.current = false;
   }, []);
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  /* ── Render ───────────────────────────────────────────────────────── */
 
   return (
     <div
