@@ -5,8 +5,8 @@ import { useRef, useEffect } from 'react';
 /**
  * A Tier: Smooth Fade-In
  *
- * The entire page content gently fades in from opacity 0 → 1 over 0.6s.
- * No sweeps, no flashes — just a calm, smooth entrance.
+ * A dark overlay covers the screen on load, then gently fades away
+ * (opacity 1 → 0) over 0.6s with a blur transition.
  * Like opening your eyes in a well-lit room.
  *
  * Mobile & Desktop: Identical behavior. Pure CSS animation.
@@ -19,11 +19,11 @@ export default function SmoothFadeIn() {
     const el = ref.current;
     if (!el) return;
 
-    // Use Web Animations API for smooth, JS-controlled fade
+    // Start fully opaque, fade to transparent
     const anim = el.animate(
       [
-        { opacity: 0, filter: 'blur(4px)' },
-        { opacity: 1, filter: 'blur(0px)' },
+        { opacity: 1, filter: 'blur(4px)' },
+        { opacity: 0, filter: 'blur(0px)' },
       ],
       {
         duration: 600,
@@ -32,6 +32,11 @@ export default function SmoothFadeIn() {
       }
     );
 
+    // After animation, hide element completely
+    anim.onfinish = () => {
+      el.style.display = 'none';
+    };
+
     return () => anim.cancel();
   }, []);
 
@@ -39,7 +44,7 @@ export default function SmoothFadeIn() {
     <div
       ref={ref}
       className="fixed inset-0 z-[75] pointer-events-none"
-      style={{ opacity: 0, background: 'var(--background, #1a1a1a)' }}
+      style={{ opacity: 1, background: '#1a1a1a' }}
       aria-hidden="true"
     />
   );
