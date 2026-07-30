@@ -205,7 +205,7 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
       finishAfterMinimumWait('blocked');
     }, 100);
 
-    timers.push(checkTimer);
+    timers.push(checkTimer as unknown as ReturnType<typeof setTimeout>);
 
     return () => {
       stopped = true;
