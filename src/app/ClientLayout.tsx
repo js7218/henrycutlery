@@ -16,7 +16,9 @@ import ScrollProgress from '@/components/animation/ScrollProgress';
 const PageTransition = dynamic(() => import('@/components/animation/PageTransition'), { ssr: false });
 const CustomCursor = dynamic(() => import('@/components/animation/CustomCursor'), { ssr: false });
 const TouchTrail = dynamic(() => import('@/components/animation/TouchTrail'), { ssr: false });
-const MobileWelcome = dynamic(() => import('@/components/animation/MobileWelcome'), { ssr: false });
+const FilmGrain = dynamic(() => import('@/components/animation/FilmGrain'), { ssr: false });
+const Vignette = dynamic(() => import('@/components/animation/Vignette'), { ssr: false });
+const RippleEffect = dynamic(() => import('@/components/animation/RippleEffect'), { ssr: false });
 
 export default function ClientLayout({
   children,
@@ -29,7 +31,9 @@ export default function ClientLayout({
       <PageTransition />
       <CustomCursor />
       <TouchTrail />
-      <MobileWelcome delay={0.3} />
+      <FilmGrain opacity={0.04} />
+      <Vignette intensity={0.25} />
+      <RippleEffect />
       <Suspense fallback={null}>
         <HumanVerificationGate />
       </Suspense>

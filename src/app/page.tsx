@@ -17,7 +17,6 @@ import { formatPrice } from '@/lib/utils';
 
 export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
-  const sweepRef = useRef<HTMLDivElement>(null);
   const [animReady, setAnimReady] = useState(false);
 
   // Wait for age verification before running entrance animations
@@ -29,15 +28,6 @@ export default function Home() {
   useGSAP(
     () => {
       if (!animReady) return;
-
-      // ---- Gold sweep across screen on load ----
-      if (sweepRef.current) {
-        const sweep = gsap.timeline();
-        sweep
-          .set(sweepRef.current, { scaleX: 0, transformOrigin: 'left center' })
-          .to(sweepRef.current, { scaleX: 1, duration: 0.8, ease: 'power2.inOut' })
-          .to(sweepRef.current, { opacity: 0, duration: 0.4, ease: 'power2.out' });
-      }
 
       // ---- Entrance timeline (uses fromTo for reliability) ----
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' }, delay: 0.2 });
@@ -114,16 +104,6 @@ export default function Home() {
     <div className="min-h-screen">
       {/* ===== HERO: Asymmetric split layout with parallax ===== */}
       <section ref={heroRef} className="relative min-h-[90vh] flex items-center overflow-hidden">
-        {/* Gold sweep on page load - enhanced for mobile visibility */}
-        <div
-          ref={sweepRef}
-          className="fixed inset-0 z-[200] pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(90deg, transparent 0%, rgba(201, 169, 98, 0.4) 30%, rgba(240, 217, 138, 0.6) 50%, rgba(201, 169, 98, 0.4) 70%, transparent 100%)',
-            boxShadow: 'inset 0 0 80px rgba(201, 169, 98, 0.3)',
-          }}
-        />
         {/* Parallax background */}
         <div className="hero-bg absolute inset-0 z-0">
           <Image
