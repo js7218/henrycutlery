@@ -3,17 +3,24 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Ban, Loader2, ShieldCheck } from 'lucide-react';
 
-const WAF_MIN_CHECK_MS = 800;
+/**
+ * Minimum time the progress bar must animate before showing "passed".
+ * Kept low so legitimate browsers never perceive a delay.
+ */
+const WAF_MIN_CHECK_MS = 200;
+
+/**
+ * Grace period before the overlay is shown. If the check completes within
+ * this window (which it almost always does for real browsers), the overlay
+ * is NEVER rendered, so users see the page — and its animations — immediately.
+ */
+const WAF_OVERLAY_DELAY_MS = 350;
 
 type CheckState = 'checking' | 'blocked' | 'passed';
 
 interface BrowserSignal {
   name: string;
   score: number;
-}
-
-function now() {
-  return Date.now();
 }
 
 function getWindowFlagScore(): BrowserSignal[] {
@@ -120,8 +127,13 @@ function markWafPassed(): void {
 }
 
 export default function WafBrowserCheck({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<CheckState>(() => isWafAlreadyPassed() ? 'passed' : 'checking');
+  // Start with 'checking' on both server and client to avoid hydration mismatch.
+  const [state, setState] = useState<CheckState>('checking');
   const [progress, setProgress] = useState(12);
+  // Whether the overlay should actually be rendered.  Stays false until
+  // WAF_OVERLAY_DELAY_MS has elapsed, so fast-passing browsers never see it.
+  const [showOverlay, setShowOverlay] = useState(false);
+
   const statusText = useMemo(() => {
     if (state === 'blocked') return 'Access blocked. Automated browser or script behavior was detected.';
     if (progress < 35) return 'Checking your browser before accessing Adam Cutlery...';
@@ -131,17 +143,35 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
   }, [progress, state]);
 
   useEffect(() => {
+    // If already passed in this session, skip the check immediately
+    if (isWafAlreadyPassed()) {
+      setState('passed');
+      // Notify any listeners (e.g. GSAP) that the page is visible
+      window.dispatchEvent(new CustomEvent('waf-check-passed'));
+      return;
+    }
+
     if (state !== 'checking') return;
 
     let stopped = false;
-    const timers: number[] = [];
-    const startedAt = now();
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const startedAt = Date.now();
 
+    // Only show the overlay if the check takes longer than the grace period.
+    // For legitimate browsers the check finishes in ~50ms, so the overlay
+    // is never shown and GSAP animations are visible from the very first frame.
+    const overlayTimer = setTimeout(() => {
+      if (!stopped && state === 'checking') {
+        setShowOverlay(true);
+      }
+    }, WAF_OVERLAY_DELAY_MS);
+    timers.push(overlayTimer);
+
+    // Progress bar only animates if the overlay is visible
     const progressTimer = window.setInterval(() => {
       setProgress(prev => Math.min(96, prev + Math.max(2, Math.round((100 - prev) / 8))));
     }, 80);
-
-    timers.push(progressTimer);
+    timers.push(progressTimer as unknown as ReturnType<typeof setTimeout>);
 
     const checkTimer = window.setTimeout(() => {
       if (stopped) return;
@@ -149,86 +179,108 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
       const result = runCloudflareStyleCheck();
 
       const finishAfterMinimumWait = (nextState: CheckState) => {
-        const elapsed = now() - startedAt;
+        const elapsed = Date.now() - startedAt;
         const wait = Math.max(0, WAF_MIN_CHECK_MS - elapsed);
         window.setTimeout(() => {
           if (stopped) return;
           setProgress(100);
           window.setTimeout(() => {
-            if (!stopped) setState(nextState);
-          }, 250);
+            if (!stopped) {
+              setState(nextState);
+              if (nextState === 'passed') {
+                markWafPassed();
+                // Notify GSAP / ScrollTrigger to refresh and replay animations
+                window.dispatchEvent(new CustomEvent('waf-check-passed'));
+              }
+            }
+          }, 150);
         }, wait);
       };
 
       if (!result.suspicious) {
         finishAfterMinimumWait('passed');
-        markWafPassed();
         return;
       }
 
       finishAfterMinimumWait('blocked');
-    }, 200);
+    }, 100);
 
     timers.push(checkTimer);
 
     return () => {
       stopped = true;
-      timers.forEach(timer => window.clearInterval(timer));
-      timers.forEach(timer => window.clearTimeout(timer));
+      timers.forEach(timer => clearTimeout(timer));
+      clearInterval(progressTimer);
     };
   }, [state]);
 
+  // Once passed, render children immediately without any overlay
   if (state === 'passed') return <>{children}</>;
 
+  // While checking: render children underneath (so GSAP can initialise) but
+  // show the overlay ON TOP only if the check is taking unusually long.
+  if (state === 'checking' && !showOverlay) {
+    // Render children immediately — the check is running in the background
+    // and will complete before the user perceives any delay.
+    return <>{children}</>;
+  }
+
+  // Only show the overlay if the check is taking too long or has blocked
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/95 backdrop-blur-sm">
-      <div className="w-full max-w-md mx-4 rounded-xl border border-border bg-surface p-8 shadow-2xl">
-        <div className="flex justify-center mb-5">
-          <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center">
-            {state === 'blocked' ? (
-              <Ban className="w-8 h-8 text-red-400" />
-            ) : (
-              <ShieldCheck className="w-8 h-8 text-gold" />
-            )}
-          </div>
-        </div>
-
-        <h2 className="text-xl font-semibold text-foreground text-center mb-3">
-          {state === 'blocked' ? 'Access Denied' : 'Checking your browser'}
-        </h2>
-        <p className="text-sm text-gray-400 text-center leading-relaxed mb-6">
-          {statusText}
-        </p>
-
-        {state === 'checking' ? (
-          <>
-            <div className="flex justify-center mb-6">
-              <Loader2 className="h-10 w-10 animate-spin text-gold" />
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-surfaceLight border border-border">
-              <div
-                className="h-full rounded-full bg-gold transition-[width] duration-200"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setProgress(12);
-              setState('checking');
-            }}
-            className="w-full rounded-lg border border-border px-4 py-3 text-sm text-gray-300 hover:border-gold hover:text-gold transition-colors"
-          >
-            Try again
-          </button>
-        )}
-
-        <p className="text-xs text-gray-500 text-center mt-4">
-          This Cloudflare-style WAF check runs before age verification.
-        </p>
+    <>
+      {/* Render children underneath so they're ready when check passes */}
+      <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        {children}
       </div>
-    </div>
+      <div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/95 backdrop-blur-sm">
+        <div className="w-full max-w-md mx-4 rounded-xl border border-border bg-surface p-8 shadow-2xl">
+          <div className="flex justify-center mb-5">
+            <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center">
+              {state === 'blocked' ? (
+                <Ban className="w-8 h-8 text-red-400" />
+              ) : (
+                <ShieldCheck className="w-8 h-8 text-gold" />
+              )}
+            </div>
+          </div>
+
+          <h2 className="text-xl font-semibold text-foreground text-center mb-3">
+            {state === 'blocked' ? 'Access Denied' : 'Checking your browser'}
+          </h2>
+          <p className="text-sm text-gray-400 text-center leading-relaxed mb-6">
+            {statusText}
+          </p>
+
+          {state === 'checking' ? (
+            <>
+              <div className="flex justify-center mb-6">
+                <Loader2 className="h-10 w-10 animate-spin text-gold" />
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-surfaceLight border border-border">
+                <div
+                  className="h-full rounded-full bg-gold transition-[width] duration-200"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setProgress(12);
+                setState('checking');
+              }}
+              className="w-full rounded-lg border border-border px-4 py-3 text-sm text-gray-300 hover:border-gold hover:text-gold transition-colors"
+            >
+              Try again
+            </button>
+          )}
+
+          <p className="text-xs text-gray-500 text-center mt-4">
+            This Cloudflare-style WAF check runs before age verification.
+          </p>
+        </div>
+      </div>
+    </>
   );
 }

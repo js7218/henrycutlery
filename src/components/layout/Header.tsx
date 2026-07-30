@@ -226,13 +226,14 @@ export default function Header() {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <nav className="lg:hidden py-4 border-t border-border animate-fade-in">
-            <div className="flex flex-col space-y-2">
-              {navLinks.map((link) => (
+          <nav className="lg:hidden py-4 border-t border-border mobile-menu-container">
+            <div className="flex flex-col space-y-1">
+              {navLinks.map((link, index) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="px-4 py-2 text-sm text-gray-300 hover:text-gold hover:bg-surfaceLight rounded transition-colors"
+                  className="px-4 py-3 text-sm text-gray-300 hover:text-gold hover:bg-surfaceLight rounded-lg transition-colors mobile-menu-item"
+                  style={{ animationDelay: `${index * 0.05}s` }}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {link.label}

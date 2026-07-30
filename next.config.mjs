@@ -1,4 +1,10 @@
 /** @type {import('next').NextConfig} */
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const nextConfig = {
   // Performance
   compress: true,
@@ -84,8 +90,8 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' https://www.googletagmanager.com",
-              "style-src 'self'",
-              "font-src 'self'",
+              "style-src 'self' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com data:",
               "img-src 'self' data: https:",
               "connect-src 'self' https://vitals.vercel-insights.com",
               "frame-ancestors 'none'",
@@ -339,6 +345,16 @@ const nextConfig = {
   
   // Security: Strict mode
   reactStrictMode: true,
+
+  // Dev: Allow cross-origin HMR from remote-agent sandbox
+  allowedDevOrigins: [
+    'run-agent-6a3260481447ce92a026c322-ms6cfmmc.remote-agent.svc.cluster.local',
+  ],
+
+  // Turbopack: explicitly set root to project directory
+  turbopack: {
+    root: __dirname,
+  },
 };
 
 export default nextConfig;

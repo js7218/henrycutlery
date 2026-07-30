@@ -89,6 +89,7 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
             src={item.product.images[0]}
             alt={item.product.name}
             fill
+            sizes="112px"
             className="object-cover"
           />
         </div>

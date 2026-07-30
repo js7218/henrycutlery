@@ -1198,9 +1198,11 @@ function detectThreatRaw(value: string): { detected: boolean; type: string; patt
   for (const pattern of CMD_EXECUTION_PATTERNS) {
     if (pattern.test(value)) return { detected: true, type: 'CMD_EXECUTION', pattern: pattern.source };
   }
-  // SSRF
-  for (const pattern of SSRF_PATTERNS) {
-    if (pattern.test(value)) return { detected: true, type: 'SSRF_DETECTED', pattern: pattern.source };
+  // SSRF (skip in development to allow localhost testing)
+  if (process.env.NODE_ENV !== 'development') {
+    for (const pattern of SSRF_PATTERNS) {
+      if (pattern.test(value)) return { detected: true, type: 'SSRF_DETECTED', pattern: pattern.source };
+    }
   }
   // Path Traversal
   for (const pattern of PATH_TRAVERSAL_PATTERNS) {

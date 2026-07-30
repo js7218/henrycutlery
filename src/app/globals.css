@@ -22,6 +22,9 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), sans-serif;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -59,6 +62,17 @@ a {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  background-size: 200% auto;
+  animation: gold-shimmer 4s linear infinite;
+}
+
+@keyframes gold-shimmer {
+  0% {
+    background-position: 0% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }
 
 /* Metallic effect */
@@ -166,5 +180,151 @@ a {
 @media (min-width: 1280px) {
   .product-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ===== Chat Widget Animations ===== */
+@keyframes chat-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-chat-enter {
+  animation: chat-enter 0.3s ease-out forwards;
+}
+
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-message-in {
+  animation: message-in 0.25s ease-out forwards;
+}
+
+@keyframes bounce-dot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+.animate-bounce-dot {
+  animation: bounce-dot 1.2s infinite ease-in-out;
+}
+
+/* ===== Smooth image zoom on hover ===== */
+img {
+  transition: transform 0.5s ease;
+}
+
+/* ===== Focus visible for accessibility ===== */
+*:focus-visible {
+  outline: 2px solid #c9a962;
+  outline-offset: 2px;
+}
+
+/* ===== Selection color ===== */
+::selection {
+  background: rgba(201, 169, 98, 0.3);
+  color: #f5f5f5;
+}
+
+/* ===== Mobile touch feedback ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* Disable hover-only transforms on touch devices */
+  .card-hover:hover {
+    transform: none;
+  }
+
+  /* Add active-state feedback for touch */
+  .card-hover:active {
+    transform: scale(0.97);
+    transition: transform 0.1s ease;
+  }
+
+  /* Buttons get tap feedback */
+  .btn-primary:active {
+    transform: scale(0.96);
+    box-shadow: 0 0 10px rgba(201, 169, 98, 0.3);
+  }
+
+  .btn-secondary:active {
+    transform: scale(0.96);
+    background: rgba(201, 169, 98, 0.15);
+  }
+
+  /* Links get subtle tap feedback */
+  a:active:not([href^="mailto"]):not([href^="tel"]) {
+    opacity: 0.7;
+    transition: opacity 0.1s ease;
+  }
+}
+
+/* ===== Mobile menu slide-in animation ===== */
+@keyframes mobile-menu-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes menu-item-stagger {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.mobile-menu-container {
+  animation: mobile-menu-slide 0.25s ease-out forwards;
+}
+
+.mobile-menu-item {
+  opacity: 0;
+  animation: menu-item-stagger 0.3s ease-out forwards;
+}
+
+/* ===== Smooth tap highlight removal ===== */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== Momentum scrolling on mobile ===== */
+@media (hover: none) and (pointer: coarse) {
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* ===== Bottom safe area for chat widget on notched phones ===== */
+@supports (padding: max(0px)) {
+  .chat-fab {
+    bottom: max(1.5rem, env(safe-area-inset-bottom));
   }
 }

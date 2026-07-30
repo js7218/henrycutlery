@@ -5,6 +5,7 @@ import { Filter, Grid, List, SlidersHorizontal, X, Search } from 'lucide-react';
 import { products, brands, categories } from '@/data/products';
 import { ProductCategory } from '@/types';
 import ProductCard from '@/components/product/ProductCard';
+import ScrollReveal from '@/components/animation/ScrollReveal';
 import { cn } from '@/lib/utils';
 
 const priceRanges = [
@@ -606,8 +607,10 @@ function ProductsContent() {
                 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
                 : 'grid-cols-1'
             )}>
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {filteredProducts.map((product, i) => (
+                <ScrollReveal key={product.id} direction="up" delay={Math.min(i * 0.06, 0.3)}>
+                  <ProductCard product={product} />
+                </ScrollReveal>
               ))}
             </div>
           )}

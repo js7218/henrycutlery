@@ -619,7 +619,7 @@ export const products: Product[] = [
     moq: 600,
   },
   {
-    id: 'adam-006',
+    id: 'adam-007',
     name: 'CNC G10 Ball Bearing',
     brand: 'Adam Cutlery',
     price: 8.3,

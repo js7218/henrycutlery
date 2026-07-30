@@ -24,6 +24,7 @@ import { formatPrice, cn } from '@/lib/utils';
 import { buildSafeMailtoLink, getSafeCategoryPath } from '@/lib/safeNavigation';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import ProductCard from '@/components/product/ProductCard';
+import ScrollReveal from '@/components/animation/ScrollReveal';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -290,11 +291,14 @@ export default function ProductDetailPage() {
       {/* Product Main */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
         {/* Image Gallery */}
-        <div>
-          <ProductImageGallery images={product.images} productName={product.name} />
-        </div>
+        <ScrollReveal direction="left">
+          <div>
+            <ProductImageGallery images={product.images} productName={product.name} />
+          </div>
+        </ScrollReveal>
 
         {/* Product Info */}
+        <ScrollReveal direction="right">
         <div className="space-y-6">
           {/* Brand & Title */}
           <div>
@@ -461,6 +465,7 @@ export default function ProductDetailPage() {
             </div>
           </div>
         </div>
+        </ScrollReveal>
       </div>
 
       {/* Product Details Tabs */}
@@ -508,7 +513,7 @@ export default function ProductDetailPage() {
           {activeTab === 'specs' && (
             <div>
               <h3 className="text-xl font-semibold text-foreground mb-6">Detailed Specifications</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ScrollReveal direction="up" stagger={0.1} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {Object.entries(product.specs).map(([key, value]) => (
                   <div key={key} className="flex justify-between p-4 bg-surfaceLight rounded-lg">
                     <span className="text-gray-400">
@@ -522,7 +527,7 @@ export default function ProductDetailPage() {
                     <span className="text-foreground font-medium">{value}</span>
                   </div>
                 ))}
-              </div>
+              </ScrollReveal>
             </div>
           )}
           {activeTab === 'reviews' && (
@@ -598,14 +603,16 @@ export default function ProductDetailPage() {
       {/* Related Products */}
       {relatedProducts.length > 0 && (
         <div>
-          <h2 className="text-2xl font-bold text-foreground mb-8" style={{ fontFamily: 'Playfair Display, serif' }}>
-            Related Products
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <ScrollReveal direction="up">
+            <h2 className="text-2xl font-bold text-foreground mb-8" style={{ fontFamily: 'Playfair Display, serif' }}>
+              Related Products
+            </h2>
+          </ScrollReveal>
+          <ScrollReveal direction="up" stagger={0.15} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {relatedProducts.map(p => (
               <ProductCard key={p.id} product={p} />
             ))}
-          </div>
+          </ScrollReveal>
         </div>
       )}
     </div>

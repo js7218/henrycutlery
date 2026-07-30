@@ -1,21 +1,14 @@
 'use client';
 
 import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
 import { AppProvider } from '@/context/AppContext';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import AgeVerification from '@/components/ui/AgeVerification';
 import UrlPathHider from '@/components/security/UrlPathHider';
-
-const HumanVerificationGate = dynamic(
-  () => import('@/components/security/HumanVerificationGate'),
-  { ssr: false }
-);
-const WafBrowserCheck = dynamic(
-  () => import('@/components/security/WafBrowserCheck'),
-  { ssr: false }
-);
+import HumanVerificationGate from '@/components/security/HumanVerificationGate';
+import WafBrowserCheck from '@/components/security/WafBrowserCheck';
+import ChatWidget from '@/components/support/ChatWidget';
 
 export default function ClientLayout({
   children,
@@ -27,7 +20,7 @@ export default function ClientLayout({
       <Suspense fallback={null}>
         <HumanVerificationGate />
       </Suspense>
-      <Suspense fallback={null}>
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-pulse text-gold">Loading…</div></div>}>
         <WafBrowserCheck>
           <AgeVerification>
             <UrlPathHider />
@@ -36,6 +29,7 @@ export default function ClientLayout({
               {children}
             </main>
             <Footer />
+            <ChatWidget />
           </AgeVerification>
         </WafBrowserCheck>
       </Suspense>
