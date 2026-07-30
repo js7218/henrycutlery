@@ -124,6 +124,24 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Inline script: add age-verified class BEFORE paint for returning visitors.
+            This prevents FOUC and ensures animations start immediately for verified users. */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            try {
+              if (sessionStorage.getItem('age_verified') === 'true') {
+                document.body.classList.add('age-verified');
+              }
+            } catch(e) {}
+            // Fallback: if age-verified class not added within 6 seconds, add it anyway.
+            // This prevents permanently hidden content if AgeVerification component fails.
+            setTimeout(function() {
+              if (!document.body.classList.contains('age-verified')) {
+                document.body.classList.add('age-verified');
+              }
+            }, 6000);
+          })();
+        `}} />
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

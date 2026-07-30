@@ -590,7 +590,74 @@ img {
 
 /* ================================================================
    UNIVERSAL CSS ANIMATIONS — Zero JS, works on ALL browsers
+   All animations are GATED on body.age-verified class.
+   This ensures animations only play AFTER the user clicks through
+   the age verification modal, not behind it.
    ================================================================ */
+
+/* Before age verification: elements are hidden (opacity 0) */
+body:not(.age-verified) .animate-hero-title,
+body:not(.age-verified) .animate-hero-sub,
+body:not(.age-verified) .animate-hero-cta,
+body:not(.age-verified) .animate-hero-img,
+body:not(.age-verified) .animate-card-enter {
+  opacity: 0;
+  animation: none;
+}
+
+/* After age verification: animations play */
+body.age-verified .animate-hero-title {
+  animation: hero-title-in 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+body.age-verified .animate-hero-sub {
+  animation: hero-sub-in 0.7s 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+body.age-verified .animate-hero-cta {
+  animation: hero-cta-in 0.6s 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+body.age-verified .animate-hero-img {
+  animation: hero-img-reveal 1.2s 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+body.age-verified .animate-card-enter {
+  animation: card-enter 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+/* Continuous animations: only play after age verified */
+body.age-verified .animate-hero-float {
+  animation: hero-float 4s ease-in-out infinite;
+}
+
+body.age-verified .animate-glow-pulse {
+  animation: glow-pulse 2.5s ease-in-out infinite;
+}
+
+body.age-verified .animate-border-glow {
+  animation: border-glow-sweep 3s ease-in-out infinite;
+}
+
+body.age-verified .animate-shimmer {
+  animation: shimmer-sweep 3s linear infinite;
+}
+
+body.age-verified .animate-text-glow {
+  animation: text-glow-soft 3s ease-in-out infinite;
+}
+
+body.age-verified .animate-stat-pulse {
+  animation: stat-pulse 2s ease-in-out infinite;
+}
+
+body.age-verified .animate-bg-shift {
+  animation: bg-shift 8s ease infinite;
+}
+
+body.age-verified .animate-icon-pulse {
+  animation: icon-pulse 2.5s ease-in-out infinite;
+}
 
 /* Base: elements hidden until .revealed is added */
 [data-reveal-container] {
@@ -674,17 +741,13 @@ img {
 }
 
 /* ================================================================
-   AUTO-PLAYING CSS ANIMATIONS (no JS needed, runs on page load)
+   KEYFRAMES
    ================================================================ */
 
 /* ─── Hero Float: continuous gentle floating ─── */
 @keyframes hero-float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-12px); }
-}
-
-.animate-hero-float {
-  animation: hero-float 4s ease-in-out infinite;
 }
 
 /* ─── Gold Glow Pulse: continuous box-shadow glow ─── */
@@ -697,20 +760,12 @@ img {
   }
 }
 
-.animate-glow-pulse {
-  animation: glow-pulse 2.5s ease-in-out infinite;
-}
-
 /* ─── Border Glow: animated border color sweep ─── */
 @keyframes border-glow-sweep {
   0%, 100% { border-color: rgba(201, 169, 98, 0.15); }
   25% { border-color: rgba(201, 169, 98, 0.4); }
   50% { border-color: rgba(201, 169, 98, 0.15); }
   75% { border-color: rgba(201, 169, 98, 0.35); }
-}
-
-.animate-border-glow {
-  animation: border-glow-sweep 3s ease-in-out infinite;
 }
 
 /* ─── Shimmer Sweep: gold light across the element ─── */
@@ -729,17 +784,12 @@ img {
     transparent 60%
   );
   background-size: 200% 100%;
-  animation: shimmer-sweep 3s linear infinite;
 }
 
 /* ─── Text Glow: warm gold text-shadow pulse ─── */
 @keyframes text-glow-soft {
   0%, 100% { text-shadow: 0 0 4px rgba(201, 169, 98, 0.15); }
   50% { text-shadow: 0 0 15px rgba(201, 169, 98, 0.4), 0 0 30px rgba(201, 169, 98, 0.15); }
-}
-
-.animate-text-glow {
-  animation: text-glow-soft 3s ease-in-out infinite;
 }
 
 /* ─── Card Entrance: staggered fade-up for card grids ─── */
@@ -752,10 +802,6 @@ img {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.animate-card-enter {
-  animation: card-enter 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
 /* ─── Hero Title Reveal: dramatic text entrance ─── */
@@ -772,10 +818,6 @@ img {
   }
 }
 
-.animate-hero-title {
-  animation: hero-title-in 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-
 /* ─── Hero Subtitle: slightly delayed entrance ─── */
 @keyframes hero-sub-in {
   from {
@@ -786,10 +828,6 @@ img {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.animate-hero-sub {
-  animation: hero-sub-in 0.7s 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
 /* ─── Hero CTA: latest entrance ─── */
@@ -804,10 +842,6 @@ img {
   }
 }
 
-.animate-hero-cta {
-  animation: hero-cta-in 0.6s 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-
 /* ─── Hero Image Scale: zoom-reveal ─── */
 @keyframes hero-img-reveal {
   from {
@@ -820,18 +854,10 @@ img {
   }
 }
 
-.animate-hero-img {
-  animation: hero-img-reveal 1.2s 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-
 /* ─── Stats Counter Pulse ─── */
 @keyframes stat-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
-}
-
-.animate-stat-pulse {
-  animation: stat-pulse 2s ease-in-out infinite;
 }
 
 /* ─── Background Gradient Shift ─── */
@@ -844,17 +870,12 @@ img {
 .animate-bg-shift {
   background: linear-gradient(135deg, #1a1a1a, #242424, #1a1a1a);
   background-size: 200% 200%;
-  animation: bg-shift 8s ease infinite;
 }
 
 /* ─── Subtle scale pulse for icons ─── */
 @keyframes icon-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
-}
-
-.animate-icon-pulse {
-  animation: icon-pulse 2.5s ease-in-out infinite;
 }
 
 /* ================================================================
@@ -886,5 +907,14 @@ img {
   .animate-icon-pulse,
   .animate-bg-shift {
     animation: none !important;
+    opacity: 1 !important;
+  }
+
+  body:not(.age-verified) .animate-hero-title,
+  body:not(.age-verified) .animate-hero-sub,
+  body:not(.age-verified) .animate-hero-cta,
+  body:not(.age-verified) .animate-hero-img,
+  body:not(.age-verified) .animate-card-enter {
+    opacity: 1 !important;
   }
 }

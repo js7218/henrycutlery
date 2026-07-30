@@ -16,7 +16,6 @@ import ScrollProgress from '@/components/animation/ScrollProgress';
 const FilmGrain = dynamic(() => import('@/components/animation/FilmGrain'), { ssr: false });
 const Vignette = dynamic(() => import('@/components/animation/Vignette'), { ssr: false });
 const AmbientLight = dynamic(() => import('@/components/animation/AmbientLight'), { ssr: false });
-const SmoothFadeIn = dynamic(() => import('@/components/animation/SmoothFadeIn'), { ssr: false });
 
 // Canvas-based effects (enhancement layer, desktop-first)
 const PageTransition = dynamic(() => import('@/components/animation/PageTransition'), { ssr: false });
@@ -33,7 +32,6 @@ export default function ClientLayout({
     <AppProvider>
       {/* CSS-only effects: always work, no JS needed after load */}
       <ScrollProgress />
-      <SmoothFadeIn />
       <AmbientLight />
       <FilmGrain opacity={0.04} />
       <Vignette intensity={0.25} />
