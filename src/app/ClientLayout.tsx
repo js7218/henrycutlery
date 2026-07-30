@@ -22,6 +22,8 @@ const PageTransition = dynamic(() => import('@/components/animation/PageTransiti
 const CustomCursor = dynamic(() => import('@/components/animation/CustomCursor'), { ssr: false });
 const TouchTrail = dynamic(() => import('@/components/animation/TouchTrail'), { ssr: false });
 const RippleEffect = dynamic(() => import('@/components/animation/RippleEffect'), { ssr: false });
+const ParticleNetwork = dynamic(() => import('@/components/animation/ParticleNetwork'), { ssr: false });
+const CursorGlow = dynamic(() => import('@/components/animation/CursorGlow'), { ssr: false });
 
 export default function ClientLayout({
   children,
@@ -41,6 +43,8 @@ export default function ClientLayout({
       <CustomCursor />
       <TouchTrail />
       <RippleEffect />
+      <ParticleNetwork count={50} maxDistance={140} />
+      <CursorGlow color="rgba(201, 169, 98, 0.10)" size={350} />
 
       <Suspense fallback={null}>
         <HumanVerificationGate />
