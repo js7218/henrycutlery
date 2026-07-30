@@ -23,7 +23,7 @@ const CustomCursor = dynamic(() => import('@/components/animation/CustomCursor')
 const TouchTrail = dynamic(() => import('@/components/animation/TouchTrail'), { ssr: false });
 const RippleEffect = dynamic(() => import('@/components/animation/RippleEffect'), { ssr: false });
 const ParticleNetwork = dynamic(() => import('@/components/animation/ParticleNetwork'), { ssr: false });
-const CursorGlow = dynamic(() => import('@/components/animation/CursorGlow'), { ssr: false });
+const ScanLine = dynamic(() => import('@/components/animation/ScanLine'), { ssr: false });
 
 export default function ClientLayout({
   children,
@@ -44,7 +44,7 @@ export default function ClientLayout({
       <TouchTrail />
       <RippleEffect />
       <ParticleNetwork count={50} maxDistance={140} />
-      <CursorGlow color="rgba(201, 169, 98, 0.10)" size={350} />
+      <ScanLine color="rgba(201, 169, 98, 0.06)" duration={6} height={2} />
 
       <Suspense fallback={null}>
         <HumanVerificationGate />
