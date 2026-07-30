@@ -261,7 +261,7 @@ export default function Home() {
                 ].map((item, i) => (
                   <div
                     key={i}
-                    className="p-5 bg-surface rounded-xl border border-border hover:border-gold/40 transition-colors group"
+                    className="p-5 bg-surface rounded-xl border border-border hover-soft-glow group"
                   >
                     <item.icon className="w-7 h-7 text-gold mb-3 group-hover:scale-110 transition-transform" />
                     <h3 className="text-foreground font-semibold text-sm mb-1">{item.title}</h3>
@@ -411,7 +411,7 @@ export default function Home() {
               },
             ].map((feat, i) => (
               <ScrollReveal key={i} direction="up" delay={i * 0.15}>
-                <div className="p-8 bg-surface rounded-2xl border border-border hover:border-gold/40 transition-all duration-300 group h-full">
+                <div className="p-8 bg-surface rounded-2xl border border-border hover-soft-glow group h-full">
                   <div className="w-14 h-14 rounded-xl bg-gold/10 flex items-center justify-center mb-6 group-hover:bg-gold/20 transition-colors">
                     <feat.icon className="w-7 h-7 text-gold" />
                   </div>

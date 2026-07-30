@@ -467,3 +467,123 @@ img {
   80% { transform: translate(3%, 35%); }
   90% { transform: translate(-10%, 10%); }
 }
+
+/* ===== Hover Glow: Soft warm border on cards ===== */
+/* Apply .hover-soft-glow to any card element */
+.hover-soft-glow {
+  transition: box-shadow 0.4s ease, border-color 0.4s ease;
+}
+
+.hover-soft-glow:hover {
+  border-color: rgba(180, 140, 80, 0.25);
+  box-shadow:
+    0 0 0 1px rgba(180, 140, 80, 0.08),
+    0 8px 30px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(180, 140, 80, 0.05);
+}
+
+/* Mobile tap version */
+@media (hover: none) and (pointer: coarse) {
+  .hover-soft-glow:active {
+    border-color: rgba(180, 140, 80, 0.2);
+    box-shadow:
+      0 0 0 1px rgba(180, 140, 80, 0.06),
+      0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.15s ease;
+  }
+}
+
+/* ===== Text Shimmer: Metallic sweep on hover ===== */
+/* Apply .text-shimmer to any heading or text element */
+.text-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.text-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(200, 170, 110, 0.12) 50%,
+    transparent 100%
+  );
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+
+.text-shimmer:hover::after {
+  left: 120%;
+}
+
+/* ===== Smooth link underline grow ===== */
+/* Apply .link-underline to any link */
+.link-underline {
+  position: relative;
+}
+
+.link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: rgba(180, 140, 80, 0.5);
+  transition: width 0.3s ease;
+}
+
+.link-underline:hover::after,
+.link-underline:active::after {
+  width: 100%;
+}
+
+/* ===== Smooth image float on hover ===== */
+/* Apply .img-float to image containers */
+.img-float img {
+  transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.img-float:hover img {
+  transform: scale(1.04);
+}
+
+/* ===== Button press comfort ===== */
+/* Apply .btn-comfort to buttons for satisfying press feedback */
+.btn-comfort {
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.btn-comfort:active {
+  transform: scale(0.97);
+  transition: transform 0.05s ease;
+}
+
+/* ===== Smooth section reveal on scroll into view ===== */
+/* Apply .reveal-section to sections; CSS handles the rest */
+.reveal-section {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.reveal-section.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===== Ambient breathing for badges/icons ===== */
+/* Apply .breathe to elements that should subtly pulse */
+@keyframes breathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.breathe {
+  animation: breathe 3s ease-in-out infinite;
+}

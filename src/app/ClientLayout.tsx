@@ -19,6 +19,8 @@ const TouchTrail = dynamic(() => import('@/components/animation/TouchTrail'), { 
 const FilmGrain = dynamic(() => import('@/components/animation/FilmGrain'), { ssr: false });
 const Vignette = dynamic(() => import('@/components/animation/Vignette'), { ssr: false });
 const RippleEffect = dynamic(() => import('@/components/animation/RippleEffect'), { ssr: false });
+const AmbientLight = dynamic(() => import('@/components/animation/AmbientLight'), { ssr: false });
+const SmoothFadeIn = dynamic(() => import('@/components/animation/SmoothFadeIn'), { ssr: false });
 
 export default function ClientLayout({
   children,
@@ -28,6 +30,8 @@ export default function ClientLayout({
   return (
     <AppProvider>
       <ScrollProgress />
+      <SmoothFadeIn />
+      <AmbientLight />
       <PageTransition />
       <CustomCursor />
       <TouchTrail />

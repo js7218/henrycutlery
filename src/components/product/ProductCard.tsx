@@ -29,7 +29,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link href={getSafeProductPath(product.id)} className="group block">
-      <TiltCard maxTilt={6} scale={1.02} className="relative bg-surface border border-border rounded-lg overflow-hidden card-hover active:scale-[0.98] transition-transform duration-150">
+      <TiltCard maxTilt={6} scale={1.02} className="relative bg-surface border border-border rounded-lg overflow-hidden card-hover hover-soft-glow active:scale-[0.98] transition-transform duration-150">
         {/* Image Container */}
         <div className="relative aspect-[4/3] overflow-hidden bg-surfaceLight">
           <Image
@@ -78,7 +78,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             <button
               onClick={handleAddToCart}
               className={cn(
-                "w-full py-2.5 text-sm font-medium rounded flex items-center justify-center space-x-2 transition-all active:scale-95",
+                "w-full py-2.5 text-sm font-medium rounded flex items-center justify-center space-x-2 transition-all btn-comfort active:scale-95",
                 justAdded
                   ? "bg-green-500 text-white"
                   : "bg-gold text-background hover:bg-goldLight"
