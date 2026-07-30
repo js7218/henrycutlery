@@ -7,6 +7,7 @@ import { Product } from '@/types';
 import { formatPrice, cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
 import { getSafeProductPath } from '@/lib/safeNavigation';
+import TiltCard from '@/components/animation/TiltCard';
 
 interface ProductCardProps {
   product: Product;
@@ -28,7 +29,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link href={getSafeProductPath(product.id)} className="group block">
-      <div className="bg-surface border border-border rounded-lg overflow-hidden card-hover active:scale-[0.98] transition-transform duration-150">
+      <TiltCard maxTilt={6} scale={1.02} className="relative bg-surface border border-border rounded-lg overflow-hidden card-hover active:scale-[0.98] transition-transform duration-150">
         {/* Image Container */}
         <div className="relative aspect-[4/3] overflow-hidden bg-surfaceLight">
           <Image
@@ -41,7 +42,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           />
           
           {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-col space-y-2">
+          <div className="absolute top-3 left-3 flex flex-col space-y-2 z-10">
             {product.isNew && (
               <span className="flex items-center px-2 py-1 bg-gold text-background text-xs font-medium rounded shadow-lg">
                 <Sparkles className="w-3 h-3 mr-1" />
@@ -57,7 +58,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {/* Quick Actions - always visible on mobile, hover on desktop */}
-          <div className="absolute top-3 right-3 flex flex-col space-y-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <div className="absolute top-3 right-3 flex flex-col space-y-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10">
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -73,7 +74,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
 
           {/* Add to Cart Button - mobile: always visible at bottom, desktop: slides up on hover */}
-          <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-background/95 to-transparent sm:translate-y-full sm:group-hover:translate-y-0 transition-transform duration-300">
+          <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-background/95 to-transparent sm:translate-y-full sm:group-hover:translate-y-0 transition-transform duration-300 z-10">
             <button
               onClick={handleAddToCart}
               className={cn(
@@ -96,7 +97,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         </div>
 
         {/* Content */}
-        <div className="p-4">
+        <div className="p-4 relative" style={{ transform: 'translateZ(20px)' }}>
           {/* Brand */}
           <p className="text-xs text-steel uppercase tracking-wider mb-1">
             {product.brand}
@@ -129,7 +130,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
         </div>
-      </div>
+      </TiltCard>
     </Link>
   );
 }

@@ -9,6 +9,7 @@ import UrlPathHider from '@/components/security/UrlPathHider';
 import HumanVerificationGate from '@/components/security/HumanVerificationGate';
 import WafBrowserCheck from '@/components/security/WafBrowserCheck';
 import ChatWidget from '@/components/support/ChatWidget';
+import ScrollProgress from '@/components/animation/ScrollProgress';
 
 export default function ClientLayout({
   children,
@@ -17,6 +18,7 @@ export default function ClientLayout({
 }) {
   return (
     <AppProvider>
+      <ScrollProgress />
       <Suspense fallback={null}>
         <HumanVerificationGate />
       </Suspense>

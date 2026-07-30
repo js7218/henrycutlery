@@ -7,6 +7,9 @@ import { ArrowRight, Shield, Truck, Award, Factory, Globe2, Wrench } from 'lucid
 import { gsap, useGSAP, ScrollTrigger, onAgeVerified } from '@/lib/gsap';
 import ScrollReveal from '@/components/animation/ScrollReveal';
 import MagneticButton from '@/components/animation/MagneticButton';
+import TextSplitReveal from '@/components/animation/TextSplitReveal';
+import ImageReveal from '@/components/animation/ImageReveal';
+import GoldParticles from '@/components/animation/GoldParticles';
 
 export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
@@ -128,6 +131,9 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-br from-background via-background/85 to-background/40" />
         </div>
 
+        {/* Floating gold particles */}
+        <GoldParticles count={35} className="z-[5]" />
+
         <div className="relative z-10 w-full px-4 md:px-8 lg:px-16 max-w-7xl mx-auto pt-20 pb-16">
           <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8 lg:gap-16 items-center">
             {/* Left: Text */}
@@ -139,8 +145,12 @@ export default function Home() {
                 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-[0.95]"
                 style={{ fontFamily: 'Playfair Display, serif' }}
               >
-                <span className="hero-title-line block text-gold-gradient" data-gsap-anim>ADAM</span>
-                <span className="hero-title-line block text-foreground" data-gsap-anim>CUTLERY</span>
+                <TextSplitReveal className="hero-title-line block text-gold-gradient" delay={0.3} stagger={0.06} duration={0.7}>
+                  ADAM
+                </TextSplitReveal>
+                <TextSplitReveal className="hero-title-line block text-foreground" delay={0.6} stagger={0.06} duration={0.7}>
+                  CUTLERY
+                </TextSplitReveal>
               </h1>
               <p className="hero-sub text-xl md:text-2xl text-gray-300 mb-4 max-w-xl" data-gsap-anim>
                 Precision-forged blades for global wholesale.
@@ -167,9 +177,9 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right: Image */}
+            {/* Right: Image with curtain reveal */}
             <div className="hero-image order-1 lg:order-2 relative" data-gsap-anim>
-              <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl">
+              <ImageReveal direction="left" duration={1.4} delay={0.4} className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl">
                 <Image
                   src="/products/collection/the-best-collection-1.jpeg"
                   alt="The Best Collection knife"
@@ -179,7 +189,7 @@ export default function Home() {
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />
-              </div>
+              </ImageReveal>
               {/* Floating accent */}
               <div className="absolute -bottom-6 -left-6 bg-surface/90 backdrop-blur-md border border-gold/20 rounded-xl p-5 shadow-xl hidden md:block">
                 <p className="text-3xl font-bold text-gold" data-counter="500">0</p>
@@ -273,7 +283,7 @@ export default function Home() {
             </ScrollReveal>
           </div>
 
-          {/* Factory images with parallax */}
+          {/* Factory images with reveal animation */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
               { src: '/images/factory1.jpg', span: 'col-span-2 row-span-2' },
@@ -290,7 +300,7 @@ export default function Home() {
                 delay={i * 0.08}
                 className={img.span}
               >
-                <div className={`relative rounded-xl overflow-hidden border border-border ${i === 0 ? 'aspect-square md:aspect-[4/3]' : 'aspect-[4/3]'}`}>
+                <ImageReveal direction={i % 2 === 0 ? 'left' : 'right'} duration={1} delay={i * 0.05} scrollTrigger start="top 85%" className={`relative rounded-xl overflow-hidden border border-border ${i === 0 ? 'aspect-square md:aspect-[4/3]' : 'aspect-[4/3]'}`}>
                   <Image
                     src={img.src}
                     alt={`Factory ${i + 1}`}
@@ -299,7 +309,7 @@ export default function Home() {
                     sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
                     className="object-cover hover:scale-110 transition-transform duration-700"
                   />
-                </div>
+                </ImageReveal>
               </ScrollReveal>
             ))}
           </div>
