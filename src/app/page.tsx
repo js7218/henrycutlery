@@ -17,10 +17,15 @@ import { formatPrice } from '@/lib/utils';
 export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
   const [animReady, setAnimReady] = useState(false);
+  const [heroKey, setHeroKey] = useState(0);
 
-  // Wait for age verification before running GSAP enhancements
+  // Wait for age verification before running animations
   useEffect(() => {
-    onAgeVerified(() => setAnimReady(true));
+    onAgeVerified(() => {
+      setAnimReady(true);
+      // Force hero remount to restart CSS animations from scratch
+      setHeroKey((k) => k + 1);
+    });
   }, []);
 
   // GSAP enhancement layer: smooth parallax + stats counter
@@ -67,7 +72,7 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* ===== HERO ===== */}
-      <section ref={heroRef} className="relative min-h-[90vh] flex items-center overflow-hidden">
+      <section ref={heroRef} key={heroKey} className="relative min-h-[90vh] flex items-center overflow-hidden">
         {/* Parallax background */}
         <div className="hero-bg absolute inset-0 z-0">
           <Image
