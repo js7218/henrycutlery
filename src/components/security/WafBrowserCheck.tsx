@@ -217,64 +217,83 @@ export default function WafBrowserCheck({ children }: { children: ReactNode }) {
   // Once passed, render children immediately without any overlay
   if (state === 'passed') return <>{children}</>;
 
-  // While checking: render children underneath (so GSAP can initialise) but
-  // show the overlay ON TOP only if the check is taking unusually long.
-  if (state === 'checking' && !showOverlay) {
-    // Render children immediately — the check is running in the background
-    // and will complete before the user perceives any delay.
-    return <>{children}</>;
+  // While checking: ALWAYS render children directly so React doesn't
+  // re-mount them (which would reset animation state in child components).
+  // The overlay (if shown) simply covers them on top.
+  if (state === 'checking') {
+    if (!showOverlay) {
+      // Fast path: check will complete within grace period, no overlay needed
+      return <>{children}</>;
+    }
+
+    // Slow path: overlay is shown ON TOP of children.
+    // Children stay in their normal DOM position — no re-mounting.
+    return (
+      <>
+        {children}
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/95 backdrop-blur-sm">
+          <div className="w-full max-w-md mx-4 rounded-xl border border-border bg-surface p-8 shadow-2xl">
+            <div className="flex justify-center mb-5">
+              <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center">
+                <ShieldCheck className="w-8 h-8 text-gold" />
+              </div>
+            </div>
+
+            <h2 className="text-xl font-semibold text-foreground text-center mb-3">
+              Checking your browser
+            </h2>
+            <p className="text-sm text-gray-400 text-center leading-relaxed mb-6">
+              {statusText}
+            </p>
+
+            <div className="flex justify-center mb-6">
+              <Loader2 className="h-10 w-10 animate-spin text-gold" />
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-surfaceLight border border-border">
+              <div
+                className="h-full rounded-full bg-gold transition-[width] duration-200"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+
+            <p className="text-xs text-gray-500 text-center mt-4">
+              This Cloudflare-style WAF check runs before age verification.
+            </p>
+          </div>
+        </div>
+      </>
+    );
   }
 
-  // Only show the overlay if the check is taking too long or has blocked
+  // Blocked state
   return (
     <>
-      {/* Render children underneath so they're ready when check passes */}
-      <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-        {children}
-      </div>
+      {children}
       <div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/95 backdrop-blur-sm">
         <div className="w-full max-w-md mx-4 rounded-xl border border-border bg-surface p-8 shadow-2xl">
           <div className="flex justify-center mb-5">
             <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center">
-              {state === 'blocked' ? (
-                <Ban className="w-8 h-8 text-red-400" />
-              ) : (
-                <ShieldCheck className="w-8 h-8 text-gold" />
-              )}
+              <Ban className="w-8 h-8 text-red-400" />
             </div>
           </div>
 
           <h2 className="text-xl font-semibold text-foreground text-center mb-3">
-            {state === 'blocked' ? 'Access Denied' : 'Checking your browser'}
+            Access Denied
           </h2>
           <p className="text-sm text-gray-400 text-center leading-relaxed mb-6">
             {statusText}
           </p>
 
-          {state === 'checking' ? (
-            <>
-              <div className="flex justify-center mb-6">
-                <Loader2 className="h-10 w-10 animate-spin text-gold" />
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-surfaceLight border border-border">
-                <div
-                  className="h-full rounded-full bg-gold transition-[width] duration-200"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setProgress(12);
-                setState('checking');
-              }}
-              className="w-full rounded-lg border border-border px-4 py-3 text-sm text-gray-300 hover:border-gold hover:text-gold transition-colors"
-            >
-              Try again
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setProgress(12);
+              setState('checking');
+            }}
+            className="w-full rounded-lg border border-border px-4 py-3 text-sm text-gray-300 hover:border-gold hover:text-gold transition-colors"
+          >
+            Try again
+          </button>
 
           <p className="text-xs text-gray-500 text-center mt-4">
             This Cloudflare-style WAF check runs before age verification.

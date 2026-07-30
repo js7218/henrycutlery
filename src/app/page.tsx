@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Shield, Truck, Award, Factory, Globe2, Wrench } from 'lucide-react';
@@ -13,51 +13,11 @@ import { formatPrice } from '@/lib/utils';
 
 export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
-  const [show, setShow] = useState(false);
 
-  // Trigger entrance animations after a short delay (age verification modal
-  // is typically dismissed by then). Also listen for the age-verified event.
-  useEffect(() => {
-    // If already verified (returning visitor), show immediately
-    try {
-      if (sessionStorage.getItem('age_verified') === 'true') {
-        setShow(true);
-        return;
-      }
-    } catch {}
-
-    // Listen for age verification event
-    const handler = () => {
-      setShow(true);
-    };
-    window.addEventListener('age-verified', handler);
-
-    // Fallback: show after 3 seconds regardless
-    const timer = setTimeout(() => setShow(true), 3000);
-
-    return () => {
-      window.removeEventListener('age-verified', handler);
-      clearTimeout(timer);
-    };
-  }, []);
-
-  // Inline style helper: animates from hidden to visible based on `show` state
-  const animStyle = (delay: number, extraFrom: Record<string, string> = {}) => ({
-    opacity: show ? 1 : 0,
-    transform: show
-      ? 'translateY(0) scale(1)'
-      : `translateY(50px) scale(0.95)`,
-    filter: show ? 'blur(0px)' : 'blur(8px)',
-    transition: `opacity 0.8s ${delay}s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.8s ${delay}s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.6s ${delay}s ease`,
-    willChange: 'opacity, transform, filter',
-  });
-
-  const imgAnimStyle = {
-    opacity: show ? 1 : 0,
-    transform: show ? 'scale(1) rotate(0deg)' : 'scale(1.25) rotate(2deg)',
-    transition: 'opacity 1.2s 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 1.2s 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-    willChange: 'opacity, transform',
-  };
+  // No JavaScript state for hero animations.
+  // CSS animations handle everything — they play on mount and are
+  // bulletproof on all browsers including mobile.
+  // Content is ALWAYS visible by default; animations just enhance.
 
   return (
     <div className="min-h-screen">
@@ -78,11 +38,10 @@ export default function Home() {
 
         <div className="relative z-10 w-full px-4 md:px-8 lg:px-16 max-w-7xl mx-auto pt-20 pb-16">
           <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8 lg:gap-16 items-center">
-            {/* Left: Text — React state driven inline styles */}
+            {/* Left: Text — CSS animation classes, content always visible */}
             <div className="order-2 lg:order-1">
               <p
-                style={animStyle(0.1)}
-                className="text-gold text-sm tracking-[0.3em] uppercase mb-6"
+                className="text-gold text-sm tracking-[0.3em] uppercase mb-6 hero-enter-1"
               >
                 Premium Cutlery Manufacturing
               </p>
@@ -90,22 +49,20 @@ export default function Home() {
                 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-[0.95]"
                 style={{ fontFamily: 'Playfair Display, serif' }}
               >
-                <span className="block text-gold-gradient" style={animStyle(0.2)}>
+                <span className="block text-gold-gradient hero-enter-2">
                   ADAM
                 </span>
-                <span className="block text-foreground" style={animStyle(0.35)}>
+                <span className="block text-foreground hero-enter-3">
                   CUTLERY
                 </span>
               </h1>
               <p
-                style={animStyle(0.5)}
-                className="text-xl md:text-2xl text-gray-300 mb-4 max-w-xl"
+                className="text-xl md:text-2xl text-gray-300 mb-4 max-w-xl hero-enter-4"
               >
                 Precision-forged blades for global wholesale.
               </p>
               <p
-                style={animStyle(0.6)}
-                className="text-gray-400 mb-10 max-w-xl leading-relaxed"
+                className="text-gray-400 mb-10 max-w-xl leading-relaxed hero-enter-5"
               >
                 From Damascus chef knives to titanium folding blades, we manufacture
                 premium cutlery with CNC precision. OEM customization, competitive MOQ
@@ -114,16 +71,14 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
                   href="/products"
-                  style={animStyle(0.75)}
-                  className="inline-flex items-center justify-center px-8 py-4 bg-gold text-background font-semibold rounded-lg animate-glow-pulse"
+                  className="hero-enter-6 inline-flex items-center justify-center px-8 py-4 bg-gold text-background font-semibold rounded-lg animate-glow-pulse"
                 >
                   Browse Products
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
                 <Link
                   href="/products?category=folding"
-                  style={animStyle(0.85)}
-                  className="inline-flex items-center justify-center px-8 py-4 border border-gold/50 text-gold font-semibold rounded-lg animate-border-glow"
+                  className="hero-enter-7 inline-flex items-center justify-center px-8 py-4 border border-gold/50 text-gold font-semibold rounded-lg animate-border-glow"
                 >
                   Folding Knives
                 </Link>
@@ -131,7 +86,7 @@ export default function Home() {
             </div>
 
             {/* Right: Image */}
-            <div className="order-1 lg:order-2 relative" style={imgAnimStyle}>
+            <div className="order-1 lg:order-2 relative hero-enter-img">
               <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl">
                 <Image
                   src="/products/collection/the-best-collection-1.jpeg"

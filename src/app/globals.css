@@ -338,18 +338,44 @@ img {
   visibility: visible;
 }
 
-/* Reduced motion: disable all transforms, show content immediately */
+/* Reduced motion: only disable AGGRESSIVE animations (parallax, screen-shake).
+   Keep subtle fade-ins and opacity transitions so content still feels alive.
+   Do NOT use `* { transition-duration: 0.01ms !important }` — that kills
+   ALL animations on mobile devices where prefers-reduced-motion is common. */
 @media (prefers-reduced-motion: reduce) {
   [data-gsap-anim] {
     opacity: 1 !important;
-    transform: none !important;
     visibility: visible !important;
   }
-  
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+
+  /* Only disable continuous motion animations, NOT entrance fades */
+  .animate-hero-float,
+  .animate-stat-pulse,
+  .animate-icon-pulse,
+  .animate-bg-shift {
+    animation: none !important;
+  }
+
+  /* Keep transitions but make them shorter, not instant */
+  .anim-fade-up,
+  .anim-fade-in,
+  .anim-scale-in,
+  .anim-slide-left,
+  .anim-slide-right,
+  [data-reveal-child] {
+    transition-duration: 0.3s !important;
+  }
+
+  /* Hero entrance: keep playing but shorter duration */
+  .hero-enter-1,
+  .hero-enter-2,
+  .hero-enter-3,
+  .hero-enter-4,
+  .hero-enter-5,
+  .hero-enter-6,
+  .hero-enter-7,
+  .hero-enter-img {
+    animation-duration: 0.4s !important;
   }
 }
 
@@ -632,6 +658,45 @@ img {
   animation: card-enter 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
+/* ================================================================
+   HERO ENTRANCE ANIMATIONS — Pure CSS, plays on mount.
+   Content is visible by default. These classes add a fade-up entrance.
+   If animation doesn't play (old browser, reduced motion), content
+   is still visible because the default opacity is 1.
+   ================================================================ */
+
+@keyframes hero-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-img-in {
+  from {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Staggered hero entrance classes */
+.hero-enter-1 { animation: hero-fade-up 0.7s 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.hero-enter-2 { animation: hero-fade-up 0.7s 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.hero-enter-3 { animation: hero-fade-up 0.7s 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.hero-enter-4 { animation: hero-fade-up 0.7s 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.hero-enter-5 { animation: hero-fade-up 0.7s 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.hero-enter-6 { animation: hero-fade-up 0.7s 0.75s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.hero-enter-7 { animation: hero-fade-up 0.7s 0.85s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.hero-enter-img { animation: hero-img-in 1s 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+
 /* Base: elements hidden until .revealed is added */
 [data-reveal-container] {
   opacity: 1; /* Always visible by default */
@@ -864,34 +929,33 @@ img {
 }
 
 /* ================================================================
-   REDUCED MOTION: Respect user preference
+   REDUCED MOTION: Respect user preference but keep content alive
+   Only disable continuous motion, NOT entrance fade-ins.
    ================================================================ */
 @media (prefers-reduced-motion: reduce) {
+  /* Disable continuous animations that cause motion sickness */
+  .animate-hero-float,
+  .animate-stat-pulse,
+  .animate-icon-pulse,
+  .animate-bg-shift {
+    animation: none !important;
+  }
+
+  /* Keep entrance animations but make them shorter */
   .anim-fade-up,
   .anim-fade-in,
   .anim-scale-in,
   .anim-slide-left,
   .anim-slide-right,
   [data-reveal-child] {
-    opacity: 1 !important;
-    transform: none !important;
-    transition: none !important;
+    transition-duration: 0.3s !important;
   }
 
-  .animate-hero-title,
-  .animate-hero-sub,
-  .animate-hero-cta,
-  .animate-hero-img,
-  .animate-hero-float,
-  .animate-glow-pulse,
-  .animate-border-glow,
-  .animate-shimmer,
-  .animate-text-glow,
-  .animate-card-enter,
-  .animate-stat-pulse,
-  .animate-icon-pulse,
-  .animate-bg-shift {
-     animation: none !important;
-     opacity: 1 !important;
-   }
+  /* Ensure content is always visible */
+  [data-reveal-child] {
+    opacity: 1 !important;
+  }
+  [data-reveal-child].revealed {
+    opacity: 1 !important;
+  }
  }
