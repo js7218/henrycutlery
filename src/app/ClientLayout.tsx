@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { AppProvider } from '@/context/AppContext';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -11,6 +12,11 @@ import WafBrowserCheck from '@/components/security/WafBrowserCheck';
 import ChatWidget from '@/components/support/ChatWidget';
 import ScrollProgress from '@/components/animation/ScrollProgress';
 
+// Dynamically import effects that use browser APIs (no SSR)
+const PageTransition = dynamic(() => import('@/components/animation/PageTransition'), { ssr: false });
+const CustomCursor = dynamic(() => import('@/components/animation/CustomCursor'), { ssr: false });
+const TouchTrail = dynamic(() => import('@/components/animation/TouchTrail'), { ssr: false });
+
 export default function ClientLayout({
   children,
 }: {
@@ -19,6 +25,9 @@ export default function ClientLayout({
   return (
     <AppProvider>
       <ScrollProgress />
+      <PageTransition />
+      <CustomCursor />
+      <TouchTrail />
       <Suspense fallback={null}>
         <HumanVerificationGate />
       </Suspense>

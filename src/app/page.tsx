@@ -10,6 +10,10 @@ import MagneticButton from '@/components/animation/MagneticButton';
 import TextSplitReveal from '@/components/animation/TextSplitReveal';
 import ImageReveal from '@/components/animation/ImageReveal';
 import GoldParticles from '@/components/animation/GoldParticles';
+import ParticleField from '@/components/animation/ParticleField';
+import HorizontalPinScroll, { HorizontalPanel } from '@/components/animation/HorizontalPinScroll';
+import { products } from '@/data/products';
+import { formatPrice } from '@/lib/utils';
 
 export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
@@ -130,6 +134,9 @@ export default function Home() {
           />
           <div className="absolute inset-0 bg-gradient-to-br from-background via-background/85 to-background/40" />
         </div>
+
+        {/* 3D Golden particle field - S+ tier visual */}
+        <ParticleField className="absolute inset-0 z-[2]" count={2000} />
 
         {/* Floating gold particles */}
         <GoldParticles count={35} className="z-[5]" />
@@ -432,6 +439,80 @@ export default function Home() {
               </ScrollReveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ===== HORIZONTAL PIN SCROLL: Premium product showcase ===== */}
+      <section className="py-20 md:py-32 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 mb-10 md:mb-16">
+          <ScrollReveal direction="up">
+            <p className="text-gold text-sm tracking-[0.3em] uppercase mb-4 text-center md:text-left">
+              Signature Collection
+            </p>
+            <h2
+              className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground text-center md:text-left"
+              style={{ fontFamily: 'Playfair Display, serif' }}
+            >
+              Crafted to perfection
+            </h2>
+            <p className="text-gray-400 mt-4 text-center md:text-left max-w-2xl">
+              Scroll to explore our finest blades — each forged with precision and passion.
+            </p>
+          </ScrollReveal>
+        </div>
+
+        <HorizontalPinScroll panels={5} gap={32} className="hidden md:block">
+          {products.slice(0, 8).map((product) => (
+            <HorizontalPanel key={product.id}>
+              <Link href={`/products/${product.id}`} className="group block relative aspect-[3/4] rounded-2xl overflow-hidden border border-border hover:border-gold/40 transition-colors">
+                <Image
+                  src={product.images[0] || '/products/test-product-placeholder.png'}
+                  alt={product.name}
+                  fill
+                  sizes="(max-width: 1024px) 40vw, 30vw"
+                  className="object-cover group-hover:scale-110 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-6">
+                  <p className="text-gold text-xs tracking-wider uppercase mb-2">{product.category}</p>
+                  <h3 className="text-xl font-bold text-foreground mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
+                    {product.name.toUpperCase()}
+                  </h3>
+                  <div className="flex items-center justify-between">
+                    <span className="text-2xl font-bold text-gold">{formatPrice(product.price)}</span>
+                    <span className="inline-flex items-center text-gold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                      View <ArrowRight className="w-4 h-4 ml-1" />
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            </HorizontalPanel>
+          ))}
+        </HorizontalPinScroll>
+
+        {/* Mobile: native horizontal scroll */}
+        <div className="md:hidden flex gap-4 overflow-x-auto snap-x snap-mandatory px-4 pb-4 -mx-4 scrollbar-hide">
+          {products.slice(0, 8).map((product) => (
+            <div key={product.id} className="flex-shrink-0 w-[80vw] snap-center">
+              <Link href={`/products/${product.id}`} className="group block relative aspect-[3/4] rounded-2xl overflow-hidden border border-border active:border-gold/40 transition-colors">
+                <Image
+                  src={product.images[0] || '/products/test-product-placeholder.png'}
+                  alt={product.name}
+                  fill
+                  sizes="80vw"
+                  className="object-cover group-hover:scale-110 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-6">
+                  <p className="text-gold text-xs tracking-wider uppercase mb-2">{product.category}</p>
+                  <h3 className="text-xl font-bold text-foreground mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
+                    {product.name.toUpperCase()}
+                  </h3>
+                  <span className="text-2xl font-bold text-gold">{formatPrice(product.price)}</span>
+                </div>
+              </Link>
+            </div>
+          ))}
         </div>
       </section>
 

@@ -443,3 +443,13 @@ img {
   66% { border-image-source: linear-gradient(240deg, #c9a962, #d4b978, #c9a962); }
   100% { border-image-source: linear-gradient(360deg, #c9a962, #d4b978, #c9a962); }
 }
+
+/* Hide scrollbar for horizontal scroll containers */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
