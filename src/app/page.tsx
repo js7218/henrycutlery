@@ -4,11 +4,8 @@ import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Shield, Truck, Award, Factory, Globe2, Wrench } from 'lucide-react';
-import { gsap, useGSAP, ScrollTrigger, onAgeVerified } from '@/lib/gsap';
-import ScrollReveal from '@/components/animation/ScrollReveal';
 import UniversalReveal, { RevealChild } from '@/components/animation/UniversalReveal';
-import MagneticButton from '@/components/animation/MagneticButton';
-import TextSplitReveal from '@/components/animation/TextSplitReveal';
+import ScrollReveal from '@/components/animation/ScrollReveal';
 import ImageReveal from '@/components/animation/ImageReveal';
 import HorizontalPinScroll, { HorizontalPanel } from '@/components/animation/HorizontalPinScroll';
 import { products } from '@/data/products';
@@ -16,65 +13,58 @@ import { formatPrice } from '@/lib/utils';
 
 export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
-  const [animReady, setAnimReady] = useState(false);
-  const [heroKey, setHeroKey] = useState(0);
+  const [show, setShow] = useState(false);
 
-  // Wait for age verification before running animations
+  // Trigger entrance animations after a short delay (age verification modal
+  // is typically dismissed by then). Also listen for the age-verified event.
   useEffect(() => {
-    onAgeVerified(() => {
-      setAnimReady(true);
-      // Force hero remount to restart CSS animations from scratch
-      setHeroKey((k) => k + 1);
-    });
+    // If already verified (returning visitor), show immediately
+    try {
+      if (sessionStorage.getItem('age_verified') === 'true') {
+        setShow(true);
+        return;
+      }
+    } catch {}
+
+    // Listen for age verification event
+    const handler = () => {
+      setShow(true);
+    };
+    window.addEventListener('age-verified', handler);
+
+    // Fallback: show after 3 seconds regardless
+    const timer = setTimeout(() => setShow(true), 3000);
+
+    return () => {
+      window.removeEventListener('age-verified', handler);
+      clearTimeout(timer);
+    };
   }, []);
 
-  // GSAP enhancement layer: smooth parallax + stats counter
-  useGSAP(
-    () => {
-      if (!animReady) return;
+  // Inline style helper: animates from hidden to visible based on `show` state
+  const animStyle = (delay: number, extraFrom: Record<string, string> = {}) => ({
+    opacity: show ? 1 : 0,
+    transform: show
+      ? 'translateY(0) scale(1)'
+      : `translateY(50px) scale(0.95)`,
+    filter: show ? 'blur(0px)' : 'blur(8px)',
+    transition: `opacity 0.8s ${delay}s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.8s ${delay}s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.6s ${delay}s ease`,
+    willChange: 'opacity, transform, filter',
+  });
 
-      // ---- Desktop parallax ----
-      const mm = gsap.matchMedia();
-      mm.add('(min-width: 768px)', () => {
-        gsap.to('.hero-bg', {
-          yPercent: 30,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: heroRef.current,
-            start: 'top top',
-            end: 'bottom top',
-            scrub: 1,
-          },
-        });
-      });
-
-      // ---- Stats counter ----
-      const stats = document.querySelectorAll('[data-counter]');
-      stats.forEach((stat) => {
-        const target = parseInt(stat.getAttribute('data-counter') || '0', 10);
-        const obj = { val: 0 };
-        gsap.to(obj, {
-          val: target,
-          duration: 2,
-          ease: 'power2.out',
-          scrollTrigger: { trigger: stat, start: 'top 90%', once: true },
-          onUpdate: () => {
-            stat.textContent = Math.floor(obj.val).toLocaleString();
-          },
-        });
-      });
-
-      setTimeout(() => ScrollTrigger.refresh(), 500);
-    },
-    { scope: heroRef, dependencies: [animReady] }
-  );
+  const imgAnimStyle = {
+    opacity: show ? 1 : 0,
+    transform: show ? 'scale(1) rotate(0deg)' : 'scale(1.25) rotate(2deg)',
+    transition: 'opacity 1.2s 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 1.2s 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+    willChange: 'opacity, transform',
+  };
 
   return (
     <div className="min-h-screen">
       {/* ===== HERO ===== */}
-      <section ref={heroRef} key={heroKey} className="relative min-h-[90vh] flex items-center overflow-hidden">
+      <section ref={heroRef} className="relative min-h-[90vh] flex items-center overflow-hidden">
         {/* Parallax background */}
-        <div className="hero-bg absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0">
           <Image
             src="/products/collection/the-best-collection-1.jpeg"
             alt=""
@@ -88,26 +78,35 @@ export default function Home() {
 
         <div className="relative z-10 w-full px-4 md:px-8 lg:px-16 max-w-7xl mx-auto pt-20 pb-16">
           <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8 lg:gap-16 items-center">
-            {/* Left: Text — CSS animations auto-play immediately */}
+            {/* Left: Text — React state driven inline styles */}
             <div className="order-2 lg:order-1">
-              <p className="text-gold text-sm tracking-[0.3em] uppercase mb-6 animate-hero-sub">
+              <p
+                style={animStyle(0.1)}
+                className="text-gold text-sm tracking-[0.3em] uppercase mb-6"
+              >
                 Premium Cutlery Manufacturing
               </p>
               <h1
                 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-[0.95]"
                 style={{ fontFamily: 'Playfair Display, serif' }}
               >
-                <span className="block text-gold-gradient animate-hero-title">
+                <span className="block text-gold-gradient" style={animStyle(0.2)}>
                   ADAM
                 </span>
-                <span className="block text-foreground animate-hero-title" style={{ animationDelay: '0.2s' }}>
+                <span className="block text-foreground" style={animStyle(0.35)}>
                   CUTLERY
                 </span>
               </h1>
-              <p className="text-xl md:text-2xl text-gray-300 mb-4 max-w-xl animate-hero-sub" style={{ animationDelay: '0.5s' }}>
+              <p
+                style={animStyle(0.5)}
+                className="text-xl md:text-2xl text-gray-300 mb-4 max-w-xl"
+              >
                 Precision-forged blades for global wholesale.
               </p>
-              <p className="text-gray-400 mb-10 max-w-xl leading-relaxed animate-hero-sub" style={{ animationDelay: '0.6s' }}>
+              <p
+                style={animStyle(0.6)}
+                className="text-gray-400 mb-10 max-w-xl leading-relaxed"
+              >
                 From Damascus chef knives to titanium folding blades, we manufacture
                 premium cutlery with CNC precision. OEM customization, competitive MOQ
                 pricing, and worldwide shipping.
@@ -115,15 +114,16 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
                   href="/products"
-                  className="animate-hero-cta inline-flex items-center justify-center px-8 py-4 bg-gold text-background font-semibold rounded-lg animate-glow-pulse"
+                  style={animStyle(0.75)}
+                  className="inline-flex items-center justify-center px-8 py-4 bg-gold text-background font-semibold rounded-lg animate-glow-pulse"
                 >
                   Browse Products
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
                 <Link
                   href="/products?category=folding"
-                  className="animate-hero-cta inline-flex items-center justify-center px-8 py-4 border border-gold/50 text-gold font-semibold rounded-lg animate-border-glow"
-                  style={{ animationDelay: '0.9s' }}
+                  style={animStyle(0.85)}
+                  className="inline-flex items-center justify-center px-8 py-4 border border-gold/50 text-gold font-semibold rounded-lg animate-border-glow"
                 >
                   Folding Knives
                 </Link>
@@ -131,7 +131,7 @@ export default function Home() {
             </div>
 
             {/* Right: Image */}
-            <div className="order-1 lg:order-2 relative animate-hero-img">
+            <div className="order-1 lg:order-2 relative" style={imgAnimStyle}>
               <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl">
                 <Image
                   src="/products/collection/the-best-collection-1.jpeg"
@@ -145,7 +145,7 @@ export default function Home() {
               </div>
               {/* Floating accent */}
               <div className="absolute -bottom-6 -left-6 bg-surface/90 backdrop-blur-md border border-gold/20 rounded-xl p-5 shadow-xl hidden md:block animate-hero-float">
-                <p className="text-3xl font-bold text-gold" data-counter="500">500</p>
+                <p className="text-3xl font-bold text-gold">500+</p>
                 <p className="text-xs text-gray-400 uppercase tracking-wider">Global Clients</p>
               </div>
             </div>
@@ -165,15 +165,15 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">
           <UniversalReveal stagger={0.1} className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: 500, label: 'Global Clients', suffix: '+' },
-              { value: 15, label: 'Years Experience', suffix: '+' },
-              { value: 50, label: 'Countries Shipped', suffix: '+' },
-              { value: 100, label: 'Product Styles', suffix: '+' },
+              { value: '500+', label: 'Global Clients' },
+              { value: '15+', label: 'Years Experience' },
+              { value: '50+', label: 'Countries Shipped' },
+              { value: '100+', label: 'Product Styles' },
             ].map((stat, i) => (
               <RevealChild key={i}>
                 <div>
                   <p className="text-3xl md:text-4xl font-bold text-gold animate-stat-pulse">
-                    <span data-counter={stat.value}>{stat.value}</span>{stat.suffix}
+                    {stat.value}
                   </p>
                   <p className="text-xs md:text-sm text-gray-400 uppercase tracking-wider mt-1">
                     {stat.label}
@@ -272,7 +272,7 @@ export default function Home() {
           <UniversalReveal className="text-center mb-16">
             <p className="text-gold text-sm tracking-[0.3em] uppercase mb-4">Our Collections</p>
             <h2
-              className="text-4xl md:text-5xl font-bold text-gold-gradient mb-4"
+              className="text-4xl md:text-5xl font-bold text-gold-gradient"
               style={{ fontFamily: 'Playfair Display, serif' }}
             >
               Explore by Category
@@ -280,7 +280,6 @@ export default function Home() {
           </UniversalReveal>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 auto-rows-[200px]">
-            {/* Large card */}
             <UniversalReveal anim="scale-in" className="md:col-span-2 lg:col-span-2 row-span-2">
               <Link
                 href="/products?category=collection"
@@ -306,7 +305,6 @@ export default function Home() {
               </Link>
             </UniversalReveal>
 
-            {/* Medium cards */}
             {[
               { name: 'Folding', desc: 'EDC & tactical folders', href: '/products?category=folding', img: '/images/ti.jpg' },
               { name: 'Kitchen', desc: 'Professional chef knives', href: '/products?category=kitchen', img: '/images/ca1d285711b90eaa22a99762c802bd48.jpg' },
@@ -419,9 +417,7 @@ export default function Home() {
                   <h3 className="text-xl font-bold text-foreground mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
                     {product.name.toUpperCase()}
                   </h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl font-bold text-gold">{formatPrice(product.price)}</span>
-                  </div>
+                  <span className="text-2xl font-bold text-gold">{formatPrice(product.price)}</span>
                 </div>
               </Link>
             </HorizontalPanel>
