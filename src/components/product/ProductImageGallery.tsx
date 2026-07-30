@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Eye, RotateCw } from 'lucide-react';
 import ThreeDImage from '@/components/animation/ThreeDImage';
-import Product360Viewer from '@/components/animation/Product360Viewer';
+import Product3DViewer from '@/components/animation/Product3DViewer';
 
 type ViewMode = 'tilt' | 'rotate';
 
@@ -84,11 +84,10 @@ export default function ProductImageGallery({ images, productName }: ProductImag
             onError={handleImageError}
           />
         ) : (
-          <Product360Viewer
+          <Product3DViewer
             src={currentSrc}
             alt={`${productName} - Image ${currentIndex + 1}`}
             className="absolute inset-0"
-            sensitivity={0.5}
           />
         )}
         
