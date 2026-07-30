@@ -20,13 +20,13 @@ interface ScrollRevealProps {
   once?: boolean;
 }
 
-const directionMap: Record<string, { from: gsap.TweenVars }> = {
-  up: { from: { y: 80, opacity: 0 } },
-  down: { from: { y: -80, opacity: 0 } },
-  left: { from: { x: -80, opacity: 0 } },
-  right: { from: { x: 80, opacity: 0 } },
-  scale: { from: { scale: 0.8, opacity: 0 } },
-  fade: { from: { opacity: 0 } },
+const directionMap: Record<string, { from: gsap.TweenVars; to: gsap.TweenVars }> = {
+  up: { from: { y: 80, opacity: 0 }, to: { y: 0, opacity: 1 } },
+  down: { from: { y: -80, opacity: 0 }, to: { y: 0, opacity: 1 } },
+  left: { from: { x: -80, opacity: 0 }, to: { x: 0, opacity: 1 } },
+  right: { from: { x: 80, opacity: 0 }, to: { x: 0, opacity: 1 } },
+  scale: { from: { scale: 0.8, opacity: 0 }, to: { scale: 1, opacity: 1 } },
+  fade: { from: { opacity: 0 }, to: { opacity: 1 } },
 };
 
 export default function ScrollReveal({
@@ -48,6 +48,7 @@ export default function ScrollReveal({
 
       const vars = directionMap[direction] || directionMap.up;
       const fromVars: gsap.TweenVars = { ...vars.from };
+      const toVars: gsap.TweenVars = { ...vars.to };
 
       if (distance && 'x' in fromVars) {
         fromVars.x = direction === 'left' ? -distance : distance;
@@ -58,24 +59,38 @@ export default function ScrollReveal({
 
       const targets = stagger > 0 ? el.children : el;
 
-      gsap.from(targets, {
-        ...fromVars,
-        delay,
-        stagger: stagger > 0 ? stagger : 0,
-        duration: 1.1,
-        ease: 'power3.out',
-        scrollTrigger: {
-          trigger: el,
-          start,
-          toggleActions: once ? 'play none none none' : 'play reverse play reverse',
-        },
-      });
+      // Use fromTo with immediateRender: false so elements remain visible
+      // until ScrollTrigger fires. This prevents the "invisible element"
+      // issue on mobile where ScrollTrigger might not initialize correctly.
+      gsap.fromTo(
+        targets,
+        { ...fromVars },
+        {
+          ...toVars,
+          delay,
+          stagger: stagger > 0 ? stagger : 0,
+          duration: 1.1,
+          ease: 'power3.out',
+          immediateRender: false,
+          onStart: () => {
+            // Mark as done so the safety net doesn't interfere
+            if (el instanceof HTMLElement) {
+              el.setAttribute('data-gsap-done', 'true');
+            }
+          },
+          scrollTrigger: {
+            trigger: el,
+            start,
+            toggleActions: once ? 'play none none none' : 'play reverse play reverse',
+          },
+        }
+      );
     },
     { scope: containerRef }
   );
 
   return (
-    <div ref={containerRef} className={className}>
+    <div ref={containerRef} className={className} data-gsap-anim>
       {children}
     </div>
   );

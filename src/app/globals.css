@@ -328,3 +328,27 @@ img {
     bottom: max(1.5rem, env(safe-area-inset-bottom));
   }
 }
+
+/* ===== GSAP Animation Visibility Fallback ===== */
+/* All [data-gsap-anim] elements default to visible.
+   GSAP's inline styles (from fromTo) will override these when it runs.
+   If GSAP fails to load, these CSS defaults keep content visible. */
+[data-gsap-anim] {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Reduced motion: disable all transforms, show content immediately */
+@media (prefers-reduced-motion: reduce) {
+  [data-gsap-anim] {
+    opacity: 1 !important;
+    transform: none !important;
+    visibility: visible !important;
+  }
+  
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

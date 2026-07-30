@@ -11,6 +11,14 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
   useEffect(() => {
     if (!state.isAgeVerified) {
       setShowModal(true);
+    } else {
+      // Returning visitor: notify GSAP that page is visible
+      try {
+        sessionStorage.setItem('age_verified', 'true');
+      } catch {
+        // Ignore
+      }
+      window.dispatchEvent(new CustomEvent('age-verified'));
     }
   }, [state.isAgeVerified]);
 
@@ -18,6 +26,13 @@ export default function AgeVerification({ children }: { children?: ReactNode }) 
     if (isAdult) {
       dispatch({ type: 'SET_AGE_VERIFIED', verified: true });
       setShowModal(false);
+      // Notify GSAP and other listeners that the page is now visible
+      try {
+        sessionStorage.setItem('age_verified', 'true');
+      } catch {
+        // Ignore storage errors
+      }
+      window.dispatchEvent(new CustomEvent('age-verified'));
     } else {
       // Do not redirect to external referrer to avoid open redirect risk.
       if (window.history.length > 1) {

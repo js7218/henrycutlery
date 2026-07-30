@@ -1,20 +1,28 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Shield, Truck, Award, Factory, Globe2, Wrench } from 'lucide-react';
-import { gsap, useGSAP, ScrollTrigger } from '@/lib/gsap';
+import { gsap, useGSAP, ScrollTrigger, onAgeVerified } from '@/lib/gsap';
 import ScrollReveal from '@/components/animation/ScrollReveal';
 import MagneticButton from '@/components/animation/MagneticButton';
 
 export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
   const sweepRef = useRef<HTMLDivElement>(null);
+  const [animReady, setAnimReady] = useState(false);
+
+  // Wait for age verification before running entrance animations
+  useEffect(() => {
+    onAgeVerified(() => setAnimReady(true));
+  }, []);
 
   // Hero entrance + scroll animations (responsive via matchMedia)
   useGSAP(
     () => {
+      if (!animReady) return;
+
       // ---- Gold sweep across screen on load ----
       if (sweepRef.current) {
         const sweep = gsap.timeline();
@@ -24,16 +32,15 @@ export default function Home() {
           .to(sweepRef.current, { opacity: 0, duration: 0.4, ease: 'power2.out' });
       }
 
-      // ---- Entrance timeline (runs on ALL devices) ----
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' }, delay: 0.3 });
+      // ---- Entrance timeline (uses fromTo for reliability) ----
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' }, delay: 0.2 });
 
-      tl.from('.hero-eyebrow', { y: 40, opacity: 0, duration: 0.8 })
-        .from('.hero-title-line', { y: 120, opacity: 0, stagger: 0.2, duration: 1.1 }, '-=0.3')
-        .from('.hero-sub', { y: 40, opacity: 0, duration: 0.8 }, '-=0.5')
-        .from('.hero-desc', { y: 40, opacity: 0, duration: 0.8 }, '-=0.5')
-        .from('.hero-cta', { y: 40, opacity: 0, stagger: 0.15, duration: 0.7 }, '-=0.4')
-        .from('.hero-image', { scale: 1.2, opacity: 0, duration: 1.5, ease: 'power2.out' }, '-=1.2')
-        // Add a subtle glow pulse to the hero image border
+      tl.fromTo('.hero-eyebrow', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, onStart: () => markDone('.hero-eyebrow') })
+        .fromTo('.hero-title-line', { y: 120, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.2, duration: 1.1, onStart: () => markDone('.hero-title-line') }, '-=0.3')
+        .fromTo('.hero-sub', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, onStart: () => markDone('.hero-sub') }, '-=0.5')
+        .fromTo('.hero-desc', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, onStart: () => markDone('.hero-desc') }, '-=0.5')
+        .fromTo('.hero-cta', { y: 40, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.15, duration: 0.7, onStart: () => markDone('.hero-cta') }, '-=0.4')
+        .fromTo('.hero-image', { scale: 1.2, opacity: 0 }, { scale: 1, opacity: 1, duration: 1.5, ease: 'power2.out', onStart: () => markDone('.hero-image') }, '-=1.2')
         .to('.hero-image > div', {
           boxShadow: '0 0 40px rgba(201, 169, 98, 0.3)',
           duration: 1.5,
@@ -82,9 +89,19 @@ export default function Home() {
           });
         }
       );
+
+      // Refresh ScrollTrigger after entrance animation settles
+      setTimeout(() => ScrollTrigger.refresh(), 500);
     },
-    { scope: heroRef }
+    { scope: heroRef, dependencies: [animReady] }
   );
+
+  /** Mark elements as animation-done so the safety net skips them */
+  function markDone(selector: string) {
+    document.querySelectorAll(selector).forEach((el) => {
+      el.setAttribute('data-gsap-done', 'true');
+    });
+  }
 
   return (
     <div className="min-h-screen">
@@ -115,20 +132,20 @@ export default function Home() {
           <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8 lg:gap-16 items-center">
             {/* Left: Text */}
             <div className="order-2 lg:order-1">
-              <p className="hero-eyebrow text-gold text-sm tracking-[0.3em] uppercase mb-6">
+              <p className="hero-eyebrow text-gold text-sm tracking-[0.3em] uppercase mb-6" data-gsap-anim>
                 Premium Cutlery Manufacturing
               </p>
               <h1
                 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-[0.95]"
                 style={{ fontFamily: 'Playfair Display, serif' }}
               >
-                <span className="hero-title-line block text-gold-gradient">ADAM</span>
-                <span className="hero-title-line block text-foreground">CUTLERY</span>
+                <span className="hero-title-line block text-gold-gradient" data-gsap-anim>ADAM</span>
+                <span className="hero-title-line block text-foreground" data-gsap-anim>CUTLERY</span>
               </h1>
-              <p className="hero-sub text-xl md:text-2xl text-gray-300 mb-4 max-w-xl">
+              <p className="hero-sub text-xl md:text-2xl text-gray-300 mb-4 max-w-xl" data-gsap-anim>
                 Precision-forged blades for global wholesale.
               </p>
-              <p className="hero-desc text-gray-400 mb-10 max-w-xl leading-relaxed">
+              <p className="hero-desc text-gray-400 mb-10 max-w-xl leading-relaxed" data-gsap-anim>
                 From Damascus chef knives to titanium folding blades, we manufacture
                 premium cutlery with CNC precision. OEM customization, competitive MOQ
                 pricing, and worldwide shipping.
@@ -151,7 +168,7 @@ export default function Home() {
             </div>
 
             {/* Right: Image */}
-            <div className="hero-image order-1 lg:order-2 relative">
+            <div className="hero-image order-1 lg:order-2 relative" data-gsap-anim>
               <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl">
                 <Image
                   src="/products/collection/the-best-collection-1.jpeg"
