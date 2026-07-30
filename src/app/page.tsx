@@ -114,12 +114,14 @@ export default function Home() {
     <div className="min-h-screen">
       {/* ===== HERO: Asymmetric split layout with parallax ===== */}
       <section ref={heroRef} className="relative min-h-[90vh] flex items-center overflow-hidden">
-        {/* Gold sweep on page load */}
+        {/* Gold sweep on page load - enhanced for mobile visibility */}
         <div
           ref={sweepRef}
           className="fixed inset-0 z-[200] pointer-events-none"
           style={{
-            background: 'linear-gradient(90deg, transparent 0%, rgba(201, 169, 98, 0.15) 50%, transparent 100%)',
+            background:
+              'linear-gradient(90deg, transparent 0%, rgba(201, 169, 98, 0.4) 30%, rgba(240, 217, 138, 0.6) 50%, rgba(201, 169, 98, 0.4) 70%, transparent 100%)',
+            boxShadow: 'inset 0 0 80px rgba(201, 169, 98, 0.3)',
           }}
         />
         {/* Parallax background */}

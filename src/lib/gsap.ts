@@ -76,7 +76,20 @@ export const isTouchDevice =
   typeof window !== 'undefined' &&
   ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
-/** True when viewport width is below the tablet breakpoint (768px). */
+/**
+ * Returns true when viewport width is below the tablet breakpoint (768px).
+ * Call this inside useEffect or event handlers — don't rely on it at module
+ * init time because SSR / hydration can give stale values.
+ */
+export function getIsMobile(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 768;
+}
+
+/**
+ * @deprecated Use `getIsMobile()` instead.
+ * Kept for backward compatibility with older components.
+ */
 export const isMobileViewport =
   typeof window !== 'undefined' && window.innerWidth < 768;
 
