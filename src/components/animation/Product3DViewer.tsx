@@ -3,6 +3,8 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import * as THREE from 'three';
 
+// ─── Types ──────────────────────────────────────────────────────────────────
+
 interface Product3DViewerProps {
   src: string;
   alt: string;
@@ -12,77 +14,224 @@ interface Product3DViewerProps {
   autoRotateSpeed?: number;
 }
 
-// ─── Displacement map generator ──────────────────────────────────────────────
-// Converts the product image into a depth map where darker pixels (product)
-// become raised and lighter pixels (background) become recessed.
-// Returns a canvas + the original aspect ratio.
-function generateDisplacementMap(
-  img: HTMLImageElement,
-  maxDim = 512,
-): { canvas: HTMLCanvasElement; aspect: number } | null {
-  try {
-    let w = img.naturalWidth || img.width;
-    let h = img.naturalHeight || img.height;
-    if (w === 0 || h === 0) return null;
+type Stage = 'loading' | 'removing-bg' | 'building-3d' | 'ready' | 'error';
 
-    const aspect = w / h;
+// ─── RDP polygon simplification ─────────────────────────────────────────────
 
-    // Scale down to keep performance reasonable
-    if (Math.max(w, h) > maxDim) {
-      if (w > h) {
-        h = Math.round(maxDim / aspect);
-        w = maxDim;
-      } else {
-        w = Math.round(maxDim * aspect);
-        h = maxDim;
+function simplifyRDP(
+  points: { x: number; y: number }[],
+  epsilon: number,
+): { x: number; y: number }[] {
+  if (points.length <= 2) return points;
+
+  let maxDist = 0;
+  let maxIdx = 0;
+  const first = points[0];
+  const last = points[points.length - 1];
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const d = perpDist(points[i], first, last);
+    if (d > maxDist) {
+      maxDist = d;
+      maxIdx = i;
+    }
+  }
+
+  if (maxDist > epsilon) {
+    const left = simplifyRDP(points.slice(0, maxIdx + 1), epsilon);
+    const right = simplifyRDP(points.slice(maxIdx), epsilon);
+    return [...left.slice(0, -1), ...right];
+  }
+
+  return [first, last];
+}
+
+function perpDist(
+  p: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq));
+  const px = a.x + t * dx;
+  const py = a.y + t * dy;
+  return Math.hypot(p.x - px, p.y - py);
+}
+
+// ─── Contour extraction from alpha mask ─────────────────────────────────────
+
+function extractContourFromAlpha(
+  imageData: ImageData,
+  gridSize: number = 128,
+): THREE.Shape | null {
+  const { data, width: iw, height: ih } = imageData;
+  const cellW = iw / gridSize;
+  const cellH = ih / gridSize;
+
+  // 1. Build binary grid
+  const grid: boolean[][] = Array.from({ length: gridSize }, () =>
+    Array(gridSize).fill(false),
+  );
+
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) {
+      const sx = Math.floor(gx * cellW);
+      const sy = Math.floor(gy * cellH);
+      const ex = Math.floor((gx + 1) * cellW);
+      const ey = Math.floor((gy + 1) * cellH);
+      let sum = 0;
+      let n = 0;
+      for (let y = sy; y < ey; y++) {
+        for (let x = sx; x < ex; x++) {
+          sum += data[(y * iw + x) * 4 + 3]; // alpha
+          n++;
+        }
+      }
+      grid[gy][gx] = sum / n > 80;
+    }
+  }
+
+  // 2. Find bounding box
+  let minX = gridSize, maxX = 0, minY = gridSize, maxY = 0;
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) {
+      if (grid[gy][gx]) {
+        if (gx < minX) minX = gx;
+        if (gx > maxX) maxX = gx;
+        if (gy < minY) minY = gy;
+        if (gy > maxY) maxY = gy;
+      }
+    }
+  }
+  if (minX > maxX) return null;
+
+  // Pad slightly
+  minX = Math.max(0, minX - 1);
+  maxX = Math.min(gridSize - 1, maxX + 1);
+  minY = Math.max(0, minY - 1);
+  maxY = Math.min(gridSize - 1, maxY + 1);
+
+  // 3. Find all edge cells
+  const edgeSet = new Set<string>();
+  for (let gy = minY; gy <= maxY; gy++) {
+    for (let gx = minX; gx <= maxX; gx++) {
+      if (!grid[gy][gx]) continue;
+      let isEdge = false;
+      for (let dy = -1; dy <= 1 && !isEdge; dy++) {
+        for (let dx = -1; dx <= 1 && !isEdge; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const ny = gy + dy;
+          const nx = gx + dx;
+          if (ny < 0 || ny >= gridSize || nx < 0 || nx >= gridSize) {
+            isEdge = true;
+          } else if (!grid[ny][nx]) {
+            isEdge = true;
+          }
+        }
+      }
+      if (isEdge) edgeSet.add(`${gx},${gy}`);
+    }
+  }
+
+  if (edgeSet.size === 0) return null;
+
+  // 4. Moore-neighbor contour tracing
+  const contour: { x: number; y: number }[] = [];
+
+  // Find start: topmost-leftmost edge cell
+  let sx = gridSize, sy = gridSize;
+  for (const key of edgeSet) {
+    const [gx, gy] = key.split(',').map(Number);
+    if (gy < sy || (gy === sy && gx < sx)) {
+      sx = gx;
+      sy = gy;
+    }
+  }
+
+  // 8-direction Moore neighborhood, clockwise starting from "up"
+  const dirs = [
+    [0, -1], [1, -1], [1, 0], [1, 1],
+    [0, 1], [-1, 1], [-1, 0], [-1, -1],
+  ];
+
+  let cx = sx, cy = sy;
+  let dir = 0; // start looking up
+  const visited = new Set<string>();
+  const maxSteps = 5000;
+
+  for (let step = 0; step < maxSteps; step++) {
+    const key = `${cx},${cy}`;
+    contour.push({ x: cx, y: cy });
+
+    if (step > 0 && cx === sx && cy === sy) break;
+    visited.add(key);
+
+    // Backtrack direction: look clockwise from behind
+    let searchDir = (dir + 5) % 8; // roughly opposite + 1
+    let found = false;
+
+    for (let i = 0; i < 8; i++) {
+      const d = (searchDir + i) % 8;
+      const [dx, dy] = dirs[d];
+      const nx = cx + dx;
+      const ny = cy + dy;
+      const nkey = `${nx},${ny}`;
+
+      if (edgeSet.has(nkey) && (!visited.has(nkey) || (nx === sx && ny === sy && step > 2))) {
+        cx = nx;
+        cy = ny;
+        dir = d;
+        found = true;
+        break;
       }
     }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    ctx.drawImage(img, 0, 0, w, h);
-
-    const imageData = ctx.getImageData(0, 0, w, h);
-    const data = imageData.data;
-
-    for (let i = 0; i < data.length; i += 4) {
-      // Perceived luminance
-      const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-
-      // Invert: dark product → raised, light background → recessed
-      const inv = 255 - lum;
-
-      // S-curve contrast: push mid-tones away from 128
-      // This sharpens the product silhouette while keeping smooth gradients
-      const t = inv / 255;
-      const enhanced = 255 * (t < 0.5
-        ? 2 * t * t
-        : 1 - Math.pow(-2 * t + 2, 2) / 2);
-
-      data[i] = data[i + 1] = data[i + 2] = Math.round(enhanced);
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-
-    // Simple 3x3 box blur to soften hard edges
-    const blurred = document.createElement('canvas');
-    blurred.width = w;
-    blurred.height = h;
-    const bCtx = blurred.getContext('2d');
-    if (bCtx) {
-      bCtx.filter = 'blur(3px)';
-      bCtx.drawImage(canvas, 0, 0);
-      return { canvas: blurred, aspect };
-    }
-
-    return { canvas, aspect };
-  } catch {
-    return null;
+    if (!found) break;
   }
+
+  if (contour.length < 3) return null;
+
+  // 5. Simplify
+  const simplified = simplifyRDP(contour, 0.6);
+
+  // 6. Create THREE.Shape (normalized to image aspect ratio)
+  const aspect = iw / ih;
+  const scaleX = aspect / gridSize;
+  const scaleY = 1 / gridSize;
+
+  const shape = new THREE.Shape();
+  const first = simplified[0];
+  // Center the shape
+  const cx_ = (maxX + minX) / 2;
+  const cy_ = (maxY + minY) / 2;
+  shape.moveTo(
+    (first.x - cx_) * scaleX,
+    -(first.y - cy_) * scaleY,
+  );
+
+  for (let i = 1; i < simplified.length; i++) {
+    shape.lineTo(
+      (simplified[i].x - cx_) * scaleX,
+      -(simplified[i].y - cy_) * scaleY,
+    );
+  }
+  shape.closePath();
+
+  return shape;
+}
+
+// ─── Dynamic background removal loader ──────────────────────────────────────
+
+let removeBgFn: ((src: string) => Promise<Blob>) | null = null;
+
+async function loadRemoveBg(): Promise<(src: string) => Promise<Blob>> {
+  if (removeBgFn) return removeBgFn;
+  const mod = await import('@imgly/background-removal');
+  removeBgFn = mod.removeBackground as (src: string) => Promise<Blob>;
+  return removeBgFn;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -111,13 +260,11 @@ export default function Product3DViewer({
   const targetRotX = useRef(0);
   const currentRotY = useRef(0);
   const currentRotX = useRef(0);
-  const dispCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const buildIdRef = useRef(0);
 
-  const [isHovering, setIsHovering] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
+  const [stage, setStage] = useState<Stage>('loading');
 
-  // ── Scene initialisation ─────────────────────────────────────────────────
+  // ── Scene init ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     const container = containerRef.current;
@@ -129,7 +276,7 @@ export default function Product3DViewer({
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.15;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     rendererRef.current = renderer;
 
@@ -141,43 +288,41 @@ export default function Product3DViewer({
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    // ── Lights ──
+    // ── Lighting ──
 
-    const ambient = new THREE.AmbientLight('#fff5e8', 0.7);
+    const ambient = new THREE.AmbientLight('#fff5e8', 0.75);
     scene.add(ambient);
 
-    const keyLight = new THREE.DirectionalLight('#ffffff', 3.0);
-    keyLight.position.set(5, 4, 5);
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.width = 1024;
-    keyLight.shadow.mapSize.height = 1024;
-    keyLight.shadow.camera.near = 0.5;
-    keyLight.shadow.camera.far = 30;
-    keyLight.shadow.camera.left = -5;
-    keyLight.shadow.camera.right = 5;
-    keyLight.shadow.camera.top = 5;
-    keyLight.shadow.camera.bottom = -5;
-    keyLight.shadow.bias = -0.0001;
-    keyLight.shadow.normalBias = 0.02;
-    scene.add(keyLight);
+    const key = new THREE.DirectionalLight('#ffffff', 3.5);
+    key.position.set(5, 4, 5);
+    key.castShadow = true;
+    key.shadow.mapSize.width = 1024;
+    key.shadow.mapSize.height = 1024;
+    key.shadow.camera.near = 0.5;
+    key.shadow.camera.far = 30;
+    key.shadow.camera.left = -5;
+    key.shadow.camera.right = 5;
+    key.shadow.camera.top = 5;
+    key.shadow.camera.bottom = -5;
+    key.shadow.bias = -0.0001;
+    key.shadow.normalBias = 0.02;
+    scene.add(key);
 
-    // Rim light — grazing angle to accent the 3D relief
-    const rimLight = new THREE.DirectionalLight('#c9a962', 0.6);
-    rimLight.position.set(-3, 1, -3);
-    scene.add(rimLight);
+    const rim = new THREE.DirectionalLight('#c9a962', 0.7);
+    rim.position.set(-3, 1, -3);
+    scene.add(rim);
 
-    // Fill from below — lifts shadows
-    const fillLight = new THREE.DirectionalLight('#8899bb', 0.35);
-    fillLight.position.set(0, -2, 2);
-    scene.add(fillLight);
+    const fill = new THREE.DirectionalLight('#8899bb', 0.35);
+    fill.position.set(0, -2, 2);
+    scene.add(fill);
 
     // ── Ground ──
 
     const groundGeo = new THREE.PlaneGeometry(20, 20);
-    const groundMat = new THREE.ShadowMaterial({ opacity: 0.22 });
+    const groundMat = new THREE.ShadowMaterial({ opacity: 0.2 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -2.8;
+    ground.position.y = -2.6;
     ground.receiveShadow = true;
     scene.add(ground);
 
@@ -204,28 +349,21 @@ export default function Product3DViewer({
     const clock = new THREE.Clock();
     const animate = () => {
       animFrameRef.current = requestAnimationFrame(animate);
-
       const dt = Math.min(clock.getDelta(), 0.1);
 
       if (group) {
         if (!isDragging.current) {
           velocityX.current *= 0.95;
           velocityY.current *= 0.95;
-
           if (Math.abs(velocityX.current) > 0.0001 || Math.abs(velocityY.current) > 0.0001) {
             targetRotY.current += velocityX.current;
             targetRotX.current += velocityY.current;
             targetRotX.current = Math.max(-0.8, Math.min(0.8, targetRotX.current));
           }
-
-          if (autoRotate) {
-            targetRotY.current += autoRotateSpeed * dt;
-          }
+          if (autoRotate) targetRotY.current += autoRotateSpeed * dt;
         }
-
         currentRotY.current += (targetRotY.current - currentRotY.current) * 0.12;
         currentRotX.current += (targetRotX.current - currentRotX.current) * 0.12;
-
         group.rotation.y = currentRotY.current;
         group.rotation.x = currentRotX.current;
       }
@@ -241,17 +379,16 @@ export default function Product3DViewer({
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
-      if (dispCanvasRef.current) {
-        dispCanvasRef.current = null;
-      }
     };
   }, [autoRotate, autoRotateSpeed]);
 
-  // ── Load texture + build displaced 3D geometry ──────────────────────────
+  // ── Build 3D mesh from product image ────────────────────────────────────
 
   useEffect(() => {
     const group = groupRef.current;
     if (!group) return;
+
+    const buildId = ++buildIdRef.current;
 
     // Clear previous
     while (group.children.length > 0) {
@@ -267,127 +404,155 @@ export default function Product3DViewer({
       group.remove(child);
     }
 
-    // Dispose old displacement canvas
-    if (dispCanvasRef.current) {
-      dispCanvasRef.current = null;
-    }
+    setStage('loading');
 
-    setIsLoading(true);
-    setHasError(false);
+    (async () => {
+      try {
+        // ── Step 1: Remove background ──
+        setStage('removing-bg');
+        const removeBg = await loadRemoveBg();
+        const blob = await removeBg(src);
 
-    const loader = new THREE.TextureLoader();
-    loader.crossOrigin = 'anonymous';
+        if (buildId !== buildIdRef.current) return;
 
-    loader.load(
-      src,
-      (texture) => {
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.minFilter = THREE.LinearMipmapLinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.generateMipmaps = true;
+        // Convert blob → ImageData
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const i = new Image();
+          i.crossOrigin = 'anonymous';
+          i.onload = () => resolve(i);
+          i.onerror = reject;
+          i.src = URL.createObjectURL(blob);
+        });
 
-        const img = texture.image as HTMLImageElement;
-        const aspect = img.naturalWidth / img.naturalHeight;
-        const planeH = 3.6;
-        const planeW = planeH * aspect;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-        // ── Generate displacement map ──
-        const dispResult = generateDisplacementMap(img, 512);
-        let dispTexture: THREE.CanvasTexture | null = null;
+        if (buildId !== buildIdRef.current) return;
 
-        if (dispResult) {
-          dispCanvasRef.current = dispResult.canvas;
-          dispTexture = new THREE.CanvasTexture(dispResult.canvas);
-          dispTexture.colorSpace = THREE.NoColorSpace;
-          dispTexture.minFilter = THREE.LinearMipmapLinearFilter;
-          dispTexture.magFilter = THREE.LinearFilter;
-          dispTexture.generateMipmaps = true;
+        // ── Step 2: Extract contour & build 3D ──
+        setStage('building-3d');
+
+        const shape = extractContourFromAlpha(imageData, 128);
+
+        if (buildId !== buildIdRef.current) return;
+
+        if (!shape) {
+          // Fallback: use a rounded rectangle shape
+          setStage('error');
+          return;
         }
 
-        // ── Subdivided plane geometry ──
-        const segments = 200;
-        const geo = new THREE.PlaneGeometry(planeW, planeH, segments, segments);
+        const aspect = img.naturalWidth / img.naturalHeight;
+        const shapeW = aspect;
+        const shapeH = 1;
 
-        // ── Material with displacement ──
-        const mat = new THREE.MeshStandardMaterial({
-          map: texture,
-          displacementMap: dispTexture,
-          displacementScale: 0.18,
-          displacementBias: 0,
-          roughness: 0.4,
-          metalness: 0.06,
-          color: '#ffffff',
-          side: THREE.DoubleSide,
-        });
+        // Extrude settings
+        const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+          steps: 1,
+          depth: 0.18,
+          bevelEnabled: true,
+          bevelThickness: 0.03,
+          bevelSize: 0.02,
+          bevelSegments: 2,
+        };
 
-        const frontPlane = new THREE.Mesh(geo, mat);
-        frontPlane.castShadow = true;
-        frontPlane.receiveShadow = true;
-        group.add(frontPlane);
+        const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
 
-        // ── Backing plane (dark, gives substance when viewing from behind) ──
-        const backGeo = new THREE.PlaneGeometry(planeW, planeH);
-        const backMat = new THREE.MeshStandardMaterial({
-          color: '#1a1815',
-          roughness: 0.5,
-          metalness: 0.4,
-          side: THREE.DoubleSide,
-        });
-        const backPlane = new THREE.Mesh(backGeo, backMat);
-        backPlane.position.z = -0.25;
-        backPlane.receiveShadow = true;
-        group.add(backPlane);
+        // Center the geometry
+        geo.computeBoundingBox();
+        const bb = geo.boundingBox!;
+        const offsetX = -(bb.max.x + bb.min.x) / 2;
+        const offsetY = -(bb.max.y + bb.min.y) / 2;
+        const offsetZ = -(bb.max.z + bb.min.z) / 2;
+        geo.translate(offsetX, offsetY, offsetZ);
 
-        // ── Gold bevel frame around front face ──
-        const frameGeo = new THREE.BoxGeometry(planeW + 0.06, planeH + 0.06, 0.04);
-        const frameMat = new THREE.MeshStandardMaterial({
-          color: '#c9a962',
-          roughness: 0.22,
-          metalness: 0.92,
-        });
-        const frame = new THREE.Mesh(frameGeo, frameMat);
-        frame.position.z = 0.12;
-        frame.castShadow = true;
-        group.add(frame);
+        // ── Texture for front face ──
+        // Use the original image (with background) for better appearance
+        const texLoader = new THREE.TextureLoader();
+        texLoader.crossOrigin = 'anonymous';
 
-        // ── Thin edge strip (side perimeter) ──
-        const edgeThickness = 0.015;
-        // Top edge
-        const topGeo = new THREE.BoxGeometry(planeW + 0.04, edgeThickness, 0.22);
-        const topEdge = new THREE.Mesh(topGeo, frameMat);
-        topEdge.position.y = planeH / 2 + 0.02;
-        topEdge.position.z = -0.01;
-        group.add(topEdge);
+        texLoader.load(
+          src,
+          (texture) => {
+            if (buildId !== buildIdRef.current) return;
 
-        // Bottom edge
-        const bottomGeo = new THREE.BoxGeometry(planeW + 0.04, edgeThickness, 0.22);
-        const bottomEdge = new THREE.Mesh(bottomGeo, frameMat);
-        bottomEdge.position.y = -planeH / 2 - 0.02;
-        bottomEdge.position.z = -0.01;
-        group.add(bottomEdge);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.generateMipmaps = true;
 
-        // Left edge
-        const leftGeo = new THREE.BoxGeometry(edgeThickness, planeH + 0.04, 0.22);
-        const leftEdge = new THREE.Mesh(leftGeo, frameMat);
-        leftEdge.position.x = -planeW / 2 - 0.02;
-        leftEdge.position.z = -0.01;
-        group.add(leftEdge);
+            // Front material: product image
+            const frontMat = new THREE.MeshStandardMaterial({
+              map: texture,
+              roughness: 0.35,
+              metalness: 0.05,
+              color: '#ffffff',
+            });
 
-        // Right edge
-        const rightGeo = new THREE.BoxGeometry(edgeThickness, planeH + 0.04, 0.22);
-        const rightEdge = new THREE.Mesh(rightGeo, frameMat);
-        rightEdge.position.x = planeW / 2 + 0.02;
-        rightEdge.position.z = -0.01;
-        group.add(rightEdge);
+            // Side material: gold metallic
+            const sideMat = new THREE.MeshStandardMaterial({
+              color: '#2a2520',
+              roughness: 0.3,
+              metalness: 0.7,
+            });
 
-        setIsLoading(false);
-      },
-      undefined,
-      () => {
-        setHasError(true);
-        setIsLoading(false);
-      },
-    );
+            // Bevel material: gold accent
+            const bevelMat = new THREE.MeshStandardMaterial({
+              color: '#c9a962',
+              roughness: 0.22,
+              metalness: 0.9,
+            });
+
+            // Assign materials by material index
+            // ExtrudeGeometry: group 0 = sides, group 1 = front/back
+            const mesh = new THREE.Mesh(geo, [sideMat, frontMat]);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            group.add(mesh);
+
+            // ── Gold outline frame ──
+            const frameShape = new THREE.Shape();
+            const outlinePts = shape.getPoints(64);
+            for (let i = 0; i < outlinePts.length; i++) {
+              if (i === 0) frameShape.moveTo(outlinePts[i].x, outlinePts[i].y);
+              else frameShape.lineTo(outlinePts[i].x, outlinePts[i].y);
+            }
+            frameShape.closePath();
+
+            const frameGeo = new THREE.ExtrudeGeometry(frameShape, {
+              steps: 1,
+              depth: 0.015,
+              bevelEnabled: false,
+            });
+            frameGeo.computeBoundingBox();
+            const fbb = frameGeo.boundingBox!;
+            frameGeo.translate(
+              -(fbb.max.x + fbb.min.x) / 2,
+              -(fbb.max.y + fbb.min.y) / 2,
+              extrudeSettings.depth! / 2 + 0.005,
+            );
+
+            const frameMesh = new THREE.Mesh(frameGeo, bevelMat);
+            frameMesh.castShadow = true;
+            group.add(frameMesh);
+
+            setStage('ready');
+          },
+          undefined,
+          () => {
+            setStage('error');
+          },
+        );
+      } catch {
+        if (buildId === buildIdRef.current) {
+          setStage('error');
+        }
+      }
+    })();
   }, [src]);
 
   // ── Pointer handlers ────────────────────────────────────────────────────
@@ -432,11 +597,8 @@ export default function Product3DViewer({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => {
-        setIsHovering(false);
-        handlePointerUp();
-      }}
+      onMouseEnter={() => {}}
+      onMouseLeave={handlePointerUp}
     >
       <canvas
         ref={canvasRef}
@@ -444,15 +606,30 @@ export default function Product3DViewer({
         style={{ touchAction: 'none' }}
       />
 
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-surfaceLight/60 z-10">
+      {stage === 'loading' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surfaceLight/60 z-10 gap-2">
           <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+          <p className="text-gray-400 text-xs">Loading image...</p>
         </div>
       )}
 
-      {hasError && (
+      {stage === 'removing-bg' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surfaceLight/60 z-10 gap-2">
+          <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+          <p className="text-gray-400 text-xs">AI extracting product...</p>
+        </div>
+      )}
+
+      {stage === 'building-3d' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surfaceLight/60 z-10 gap-2">
+          <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+          <p className="text-gray-400 text-xs">Building 3D mesh...</p>
+        </div>
+      )}
+
+      {stage === 'error' && (
         <div className="absolute inset-0 flex items-center justify-center bg-surfaceLight z-10">
-          <p className="text-gray-400 text-sm">Image failed to load</p>
+          <p className="text-gray-400 text-sm">Could not build 3D model</p>
         </div>
       )}
     </div>
