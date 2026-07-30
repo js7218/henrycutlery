@@ -16,7 +16,7 @@ interface ProductImageGalleryProps {
 export default function ProductImageGallery({ images, productName }: ProductImageGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
-  const [viewMode, setViewMode] = useState<ViewMode>('tilt');
+  const [viewMode, setViewMode] = useState<ViewMode>('rotate');
   const safeImages = images.length > 0 ? images : ['/products/test-product-placeholder.png'];
   const currentSrc = failedImages[safeImages[currentIndex]]
     ? '/products/test-product-placeholder.png'

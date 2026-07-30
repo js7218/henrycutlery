@@ -237,9 +237,9 @@ export default function Home() {
                   src="/products/collection/the-best-collection-1.jpeg"
                   alt="Collection"
                   fill
+                  fillContainer
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   maxTilt={8}
-                  containerClassName="absolute inset-0"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
                 <div className="absolute bottom-0 left-0 p-8">
@@ -255,9 +255,9 @@ export default function Home() {
             </UniversalReveal>
 
             {[
-              { name: 'Folding', desc: 'EDC and tactical', href: '/products?category=folding', img: '/images/ti.jpg' },
-              { name: 'Kitchen', desc: 'Chef and prep knives', href: '/products?category=kitchen', img: '/images/ca1d285711b90eaa22a99762c802bd48.jpg' },
-              { name: 'Hunting', desc: 'Skinners and camp knives', href: '/products?category=hunting', img: '/images/hunting1.jpg' },
+              { name: 'Folding', desc: 'EDC and tactical', href: '/products?category=folding', img: '/products/titanium-alloy-1.jpeg' },
+              { name: 'Kitchen', desc: 'Chef and prep knives', href: '/products?category=kitchen', img: '/products/kitchen-chef-1.jpeg' },
+              { name: 'Hunting', desc: 'Skinners and camp knives', href: '/products?category=hunting', img: '/products/hunting-new-5.jpeg' },
             ].map((cat, i) => (
               <UniversalReveal key={cat.name} anim="fade-up" className={`${i === 0 ? 'lg:col-start-3' : ''}`}>
                 <Link
@@ -268,9 +268,9 @@ export default function Home() {
                     src={cat.img}
                     alt={cat.name}
                     fill
+                    fillContainer
                     sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
                     maxTilt={8}
-                    containerClassName="absolute inset-0"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/30 to-transparent" />
                   <div className="absolute bottom-0 left-0 p-5">
@@ -358,9 +358,9 @@ export default function Home() {
                   src={product.images[0] || '/products/test-product-placeholder.png'}
                   alt={product.name}
                   fill
+                  fillContainer
                   sizes="(max-width: 1024px) 40vw, 30vw"
                   maxTilt={10}
-                  containerClassName="absolute inset-0"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6">
@@ -388,12 +388,12 @@ export default function Home() {
                   src={product.images[0] || '/products/test-product-placeholder.png'}
                   alt={product.name}
                   fill
+                  fillContainer
                   sizes="80vw"
                   maxTilt={0}
                   glare={false}
                   edgeHighlight={false}
                   floatSpeed={0}
-                  containerClassName="absolute inset-0"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6">
