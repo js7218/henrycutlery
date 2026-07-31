@@ -4,23 +4,29 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import * as THREE from 'three';
 
 /* ------------------------------------------------------------------ */
-/*  Silhouette extraction: detect foreground pixels from a 2D photo   */
-/*  and trace a closed polygon outline.                                */
+/*  Silhouette extraction: flood fill + morphological cleanup          */
 /* ------------------------------------------------------------------ */
 
-const PROCESS_W = 200; // processing resolution width
+const PROCESS_W = 200;
 
 interface Silhouette {
-  outline: [number, number][]; // normalized [0..1] coordinates
+  outline: [number, number][];
   imgW: number;
   imgH: number;
 }
 
+/**
+ * Flood-fill from image edges to identify background pixels.
+ * Works on both solid-color and textured backgrounds (bark, wood, etc.)
+ * by using an adaptive threshold based on background color variance.
+ */
 function extractSilhouette(img: HTMLImageElement): Silhouette {
   const aspect = img.width / img.height;
   const pw = PROCESS_W;
   const ph = Math.round(PROCESS_W / aspect);
-  if (ph < 40) return { outline: [[0, 0], [1, 0], [1, 1], [0, 1]], imgW: img.width, imgH: img.height };
+  if (ph < 40) {
+    return { outline: [[0, 0], [1, 0], [1, 1], [0, 1]], imgW: img.width, imgH: img.height };
+  }
 
   const canvas = document.createElement('canvas');
   canvas.width = pw;
@@ -29,49 +35,111 @@ function extractSilhouette(img: HTMLImageElement): Silhouette {
   ctx.drawImage(img, 0, 0, pw, ph);
   const data = ctx.getImageData(0, 0, pw, ph).data;
 
-  /* ── Determine background colour from corner / edge samples ── */
+  /* ── Sample background pixels from all 4 edges ── */
   const samples: [number, number, number][] = [];
-  const step = Math.max(1, Math.floor(pw / 8));
-  for (let x = 0; x < pw; x += step) {
+  // Top & bottom edges
+  for (let x = 0; x < pw; x++) {
     for (const y of [0, 1, ph - 2, ph - 1]) {
       const i = (y * pw + x) * 4;
       samples.push([data[i], data[i + 1], data[i + 2]]);
     }
   }
-  for (let y = 0; y < ph; y += step) {
+  // Left & right edges
+  for (let y = 0; y < ph; y++) {
     for (const x of [0, 1, pw - 2, pw - 1]) {
       const i = (y * pw + x) * 4;
       samples.push([data[i], data[i + 1], data[i + 2]]);
     }
   }
-  const bgR = samples.reduce((s, c) => s + c[0], 0) / samples.length;
-  const bgG = samples.reduce((s, c) => s + c[1], 0) / samples.length;
-  const bgB = samples.reduce((s, c) => s + c[2], 0) / samples.length;
 
-  /* ── Build binary mask ── */
-  const threshold = 35; // colour distance
+  const n = samples.length;
+  const bgR = samples.reduce((s, c) => s + c[0], 0) / n;
+  const bgG = samples.reduce((s, c) => s + c[1], 0) / n;
+  const bgB = samples.reduce((s, c) => s + c[2], 0) / n;
+
+  // Compute variance to determine adaptive threshold
+  const varR = samples.reduce((s, c) => s + (c[0] - bgR) ** 2, 0) / n;
+  const varG = samples.reduce((s, c) => s + (c[1] - bgG) ** 2, 0) / n;
+  const varB = samples.reduce((s, c) => s + (c[2] - bgB) ** 2, 0) / n;
+  const maxStd = Math.sqrt(Math.max(varR, varG, varB));
+
+  // Adaptive threshold: tighter for uniform backgrounds, looser for textured ones
+  const threshold = Math.max(25, Math.min(80, 2 * maxStd + 15));
+
+  /* ── Flood fill from edges ── */
+  // 0 = unchecked, 1 = background (filled), 2 = foreground (product)
   const mask = new Uint8Array(pw * ph);
-  for (let y = 0; y < ph; y++) {
-    for (let x = 0; x < pw; x++) {
-      const i = (y * pw + x) * 4;
-      const dr = data[i] - bgR, dg = data[i + 1] - bgG, db = data[i + 2] - bgB;
-      mask[y * pw + x] = (dr * dr + dg * dg + db * db > threshold * threshold) ? 1 : 0;
+
+  // BFS queue
+  const queue: number[] = [];
+
+  function isBackground(idx: number): boolean {
+    const dr = data[idx] - bgR;
+    const dg = data[idx + 1] - bgG;
+    const db = data[idx + 2] - bgB;
+    return dr * dr + dg * dg + db * db <= threshold * threshold;
+  }
+
+  // Seed: all edge pixels
+  for (let x = 0; x < pw; x++) {
+    for (const y of [0, ph - 1]) {
+      const idx = y * pw + x;
+      if (mask[idx] === 0 && isBackground(idx * 4)) {
+        mask[idx] = 1;
+        queue.push(idx);
+      }
+    }
+  }
+  for (let y = 1; y < ph - 1; y++) {
+    for (const x of [0, pw - 1]) {
+      const idx = y * pw + x;
+      if (mask[idx] === 0 && isBackground(idx * 4)) {
+        mask[idx] = 1;
+        queue.push(idx);
+      }
     }
   }
 
-  /* ── Trace outline via row scanning ── */
-  // Top half: for each column, find the highest foreground pixel
+  // BFS
+  let head = 0;
+  while (head < queue.length) {
+    const idx = queue[head++];
+    const x = idx % pw;
+    const y = Math.floor(idx / pw);
+
+    // 4-way neighbors
+    const neighbors: [number, number][] = [
+      [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1],
+    ];
+    for (const [nx, ny] of neighbors) {
+      if (nx < 0 || nx >= pw || ny < 0 || ny >= ph) continue;
+      const nidx = ny * pw + nx;
+      if (mask[nidx] === 0 && isBackground(nidx * 4)) {
+        mask[nidx] = 1;
+        queue.push(nidx);
+      }
+    }
+  }
+
+  // Any unchecked pixel is foreground
+  for (let i = 0; i < pw * ph; i++) {
+    if (mask[i] === 0) mask[i] = 2;
+  }
+
+  /* ── Morphological closing (dilate + erode) to fill holes ── */
+  const closed = morphologicalClose(mask, pw, ph, 2);
+
+  /* ── Trace outline via column scanning ── */
   const top: [number, number][] = [];
   for (let x = 0; x < pw; x++) {
     for (let y = 0; y < ph; y++) {
-      if (mask[y * pw + x]) { top.push([x, y]); break; }
+      if (closed[y * pw + x] === 2) { top.push([x, y]); break; }
     }
   }
-  // Bottom half: for each column, find the lowest foreground pixel (reverse)
   const bottom: [number, number][] = [];
   for (let x = pw - 1; x >= 0; x--) {
     for (let y = ph - 1; y >= 0; y--) {
-      if (mask[y * pw + x]) { bottom.push([x, y]); break; }
+      if (closed[y * pw + x] === 2) { bottom.push([x, y]); break; }
     }
   }
 
@@ -79,16 +147,53 @@ function extractSilhouette(img: HTMLImageElement): Silhouette {
     return { outline: [[0, 0], [1, 0], [1, 1], [0, 1]], imgW: img.width, imgH: img.height };
   }
 
-  // Combine: top left→right, then bottom right→left (already reversed)
   const raw = [...top, ...bottom];
-
-  /* ── Simplify (Douglas–Peucker) ── */
   const simplified = simplifyPolyline(raw, 2.0);
-
-  /* ── Normalise to [0..1] ── */
   const norm: [number, number][] = simplified.map(([x, y]) => [x / pw, y / ph]);
 
   return { outline: norm, imgW: img.width, imgH: img.height };
+}
+
+function morphologicalClose(
+  mask: Uint8Array, w: number, h: number, iterations: number,
+): Uint8Array {
+  let result = new Uint8Array(mask);
+  for (let iter = 0; iter < iterations; iter++) {
+    // Dilate
+    const dilated = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (result[y * w + x] === 2) {
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy;
+              if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                dilated[ny * w + nx] = 2;
+              }
+            }
+          }
+        }
+      }
+    }
+    // Erode
+    const eroded = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let allFg = true;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || nx >= w || ny < 0 || ny >= h) { allFg = false; break; }
+            if (dilated[ny * w + nx] !== 2) { allFg = false; break; }
+          }
+          if (!allFg) break;
+        }
+        if (allFg) eroded[y * w + x] = 2;
+      }
+    }
+    result = eroded;
+  }
+  return result;
 }
 
 function simplifyPolyline(pts: [number, number][], epsilon: number): [number, number][] {
@@ -168,12 +273,14 @@ export default function Product3DViewer({
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.2;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     rendererRef.current = renderer;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#1a1815');
+    // Brighter background — warm grey instead of near-black
+    scene.background = new THREE.Color('#3a3530');
+    scene.fog = new THREE.Fog('#3a3530', 8, 22);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(40, 4 / 3, 0.1, 30);
@@ -181,10 +288,10 @@ export default function Product3DViewer({
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    /* Lighting */
-    scene.add(new THREE.AmbientLight('#fff5e8', 0.7));
+    /* Lighting — brighter overall */
+    scene.add(new THREE.AmbientLight('#fff8f0', 1.0));
 
-    const key = new THREE.DirectionalLight('#ffffff', 3.5);
+    const key = new THREE.DirectionalLight('#ffffff', 4.0);
     key.position.set(4, 3, 5);
     key.castShadow = true;
     key.shadow.mapSize.width = 1024;
@@ -198,18 +305,22 @@ export default function Product3DViewer({
     key.shadow.bias = -0.0001;
     scene.add(key);
 
-    const rim = new THREE.DirectionalLight('#c9a962', 0.8);
+    const rim = new THREE.DirectionalLight('#c9a962', 1.0);
     rim.position.set(-3, 1, -3);
     scene.add(rim);
 
-    const fill = new THREE.DirectionalLight('#8899bb', 0.4);
-    fill.position.set(0, -2, 2);
+    const backLight = new THREE.DirectionalLight('#8899cc', 0.6);
+    backLight.position.set(0, 0.5, -4);
+    scene.add(backLight);
+
+    const fill = new THREE.DirectionalLight('#aabbcc', 0.5);
+    fill.position.set(0, -1.5, 2);
     scene.add(fill);
 
-    /* Ground */
+    /* Ground — softer shadow */
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(20, 20),
-      new THREE.ShadowMaterial({ opacity: 0.2 }),
+      new THREE.ShadowMaterial({ opacity: 0.15 }),
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -2.2;
@@ -322,7 +433,6 @@ export default function Product3DViewer({
 
       /* ── Scale to a reasonable world size ── */
       const targetH = 3.2;
-      const scale = targetH; // outline is normalised 0..1
       const geoW = sil.imgW / sil.imgH * targetH;
 
       /* ── Extrude geometry ── */
@@ -337,7 +447,6 @@ export default function Product3DViewer({
       };
       const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
 
-      // The shape is 0..1, apply scale and center
       geometry.scale(geoW, targetH, 1);
       geometry.translate(-geoW / 2, -targetH / 2, -depth / 2);
       geometry.computeVertexNormals();
@@ -350,24 +459,32 @@ export default function Product3DViewer({
       texture.generateMipmaps = true;
       texture.needsUpdate = true;
 
-      /* ── Front material (textured) ── */
+      /* ── Front material (full-brightness texture) ── */
       const frontMat = new THREE.MeshStandardMaterial({
         map: texture,
-        roughness: 0.35,
+        roughness: 0.3,
         metalness: 0.05,
         color: '#ffffff',
       });
 
-      /* ── Side/back material (metallic) ── */
+      /* ── Back material (same texture, darkened) ── */
+      const backMat = new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: 0.35,
+        metalness: 0.1,
+        color: '#555555', // darkens the texture ~67%
+      });
+
+      /* ── Side material (metallic edge) ── */
       const sideMat = new THREE.MeshStandardMaterial({
-        color: '#3a3530',
-        roughness: 0.25,
-        metalness: 0.8,
+        color: '#5a5550',
+        roughness: 0.2,
+        metalness: 0.9,
       });
 
       /* ── Multi-material mesh ── */
       // ExtrudeGeometry groups: 0=front, 1=back, 2+=sides/bevel
-      const mesh = new THREE.Mesh(geometry, [frontMat, sideMat, sideMat]);
+      const mesh = new THREE.Mesh(geometry, [frontMat, backMat, sideMat]);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       groupRef.current?.add(mesh);
