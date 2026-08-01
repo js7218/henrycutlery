@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Mail, Lock, Eye, EyeOff, LogIn, Phone, ShieldCheck, KeyRound } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { getSafeReturnPathFromBrowser } from '@/lib/safeNavigation';
+import OAuthButtons from '@/components/auth/OAuthButtons';
 
 // ============================================================================
 // SECURITY: Input Sanitization & Validation
@@ -920,6 +921,9 @@ export default function LoginPage() {
               </button>
             </form>
           )}
+
+          {/* Third-party OAuth */}
+          <OAuthButtons mode="login" className="mt-6" />
 
           {/* Register Link */}
           <p className="text-center mt-6 text-gray-400">

@@ -188,6 +188,7 @@ interface AppContextType {
   cartCount: number;
   login: (email: string, password: string) => Promise<boolean>;
   loginWithCode: (type: 'email' | 'phone', identifier: string, code: string) => Promise<boolean>;
+  loginWithGoogle: (credential: string) => Promise<boolean>;
   sendVerificationCode: (type: 'email' | 'phone', identifier: string) => Promise<{ success: boolean; error?: string; code?: string }>;
   register: (name: string, email: string, password: string, phone: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
@@ -419,6 +420,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // ============================================================================
+  // Google OAuth Login
+  // ============================================================================
+  const loginWithGoogle = async (credential: string): Promise<boolean> => {
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    try {
+      const response = await fetch('/api/auth/oauth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+
+      if (!response.ok) {
+        securityLogger.log('OAUTH_GOOGLE_FAILURE', 'Google OAuth login failed');
+        return false;
+      }
+
+      const data = await response.json();
+      if (!data?.success || !data.user) return false;
+
+      dispatch({ type: 'SET_USER', user: data.user });
+      dispatch({ type: 'SET_ORDERS', orders: data.user.orders || [] });
+      securityLogger.log('LOGIN_SUCCESS', `User logged in via Google: ${data.user.email}`, { userId: data.user.id });
+      return true;
+    } catch {
+      securityLogger.log('OAUTH_GOOGLE_FAILURE', 'Google OAuth request failed');
+      return false;
+    }
+  };
+
+  // ============================================================================
   // SECURITY: Send Verification Code
   // ============================================================================
   const sendVerificationCode = async (type: 'email' | 'phone', identifier: string): Promise<{ success: boolean; error?: string; code?: string }> => {
@@ -610,6 +642,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cartCount,
         login,
         loginWithCode,
+        loginWithGoogle,
         sendVerificationCode,
         register,
         logout,

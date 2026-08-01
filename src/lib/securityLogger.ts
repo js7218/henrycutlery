@@ -15,7 +15,8 @@ export type SecurityEventType =
   | 'DDOS_DETECTED' | 'BRUTE_FORCE_DETECTED'
   | 'PRICE_TAMPERING_ATTEMPT' | 'INVALID_SESSION'
   | 'HORIZONTAL_PRIVILEGE_ATTEMPT' | 'VERTICAL_PRIVILEGE_ATTEMPT'
-  | 'INPUT_VALIDATION_FAILURE' | 'BUSINESS_LOGIC_VIOLATION';
+  | 'INPUT_VALIDATION_FAILURE' | 'BUSINESS_LOGIC_VIOLATION'
+  | 'OAUTH_GOOGLE_FAILURE' | 'OAUTH_GOOGLE_SUCCESS';
 
 export type SeverityLevel = 'info' | 'warning' | 'error' | 'critical';
 
@@ -65,6 +66,8 @@ const EVENT_SEVERITY: Record<SecurityEventType, SeverityLevel> = {
   VERTICAL_PRIVILEGE_ATTEMPT: 'critical',
   INPUT_VALIDATION_FAILURE: 'warning',
   BUSINESS_LOGIC_VIOLATION: 'error',
+  OAUTH_GOOGLE_FAILURE: 'warning',
+  OAUTH_GOOGLE_SUCCESS: 'info',
 };
 
 // Alert thresholds

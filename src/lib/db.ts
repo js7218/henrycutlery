@@ -102,6 +102,8 @@ async function runSchemaMigration(): Promise<void> {
       await db.query(`UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL;`);
       await db.query(`ALTER TABLE users ALTER COLUMN updated_at SET DEFAULT NOW();`);
       await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_provider TEXT;`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_id TEXT;`);
       await db.query(`
         CREATE INDEX IF NOT EXISTS users_email_lookup_idx
         ON users (LOWER(email))
