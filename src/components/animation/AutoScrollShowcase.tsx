@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import ThreeDImage from '@/components/animation/ThreeDImage';
 import { formatPrice } from '@/lib/utils';
@@ -8,23 +8,26 @@ import type { Product } from '@/types';
 
 interface AutoScrollShowcaseProps {
   products: Product[];
-  speed?: number; // pixels per second, default 40
-  gap?: number; // gap in px, default 24
+  speed?: number; // pixels per second, default 80
+  gap?: number;
   className?: string;
 }
 
 /**
  * Auto-scrolling product showcase carousel.
- * Duplicates the product list for a seamless infinite loop.
- * Pauses on hover. Works on all screen sizes.
+ * Continuously scrolls right with a seamless infinite loop.
+ * Pauses on hover so the customer can click through.
  */
 export default function AutoScrollShowcase({
   products,
-  speed = 40,
+  speed = 80,
   gap = 24,
   className = '',
 }: AutoScrollShowcaseProps) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const animRef = useRef<number>(0);
+  const offsetRef = useRef(0);
+  const lastTimeRef = useRef(0);
   const [isPaused, setIsPaused] = useState(false);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
@@ -32,7 +35,33 @@ export default function AutoScrollShowcase({
     setFailedImages((prev) => ({ ...prev, [productId]: true }));
   }, []);
 
-  // Duplicate array for seamless loop
+  // RAF-based animation for smooth, reliable auto-scroll
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const animate = (timestamp: number) => {
+      if (!lastTimeRef.current) lastTimeRef.current = timestamp;
+      const delta = timestamp - lastTimeRef.current;
+      lastTimeRef.current = timestamp;
+
+      if (!isPaused && delta < 200) {
+        offsetRef.current += (speed * delta) / 1000;
+        // Loop: when we've scrolled past the first full set, reset
+        const singleSetWidth = track.scrollWidth / 2;
+        if (offsetRef.current >= singleSetWidth) {
+          offsetRef.current -= singleSetWidth;
+        }
+        track.style.transform = `translateX(${-offsetRef.current}px)`;
+      }
+
+      animRef.current = requestAnimationFrame(animate);
+    };
+
+    animRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animRef.current);
+  }, [isPaused, speed]);
+
   const doubled = [...products, ...products];
 
   return (
@@ -40,8 +69,6 @@ export default function AutoScrollShowcase({
       className={`relative w-full overflow-hidden ${className}`}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      onTouchStart={() => setIsPaused(true)}
-      onTouchEnd={() => setIsPaused(false)}
     >
       {/* Gradient fade edges */}
       <div className="absolute left-0 top-0 bottom-0 w-16 md:w-24 z-10 pointer-events-none bg-gradient-to-r from-background to-transparent" />
@@ -51,12 +78,7 @@ export default function AutoScrollShowcase({
       <div
         ref={trackRef}
         className="flex will-change-transform"
-        style={{
-          gap: `${gap}px`,
-          animation: `auto-scroll ${(products.length * 340) / speed}s linear infinite`,
-          animationPlayState: isPaused ? 'paused' : 'running',
-          width: 'max-content',
-        }}
+        style={{ gap: `${gap}px`, width: 'max-content' }}
       >
         {doubled.map((product, idx) => {
           const imgSrc = failedImages[product.id]
@@ -102,18 +124,6 @@ export default function AutoScrollShowcase({
           );
         })}
       </div>
-
-      {/* Keyframes injected via style tag */}
-      <style jsx>{`
-        @keyframes auto-scroll {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-      `}</style>
     </div>
   );
 }

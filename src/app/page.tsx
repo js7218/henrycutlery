@@ -8,6 +8,7 @@ import UniversalReveal, { RevealChild } from '@/components/animation/UniversalRe
 import ScrollReveal from '@/components/animation/ScrollReveal';
 import ImageReveal from '@/components/animation/ImageReveal';
 import AutoScrollShowcase from '@/components/animation/AutoScrollShowcase';
+import HeroSlideshow from '@/components/animation/HeroSlideshow';
 import ThreeDImage from '@/components/animation/ThreeDImage';
 import ThreeDButton from '@/components/animation/ThreeDButton';
 import { products } from '@/data/products';
@@ -83,14 +84,17 @@ export default function Home() {
             </div>
 
             <div className="order-1 lg:order-2 relative hero-enter-img">
-              <ThreeDImage
-                src="/products/collection/the-best-collection-1.jpeg"
-                alt="The Best Collection knife"
-                fill
-                priority
-                sizes="(max-width: 1024px) 100vw, 40vw"
-                maxTilt={12}
-                containerClassName="aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl"
+              <HeroSlideshow
+                slides={[
+                  { src: '/products/collection/the-best-collection-1.jpeg', alt: 'Collection knife 1' },
+                  { src: '/products/collection/the-best-collection-2.jpeg', alt: 'Collection knife 2' },
+                  { src: '/products/collection/the-best-collection-3.jpeg', alt: 'Collection knife 3' },
+                  { src: '/products/collection/the-best-collection-4.jpeg', alt: 'Collection knife 4' },
+                  { src: '/products/collection/the-best-collection-5.jpeg', alt: 'Collection knife 5' },
+                  { src: '/products/collection/the-best-collection-6.jpeg', alt: 'Collection knife 6' },
+                ]}
+                interval={3500}
+                className="aspect-[3/4] rounded-2xl overflow-hidden border border-gold/20 shadow-2xl"
               />
               <div className="absolute -bottom-6 -left-6 bg-surface/90 backdrop-blur-md border border-gold/20 rounded-xl p-5 shadow-xl hidden md:block animate-hero-float z-20">
                 <p className="text-3xl font-bold text-gold">500+</p>
@@ -352,7 +356,7 @@ export default function Home() {
 
         <AutoScrollShowcase
           products={products.slice(0, 20)}
-          speed={45}
+          speed={80}
           gap={24}
         />
       </section>
