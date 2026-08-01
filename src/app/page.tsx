@@ -7,7 +7,7 @@ import { ArrowRight, Shield, Truck, Award, Factory, Globe2, Wrench } from 'lucid
 import UniversalReveal, { RevealChild } from '@/components/animation/UniversalReveal';
 import ScrollReveal from '@/components/animation/ScrollReveal';
 import ImageReveal from '@/components/animation/ImageReveal';
-import HorizontalPinScroll, { HorizontalPanel } from '@/components/animation/HorizontalPinScroll';
+import AutoScrollShowcase from '@/components/animation/AutoScrollShowcase';
 import ThreeDImage from '@/components/animation/ThreeDImage';
 import ThreeDButton from '@/components/animation/ThreeDButton';
 import { products } from '@/data/products';
@@ -332,7 +332,7 @@ export default function Home() {
       </section>
 
       {/* ===== PRODUCT SHOWCASE ===== */}
-      <section className="py-16 md:py-24 overflow-hidden">
+      <section className="py-16 md:py-24">
         <div className="max-w-7xl mx-auto px-4 md:px-8 mb-10 md:mb-14">
           <UniversalReveal>
             <p className="text-gold text-sm tracking-[0.3em] uppercase mb-4 text-center md:text-left">
@@ -345,68 +345,16 @@ export default function Home() {
               A few of our blades
             </h2>
             <p className="text-gray-400 mt-4 text-center md:text-left max-w-2xl">
-              Each one is a production model we currently ship. Swipe through to get a feel.
+              Each one is a production model we currently ship. Hover to pause, click to explore.
             </p>
           </UniversalReveal>
         </div>
 
-        <HorizontalPinScroll panels={5} gap={32} className="hidden md:block">
-          {products.slice(0, 8).map((product) => (
-            <HorizontalPanel key={product.id}>
-              <Link href={`/products/${product.id}`} className="group block relative aspect-[3/4] rounded-2xl overflow-hidden border border-border hover:border-gold/40 transition-colors">
-                <ThreeDImage
-                  src={product.images[0] || '/products/test-product-placeholder.png'}
-                  alt={product.name}
-                  fill
-                  fillContainer
-                  sizes="(max-width: 1024px) 40vw, 30vw"
-                  maxTilt={10}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <p className="text-gold text-xs tracking-wider uppercase mb-2">{product.category}</p>
-                  <h3 className="text-xl font-bold text-foreground mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-                    {product.name}
-                  </h3>
-                  <span className="text-2xl font-bold text-gold">{formatPrice(product.price)}</span>
-                </div>
-              </Link>
-            </HorizontalPanel>
-          ))}
-        </HorizontalPinScroll>
-
-        {/* Mobile: horizontal scroll */}
-        <div className="md:hidden flex gap-4 overflow-x-auto snap-x snap-mandatory px-4 pb-4 scrollbar-hide">
-          {products.slice(0, 8).map((product, i) => (
-            <div
-              key={product.id}
-              className="flex-shrink-0 w-[80vw] snap-center animate-card-enter"
-              style={{ animationDelay: `${i * 0.1}s` }}
-            >
-              <Link href={`/products/${product.id}`} className="group block relative aspect-[3/4] rounded-2xl overflow-hidden border border-border active:border-gold/40 transition-colors">
-                <ThreeDImage
-                  src={product.images[0] || '/products/test-product-placeholder.png'}
-                  alt={product.name}
-                  fill
-                  fillContainer
-                  sizes="80vw"
-                  maxTilt={0}
-                  glare={false}
-                  edgeHighlight={false}
-                  floatSpeed={0}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <p className="text-gold text-xs tracking-wider uppercase mb-2">{product.category}</p>
-                  <h3 className="text-xl font-bold text-foreground mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-                    {product.name}
-                  </h3>
-                  <span className="text-2xl font-bold text-gold">{formatPrice(product.price)}</span>
-                </div>
-              </Link>
-            </div>
-          ))}
-        </div>
+        <AutoScrollShowcase
+          products={products.slice(0, 20)}
+          speed={45}
+          gap={24}
+        />
       </section>
 
       {/* ===== CTA ===== */}
