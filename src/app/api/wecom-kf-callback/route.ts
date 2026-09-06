@@ -1,4 +1,7 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
 
 const TOKEN = 'rDlass26cqmA4o';
 const ENCODING_AES_KEY = 'u6rQqzPhqmSes2PZux0ynL2Gwsfiz6OqkGWrhQG3bku';
@@ -12,8 +15,6 @@ const ENCODING_AES_KEY = 'u6rQqzPhqmSes2PZux0ynL2Gwsfiz6OqkGWrhQG3bku';
 
 // ---- 工具函数：AES-256-CBC 解密 ----
 function decode(encryptedBase64: string): string {
-  const crypto = require('crypto');
-
   const aesKey = Buffer.from(ENCODING_AES_KEY, 'base64'); // 32 bytes
   const encrypted = Buffer.from(encryptedBase64, 'base64');
   const iv = aesKey.subarray(0, 16);
@@ -33,8 +34,12 @@ function decode(encryptedBase64: string): string {
 }
 
 // ---- 签名校验 ----
-function verifySignature(timestamp: string, nonce: string, encrypted: string, signature: string): boolean {
-  const crypto = require('crypto');
+function verifySignature(
+  timestamp: string,
+  nonce: string,
+  encrypted: string,
+  signature: string
+): boolean {
   const expected = crypto
     .createHash('sha1')
     .update([TOKEN, timestamp, nonce, encrypted].sort().join(''))
