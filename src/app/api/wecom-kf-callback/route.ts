@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const TOKEN = 'rDlass26cqmA4o';
+const TOKEN = '844df401e88lef824363f868c9d17d22';
 const ENCODING_AES_KEY = 'u6rQqzPhqmSes2PZux0ynL2Gwsfiz6OqkGWrhQG3bku';
 
 /**
