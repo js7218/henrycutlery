@@ -1,6 +1,6 @@
 {
-  "version": 5,
-  "last_updated": "2026-09-28T10:07:13.005Z",
+  "version": 6,
+  "last_updated": "2026-09-28T10:36:36.168Z",
   "sources": [
     "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-badbot-blocker/master/_generator_lists/bad-useragents.list",
     "https://raw.githubusercontent.com/curbengh/Bad-User-Agents/master/user-agents.txt",
@@ -54,7 +54,7 @@
     "commix",
     "detectify",
     "fimap",
-    "fuzz",
+    "fuzz faster",
     "whatwaf",
     "hexometer",
     "jbrofuzz",
@@ -79,7 +79,7 @@
     "l9explore",
     "l9tcpid",
     "wapiti",
-    "vega",
+    "vega/",
     "appspider",
     "ironwasp",
     "skipfish",
@@ -108,7 +108,13 @@
     "noseyparker",
     "trufflehog",
     "yeswehack-hunter",
-    "tinja"
+    "tinja",
+    "Mozilla/6\\.0",
+    "Mozilla/5\\.g",
+    "w3af\\.org",
+    "Mozilla/4\\.0 \\(Hydra\\)",
+    "Mozilla/5\\.0 \\(compatible; Panoptic",
+    "Mozilla/5\\.0 \\(compatible; AppScan;"
   ],
   "waf_patterns": {
     "php_malicious": [
@@ -219,6 +225,14 @@
     {
       "date": "2026-09-28",
       "changes": [
+        "+6 个扫描器 UA (OWASP CRS)",
+        "CISA 已知漏洞库: 未知 → 1728"
+      ],
+      "version": 6
+    },
+    {
+      "date": "2026-09-28",
+      "changes": [
         "+62 个扫描器 UA (OWASP CRS)",
         "CISA: 1728 个已知漏洞已记录"
       ],
@@ -231,5 +245,6 @@
       ],
       "version": 4
     }
-  ]
+  ],
+  "cisa_known_vulns": 1728
 }

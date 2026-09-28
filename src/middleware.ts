@@ -806,6 +806,41 @@ const BLOCKED_UAS = [
 ];
 
 // ============================================================================
+// ALLOWLIST: 白名单 UA —— 优先于黑名单判断，永不被拦截
+// 放行主流搜索引擎（保证 SEO 收录）与合法服务
+// 注意：此列表为静态硬编码，同步脚本无法修改，防止被上游情报误删
+// ============================================================================
+const ALLOWED_UAS = [
+  // 主流搜索引擎
+  /googlebot/i,
+  /google-inspectiontool/i,
+  /googleother/i,
+  /bingbot/i,
+  /bingpreview/i,
+  /msnbot/i,
+  /baiduspider/i,
+  /yandexbot/i,
+  /duckduckbot/i,
+  /sogou\s+(web|inst|news)\s+spider/i,
+  /applebot/i,
+  /exabot/i,
+  // 社交平台链接预览
+  /facebookexternalhit/i,
+  /twitterbot/i,
+  /linkedinbot/i,
+  /telegrambot/i,
+  /whatsapp/i,
+  // 合规监控服务
+  /pingdom/i,
+  /uptimerobot/i,
+  /vercel/i,
+];
+
+function isAllowedUA(ua: string): boolean {
+  return ALLOWED_UAS.some(pat => pat.test(ua));
+}
+
+// ============================================================================
 // PATTERNS: Protocol Smuggling / HTTP Desync
 // ============================================================================
 const SMUGGLING_PATTERNS = [
@@ -1320,6 +1355,8 @@ function isHoneypotPath(path: string): boolean {
 }
 
 function isBlockedUA(ua: string): boolean {
+  // 白名单优先：主流搜索引擎/合法服务直接放行
+  if (ua && isAllowedUA(ua)) return false;
   if (!ua || ua.length < 4) return true;
   // 检查静态 UA 黑名单 + 动态威胁情报 UA 列表
   return BLOCKED_UAS.some(pat => pat.test(ua)) ||

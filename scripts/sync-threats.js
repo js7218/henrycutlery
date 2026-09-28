@@ -128,23 +128,85 @@ function fetch(url, maxRedirects = 3) {
 // =============================================================
 
 /**
- * 从纯文本 UA 列表提取（每行一个 UA）
+ * 正常 UA 样本 —— 准入测试用。
+ * 任何新规则只要命中其中任意一条，即判定为"可能误伤"，整条拒绝。
+ * 保守策略：宁缺毋滥。
+ */
+const BENIGN_UA_SAMPLES = [
+  // 主流浏览器
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+  // 国内浏览器
+  'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36 QIHU 360SE',
+  'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36 QIHU 360EE',
+  'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.25 Safari/537.36 Core/1.70.3877.400 QQBrowser/10.8.4494.400',
+  // 微信 / 企业微信
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 MicroMessenger/7.0.20',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.40',
+  // 主流搜索引擎（中间件已放行，绝不能被新规则命中）
+  'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+  'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+  'Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)',
+  'Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)',
+  'Mozilla/5.0 (compatible; DuckDuckBot/1.0; +http://duckduckgo.com/duckduckbot.html)',
+  'Sogou web spider/4.0(+http://www.sogou.com/docs/help/webmasters.htm#07)',
+  'Mozilla/5.0 (compatible; Applebot/0.1; +http://www.apple.com/go/applebot)',
+  // 社交预览 / 监控
+  'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+  'Twitterbot/1.0',
+  'Pingdom.com_bot_version_1.4',
+  'Mozilla/5.0 (compatible; UptimeRobot/2.0; http://www.uptimerobot.com/)',
+];
+
+/**
+ * 准入校验（保守策略）
+ * 一条新规则必须全部通过以下检查才允许入库，否则整条丢弃：
+ *  1. 长度 4~100
+ *  2. 必须是合法正则
+ *  3. 不能有 ReDoS 风险的嵌套量词
+ *  4. 绝不能命中任何正常 UA 样本（防误伤）
+ */
+function validateCandidate(regexStr) {
+  if (!regexStr || regexStr.length < 4) return { ok: false, reason: '太短' };
+  if (regexStr.length > 100) return { ok: false, reason: '太长' };
+
+  let re;
+  try {
+    re = new RegExp(regexStr, 'i');
+  } catch {
+    return { ok: false, reason: '非法正则' };
+  }
+
+  // ReDoS 启发式：嵌套量词 / 连续通配
+  if (/(\.\*|\.\+|\[[^\]]*\][*+])[*+]/i.test(regexStr) || /\([^)]*[*+][^)]*\)[*+]/i.test(regexStr)) {
+    return { ok: false, reason: '疑似 ReDoS' };
+  }
+
+  // 误伤测试：命中任一正常 UA 即拒绝
+  for (const sample of BENIGN_UA_SAMPLES) {
+    if (re.test(sample)) {
+      return { ok: false, reason: `会误伤正常 UA: ${sample.slice(0, 50)}...` };
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * 从纯文本 UA 列表提取（每行一个 UA，整行作为一个子串匹配）
+ * 注意：OWASP 的设计就是"整行匹配"，不能截断成第一个单词，
+ * 否则 "fuzz faster" → "fuzz" 这类会被放大成过宽规则。
  */
 function parsePlainUAList(text) {
   return text
     .split('\n')
     .map(line => line.trim())
-    .filter(line => line && !line.startsWith('#') && line.length >= 3)
-    // 转义正则特殊字符
-    .map(ua => ua.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    // 只取 UA 关键词部分（避免太长）
-    .map(ua => {
-      // 提取核心标识词
-      const match = ua.match(/([A-Za-z][A-Za-z0-9_-]{2,30})/);
-      return match ? match[1].toLowerCase() : null;
-    })
-    .filter(Boolean)
-    .filter(ua => ua.length >= 3 && !['mozilla', 'applewebkit', 'chrome', 'safari', 'gecko', 'khtml', 'windows', 'linux', 'macintosh', 'android', 'iphone', 'mobile'].includes(ua));
+    .filter(line => line && !line.startsWith('#') && line.length >= 4)
+    // 转义正则特殊字符，作为字面量匹配
+    .map(line => line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 }
 
 /**
@@ -238,6 +300,8 @@ async function main() {
   const oldWafCount = Object.values(config.waf_patterns).flat().length;
 
   const newUAs = new Set(config.blocked_user_agents);
+  // 大小写不敏感去重表（正则匹配本就是 case-insensitive，避免 BFAC/bfac 之类的重复堆积）
+  const newUAsLower = new Set([...newUAs].map(u => u.toLowerCase()));
   const newSqliPatterns = new Set(config.waf_patterns.sql_injection || []);
   const newXssPatterns = new Set(config.waf_patterns.xss || []);
   const newPhpPatterns = new Set(config.waf_patterns.php_malicious || []);
@@ -248,16 +312,25 @@ async function main() {
   try {
     console.log('[owaspScannerUAs] 拉取中...');
     const text = await fetch(SOURCES.owaspScannerUAs);
-    // scanners-user-agents.data 是纯文本，每行一个 UA 关键词
+    // scanners-user-agents.data 是纯文本，每行一个 UA（整行匹配）
     const uas = parsePlainUAList(text);
     let added = 0;
+    let rejected = 0;
     for (const ua of uas) {
-      if (!newUAs.has(ua)) {
-        newUAs.add(ua);
-        added++;
+      const key = ua.toLowerCase();
+      if (newUAsLower.has(key)) continue;
+      // 保守策略：新规则必须先通过准入校验，否则整条丢弃
+      const verdict = validateCandidate(ua);
+      if (!verdict.ok) {
+        rejected++;
+        console.log(`  拒绝 "${ua}"（${verdict.reason}）`);
+        continue;
       }
+      newUAs.add(ua);
+      newUAsLower.add(key);
+      added++;
     }
-    console.log(`[owaspScannerUAs] 获取 ${uas.length} 个，新增 ${added} 个`);
+    console.log(`[owaspScannerUAs] 获取 ${uas.length} 个，新增 ${added} 个，拒绝 ${rejected} 个`);
     if (added > 0) changelog.push(`+${added} 个扫描器 UA (OWASP CRS)`);
   } catch (err) {
     console.error(`[owaspScannerUAs] 失败: ${err.message}`);
@@ -317,14 +390,18 @@ async function main() {
     console.error(`[owaspPhp] 失败: ${err.message}`);
   }
 
-  // 6. 检查 CISA 已知漏洞（记录高危 CVE，不自动加规则，供人工审核）
+  // 6. 检查 CISA 已知漏洞（仅记录数量变化，不自动加规则，供人工审核）
   try {
     console.log('\n[cisaVuln] 拉取中...');
     const text = await fetch(SOURCES.cisaVuln);
     const data = JSON.parse(text);
     const recentCount = data.vulnerabilities?.length || 0;
     console.log(`[cisaVuln] ${recentCount} 个已知漏洞`);
-    changelog.push(`CISA: ${recentCount} 个已知漏洞已记录`);
+    // 只有数量变化时才记入 changelog，避免每天都产生"变更"
+    if (config.cisa_known_vulns !== recentCount) {
+      changelog.push(`CISA 已知漏洞库: ${config.cisa_known_vulns ?? '未知'} → ${recentCount}`);
+      config.cisa_known_vulns = recentCount;
+    }
   } catch (err) {
     console.error(`[cisaVuln] 失败: ${err.message}`);
   }
@@ -353,10 +430,13 @@ async function main() {
   config.waf_patterns.sql_injection = limitPatterns(newSqliPatterns);
   config.waf_patterns.xss = limitPatterns(newXssPatterns);
   config.waf_patterns.php_malicious = limitPatterns(newPhpPatterns);
-  config.last_updated = new Date().toISOString();
-  config.version += 1;
 
-  if (changelog.length > 0) {
+  // 只有真正新增了规则/模式时才记版本号和变更历史
+  // 否则不产生 diff，就不会有"每天都提交"的噪音
+  const hasRealChanges = changelog.length > 0;
+  if (hasRealChanges) {
+    config.last_updated = new Date().toISOString();
+    config.version += 1;
     config.changelog = [
       {
         date: new Date().toISOString().split('T')[0],
@@ -382,12 +462,12 @@ async function main() {
   console.log(`\n配置已写入: ${CONFIG_PATH}`);
 
   // 如果有变更，输出标记供 CI 检测
-  if (changelog.length > 0) {
+  if (hasRealChanges) {
     console.log('\n::CHANGES_DETECTED::');
     // 写入变更标记文件供 GitHub Actions 检测
     fs.writeFileSync(path.join(__dirname, '.threat-changed'), new Date().toISOString());
   } else {
-    console.log('\n无新变更');
+    console.log('\n无新变更（不提交、不部署）');
   }
 }
 
