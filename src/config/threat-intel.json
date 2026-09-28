@@ -1,6 +1,6 @@
 {
-  "version": 5,
-  "last_updated": "2026-09-28T10:07:13.005Z",
+  "version": 6,
+  "last_updated": "2026-09-28T10:28:02.958Z",
   "sources": [
     "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-badbot-blocker/master/_generator_lists/bad-useragents.list",
     "https://raw.githubusercontent.com/curbengh/Bad-User-Agents/master/user-agents.txt",
@@ -216,6 +216,13 @@
     "Content-Security-Policy": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com;style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;img-src 'self' data: https: blob:;font-src 'self' https://fonts.gstatic.com data:;connect-src 'self' https: https://vitals.vercel-insights.com;frame-src 'self';frame-ancestors 'none';base-uri 'self';form-action 'self';object-src 'none'"
   },
   "changelog": [
+    {
+      "date": "2026-09-28",
+      "changes": [
+        "CISA: 1728 个已知漏洞已记录"
+      ],
+      "version": 6
+    },
     {
       "date": "2026-09-28",
       "changes": [
