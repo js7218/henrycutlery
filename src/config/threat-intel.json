@@ -1,6 +1,6 @@
 {
-  "version": 6,
-  "last_updated": "2026-09-28T10:36:36.168Z",
+  "version": 7,
+  "last_updated": "2026-09-28T10:56:50.910Z",
   "sources": [
     "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-badbot-blocker/master/_generator_lists/bad-useragents.list",
     "https://raw.githubusercontent.com/curbengh/Bad-User-Agents/master/user-agents.txt",
@@ -137,7 +137,13 @@
       "shell_exec\\s*\\(",
       "proc_open\\s*\\(",
       "popen\\s*\\(",
-      "unserialize\\s*\\(\\s*\\$_(GET|POST|REQUEST|COOKIE)"
+      "unserialize\\s*\\(\\s*\\$_(GET|POST|REQUEST|COOKIE)",
+      "<\\?(?:php[\\s\\x0b]|[\\s\\x0b=]|xml(?:[\\s\\x0b]+[^a-z]|:)|$)|\\[[/\\x5c]?php\\]|\\{/?php\\}",
+      "\\$\\s*\\{\\s*\\S[^\\{\\}]*\\}",
+      "php://(?:std(?:in|out|err)|(?:in|out)put|f(?:d|ilter)|memory|temp)",
+      "(?:bzip2|expect|glob|ogg|(?:ph|r)ar|ssh2(?:.(?:s(?:hell|(?:ft|c)p)|exec|tunnel))?|z(?:ip|lib))://",
+      "(?:^|[/\\x5c])sess_[,\\-0-9a-z]{20,256}$",
+      "AUTH_TYPE|HTTP_(?:ACCEPT(?:_(?:CHARSET|ENCODING|LANGUAGE))?|CONNECTION|(?:HOS|USER_AGEN)T|KEEP_ALIVE|(?:REFERE|X_FORWARDED_FO)R)|ORIG_PATH_INFO|PATH_(?:INFO|TRANSLATED)|QUERY_STRING|REQUEST_URI"
     ],
     "image_trojan": [
       "<\\?php",
@@ -162,7 +168,13 @@
       "or\\s+1\\s*=\\s*1",
       "and\\s+1\\s*=\\s*1",
       "information_schema",
-      "load_file\\s*\\("
+      "load_file\\s*\\(",
+      "(?:select|;)[\\s\\x0b]+(?:benchmark|if|sleep)[\\s\\x0b]*?\\([\\s\\x0b]*?\\(?[\\s\\x0b]*?[0-9A-Z_a-z]+",
+      "^(?:json\\.)?(?:429496729[56]|2(?:14748364[78]|.22507385850720(?:07|11)e-308)|-(?:214748364[89]|0000023456)|00000(?:12345|23456)|1e309)$",
+      "/\\*[\\s\\x0b]*?[!\\+](?:[\\s\\x0b\\(\\)\\-0-9=A-Z_a-z]+)?\\*/",
+      "1\\.e(?:[\\(\\),]|\\.[\\$0-9A-Z_a-z])",
+      "(?:^(?:json\\.)?[\\W\\d]+\\s*?(?:alter|union)\\b)",
+      "\\b0x[0-9a-f]{3,}|(?:x'[0-9a-f]{3,}|b'[01]{10,})'"
     ],
     "xss": [
       "<script",
@@ -175,7 +187,13 @@
       "on\\w+\\s*=",
       "javascript\\s*:",
       "vbscript\\s*:",
-      "expression\\s*\\("
+      "expression\\s*\\(",
+      "<[?]?import[\\s/+\\S]*?implementation[\\s/+]*?=",
+      "<APPLET[\\s/+>]",
+      "\\x{bc}[^>\\x{be}]*[>\\x{be}]|<[^\\x{be}]*\\x{be}",
+      "\\x{bc}[\\s\\x0b]*/[\\s\\x0b]*[^>\\x{be}]*[>\\x{be}]|<[\\s\\x0b]*/[\\s\\x0b]*[^\\x{be}]*\\x{be}",
+      "![!+ ]\\[\\]",
+      "\\b(?:eval|set(?:timeout|interval)|new[\\s\\x0b]+Function|a(?:lert|tob)|btoa|(?:promp|impor)t|con(?:firm|sole\\.(?:log|dir))|fetch)[\\s\\x0b]*[\\(\\{]"
     ],
     "path_traversal": [
       "\\.\\./",
@@ -222,6 +240,15 @@
     "Content-Security-Policy": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com;style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;img-src 'self' data: https: blob:;font-src 'self' https://fonts.gstatic.com data:;connect-src 'self' https: https://vitals.vercel-insights.com;frame-src 'self';frame-ancestors 'none';base-uri 'self';form-action 'self';object-src 'none'"
   },
   "changelog": [
+    {
+      "date": "2026-09-28",
+      "changes": [
+        "+6 个 SQL 注入模式 (OWASP CRS)",
+        "+6 个 XSS 模式 (OWASP CRS)",
+        "+6 个 PHP 攻击模式 (OWASP CRS)"
+      ],
+      "version": 7
+    },
     {
       "date": "2026-09-28",
       "changes": [

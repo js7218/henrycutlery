@@ -15,9 +15,16 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
-const crypto = require('crypto');
 
 const CONFIG_PATH = path.join(__dirname, '..', 'src', 'config', 'threat-intel.json');
+
+// 告警输出：本地打印，CI 环境额外输出 GitHub Actions 注解
+function warn(msg) {
+  console.warn(`[warn] ${msg}`);
+  if (process.env.GITHUB_ACTIONS === 'true') {
+    console.log(`::warning::${msg}`);
+  }
+}
 
 // =============================================================
 // 情报源
@@ -196,6 +203,143 @@ function validateCandidate(regexStr) {
 }
 
 /**
+ * 正常请求样本 —— WAF 模式准入测试用。
+ * WAF 模式会作用在 URL/查询串/表单/JSON 等所有解码后的请求值上，
+ * 因此样本要覆盖真实的正常流量：英文/中文文案、正常 URL、查询串、邮箱、JSON、价格等。
+ * 任何新模式只要命中其中任意一条，即判定为"过宽、会误伤"，整条拒绝。
+ */
+const BENIGN_WAF_SAMPLES = [
+  // 英文业务文案（含常见动词，最容易误伤过宽关键字规则）
+  'Please select the size and color of the cutlery set, then update your cart.',
+  'We can execute your order within 24 hours after payment.',
+  'You can delete or insert items in your wishlist at any time.',
+  'Join our union of chefs and drop a review for the new knife set.',
+  'The operating system (OS) does not affect delivery time.',
+  'Call support at +1 202 555 0143 or email us any time.',
+  // 中文文案
+  '请选择餐具套装的颜色和数量，然后更新购物车。',
+  '支持支付宝和微信支付，下单后 24 小时内发货。',
+  '加入会员即可享受 9 折优惠，删除订单请到个人中心。',
+  // 正常 URL / slug / 静态资源（含常见业务查询参数，如 pattern= 图案筛选）
+  '/products/damascus-steel-knife-set',
+  '/collections/dinnerware?page=2&sort=price_desc',
+  '/collections/knives?pattern=damascus&page=2&sort=price',
+  '/images/logo.png',
+  // 正常查询串
+  'q=stainless+steel+forks&category=tableware&rating=4.5',
+  // 邮箱 / 正常 JSON
+  'support@henrycutlery.com',
+  '{"name":"John Smith","email":"john@example.com","message":"Great product, fast shipping!"}',
+  // 价格 / 数字
+  'Total: $129.99 (10% off, save $14.44)',
+  // 正常标点与 HTML 实体
+  'Tom &amp; Jerry\'s kitchen - knives & forks for daily use.',
+  // 带前后文的关键词（覆盖"需要上下文才触发"的过宽规则）
+  'Please select the option you like; having trouble? Contact us any time.',
+  'Enter your zip code to check delivery time and shipping cost.',
+  'We expect the parcel by Friday, track it from your account.',
+];
+
+/**
+ * 高频英文词 / 电商词表 —— 单词级误报测试用。
+ * 一条硬拦模式只要命中其中任意一个"单独的词"，就说明它会在正常输入上误伤，
+ * 整条拒绝。这比句子样本更通用：能一次性拦住 zip / alert / having / glob /
+ * expect / union / select 这类"裸词"规则（上游 CRS 原本用于异常评分，
+ * 直接搬来做硬拦截就会误伤）。
+ */
+const COMMON_WORDS = [
+  'a', 'an', 'the', 'and', 'or', 'but', 'if', 'then', 'else', 'in', 'on', 'at', 'to', 'of', 'for',
+  'from', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'do', 'does', 'did', 'will', 'would',
+  'can', 'could', 'should', 'may', 'might', 'must', 'have', 'has', 'had', 'you', 'your', 'we', 'our',
+  'us', 'me', 'my', 'it', 'its', 'this', 'that', 'these', 'those', 'they', 'them', 'their', 'what',
+  'which', 'who', 'when', 'where', 'why', 'how', 'not', 'no', 'yes', 'all', 'any', 'some', 'more',
+  'most', 'other', 'only', 'same', 'so', 'than', 'too', 'very', 'just', 'now', 'new', 'old', 'good',
+  'great', 'best', 'fast', 'free',
+  'product', 'shop', 'store', 'cart', 'order', 'buy', 'sell', 'price', 'size', 'color', 'quantity',
+  'item', 'review', 'shipping', 'delivery', 'return', 'refund', 'payment', 'checkout', 'discount',
+  'coupon', 'sale', 'stock', 'search', 'login', 'logout', 'account', 'profile', 'password', 'email',
+  'name', 'address', 'phone', 'city', 'country', 'zip', 'postal', 'code', 'track', 'tracking', 'help',
+  'support', 'contact', 'about', 'home', 'page', 'link', 'view', 'list', 'add', 'remove', 'check',
+  'choose', 'select', 'save', 'set', 'get', 'put', 'open', 'close', 'read', 'load', 'send', 'edit',
+  'update', 'delete', 'drop', 'create', 'insert', 'alter', 'union', 'having', 'where', 'group', 'table',
+  'database', 'system', 'eval', 'exec', 'execute', 'alert', 'glob', 'ogg', 'expect', 'count', 'sum', 'id',
+  'user', 'admin', 'test', 'data', 'file', 'path', 'dir', 'folder', 'doc', 'include', 'require',
+  'template', 'location', 'window', 'document', 'replace', 'expression', 'javascript', 'script', 'style',
+  'object', 'embed', 'applet', 'iframe', 'svg', 'img', 'meta', 'charset', 'import', 'sleep', 'wait',
+  'benchmark', 'case', 'when', 'value', 'text', 'number', 'string', 'date', 'time', 'true', 'false',
+];
+
+/**
+ * WAF 模式准入校验（与 UA 同等严格）
+ * 与 UA 的差别：这里额外用"正常请求样本"做误报测试，
+ * 避免上游把 eval( / select / system( 这类过宽模式直接灌进来误伤正常用户。
+ * 一条新模式必须全部通过才允许入库，否则整条丢弃：
+ *  1. 长度 4~200
+ *  2. 必须是合法 JS 正则（上游 PCRE 语法不兼容的直接淘汰）
+ *  3. 不能有 ReDoS 风险的嵌套量词
+ *  4. 绝不能命中任何正常请求样本
+ */
+function validateWafCandidate(regexStr) {
+  if (!regexStr || regexStr.length < 4) return { ok: false, reason: '太短' };
+  if (regexStr.length > 200) return { ok: false, reason: '太长' };
+
+  let re;
+  try {
+    re = new RegExp(regexStr, 'i');
+  } catch {
+    return { ok: false, reason: '非法正则' };
+  }
+
+  // ReDoS 启发式：嵌套量词 / 连续通配
+  if (/(\.\*|\.\+|\[[^\]]*\][*+])[*+]/i.test(regexStr) || /\([^)]*[*+][^)]*\)[*+]/i.test(regexStr)) {
+    return { ok: false, reason: '疑似 ReDoS' };
+  }
+
+  // 硬拦模式必须"聚焦"：中间件是硬拦截，含无界通配 .* / .+ / [\s\S]* 的规则
+  // 会在正常文本里跨词匹配（典型反例：select.*?having 会命中 "Please select ... having trouble"），
+  // 这类上游规则（原本用于异常评分而非直接拦截）一律拒绝。
+  if (/\.\s*[*+]|\[\\s\\S\]\s*[*+]/.test(regexStr)) {
+    return { ok: false, reason: '含无界通配，硬拦易误报' };
+  }
+
+  // 单词级误报测试：命中任一常见词（且仅这一个词就能触发）即拒绝
+  for (const word of COMMON_WORDS) {
+    if (re.test(word)) {
+      return { ok: false, reason: `会命中常见词 "${word}"，硬拦易误报` };
+    }
+  }
+
+  // 句子级误报测试：命中任一正常请求样本即拒绝
+  for (const sample of BENIGN_WAF_SAMPLES) {
+    if (re.test(sample)) {
+      return { ok: false, reason: `会误伤正常输入: ${sample.slice(0, 40)}...` };
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * 把候选模式加入目标集合，先过准入校验。
+ * 返回本次新增数与拒绝数，供调用方记录日志。
+ */
+function admitPatterns(candidates, target) {
+  let added = 0;
+  let rejected = 0;
+  for (const p of candidates) {
+    if (target.has(p)) continue;
+    const verdict = validateWafCandidate(p);
+    if (!verdict.ok) {
+      rejected++;
+      console.log(`  拒绝 "${p.slice(0, 60)}"（${verdict.reason}）`);
+      continue;
+    }
+    target.add(p);
+    added++;
+  }
+  return { added, rejected };
+}
+
+/**
  * 从纯文本 UA 列表提取（每行一个 UA，整行作为一个子串匹配）
  * 注意：OWASP 的设计就是"整行匹配"，不能截断成第一个单词，
  * 否则 "fuzz faster" → "fuzz" 这类会被放大成过宽规则。
@@ -210,81 +354,34 @@ function parsePlainUAList(text) {
 }
 
 /**
- * 从 OWASP CRS 配置提取 UA 模式
- * 格式: SecRule REQUEST_HEADERS:User-Agent "@rx /pattern/i"
+ * 把 PCRE 内联修饰符转成 JS 支持的写法。
+ * 中间件统一用 'i' 标志编译，因此：
+ *   (?i)   -> 去掉（等价于全局 i）
+ *   (?i:…) -> (?:…)（作用域 i 降级为全局 i，拦截只可能更严、不会更松）
+ * 其余 JS 不兼容的 PCRE 语法（\A \Z \h 等）交由准入门禁以"非法正则"淘汰。
  */
-function parseOWASPUserAgents(text) {
+function normalizePcre(pattern) {
+  return pattern.replace(/\(\?i:/g, '(?:').replace(/\(\?i\)/g, '');
+}
+
+/**
+ * 从 OWASP CRS 规则文件提取 @rx 正则模式（SQLi / XSS / PHP 通用）。
+ * 真实格式为：SecRule <targets> "@rx <pattern>" \
+ * 关键点：@rx 后面**直接跟模式**，并没有开始的引号，模式结束后才是引号。
+ * 旧实现写成 /@rx\s+"(.+?)"/（要求 @rx 后紧跟引号），因此永远匹配不到，
+ * 导致 WAF 模式链路一直是空转（每次运行都"获取 0 个"）。
+ */
+function parseOWASRRxPatterns(text) {
   const patterns = new Set();
-  const regex = /@rx\s+["']?(.+?)["']?\s*[id][")\s]/g;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    let p = match[1].trim();
-    // 去掉 OWASP 变量引用
+  for (const line of text.split('\n')) {
+    const m = line.match(/"@rx\s+(.+?)"/);
+    if (!m) continue;
+    const p = normalizePcre(m[1]);
+    // 过滤 OWASP 变量/宏引用（本中间件无对应变量，保留会语义错误）
     if (p.includes('%{') || p.includes('$(')) continue;
-    // 提取核心词
-    const wordMatch = p.match(/([a-z][a-z0-9_-]{2,30})/i);
-    if (wordMatch) {
-      const word = wordMatch[1].toLowerCase();
-      if (word.length >= 3 && !['mozilla', 'applewebkit', 'chrome', 'safari'].includes(word)) {
-        patterns.add(word);
-      }
-    }
+    if (p.length >= 3) patterns.add(p);
   }
   return [...patterns];
-}
-
-/**
- * 从 OWASP CRS SQLi 规则提取攻击模式
- */
-function parseOWASPSqli(text) {
-  const patterns = new Set();
-  // 提取 @rx 后面的正则模式
-  const regex = /@rx\s+"(.+?)"/g;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    let p = match[1];
-    // 过滤太复杂的 OWASP 变量引用
-    if (p.includes('%{') || p.includes('$(')) continue;
-    // 只取简洁有效的模式
-    if (p.length >= 5 && p.length <= 200) {
-      patterns.add(p);
-    }
-  }
-  return [...patterns].slice(0, 30); // 限制数量
-}
-
-/**
- * 从 OWASP CRS XSS 规则提取攻击模式
- */
-function parseOWASPXss(text) {
-  const patterns = new Set();
-  const regex = /@rx\s+"(.+?)"/g;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    let p = match[1];
-    if (p.includes('%{') || p.includes('$(')) continue;
-    if (p.length >= 3 && p.length <= 200) {
-      patterns.add(p);
-    }
-  }
-  return [...patterns].slice(0, 30);
-}
-
-/**
- * 从 OWASP CRS PHP 攻击规则提取模式
- */
-function parseOWASPPHp(text) {
-  const patterns = new Set();
-  const regex = /@rx\s+"(.+?)"/g;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    let p = match[1];
-    if (p.includes('%{') || p.includes('$(')) continue;
-    if (p.length >= 3 && p.length <= 200) {
-      patterns.add(p);
-    }
-  }
-  return [...patterns].slice(0, 30);
 }
 
 // =============================================================
@@ -336,61 +433,43 @@ async function main() {
     console.error(`[owaspScannerUAs] 失败: ${err.message}`);
   }
 
-  // 3. 拉取 OWASP CRS SQLi 模式
+  // 2. 拉取 OWASP CRS SQLi 模式（准入校验：拒绝过宽/非法/ReDoS 模式）
   try {
     console.log('\n[owaspSqli] 拉取中...');
     const text = await fetch(SOURCES.owaspSqli);
-    const patterns = parseOWASPSqli(text);
-    let added = 0;
-    for (const p of patterns) {
-      if (!newSqliPatterns.has(p)) {
-        newSqliPatterns.add(p);
-        added++;
-      }
-    }
-    console.log(`[owaspSqli] 获取 ${patterns.length} 个模式，新增 ${added} 个`);
+    const patterns = parseOWASRRxPatterns(text);
+    const { added, rejected } = admitPatterns(patterns, newSqliPatterns);
+    console.log(`[owaspSqli] 获取 ${patterns.length} 个模式，新增 ${added} 个，拒绝 ${rejected} 个`);
     if (added > 0) changelog.push(`+${added} 个 SQL 注入模式 (OWASP CRS)`);
   } catch (err) {
     console.error(`[owaspSqli] 失败: ${err.message}`);
   }
 
-  // 4. 拉取 OWASP CRS XSS 模式
+  // 3. 拉取 OWASP CRS XSS 模式（准入校验）
   try {
     console.log('\n[owaspXss] 拉取中...');
     const text = await fetch(SOURCES.owaspXss);
-    const patterns = parseOWASPXss(text);
-    let added = 0;
-    for (const p of patterns) {
-      if (!newXssPatterns.has(p)) {
-        newXssPatterns.add(p);
-        added++;
-      }
-    }
-    console.log(`[owaspXss] 获取 ${patterns.length} 个模式，新增 ${added} 个`);
+    const patterns = parseOWASRRxPatterns(text);
+    const { added, rejected } = admitPatterns(patterns, newXssPatterns);
+    console.log(`[owaspXss] 获取 ${patterns.length} 个模式，新增 ${added} 个，拒绝 ${rejected} 个`);
     if (added > 0) changelog.push(`+${added} 个 XSS 模式 (OWASP CRS)`);
   } catch (err) {
     console.error(`[owaspXss] 失败: ${err.message}`);
   }
 
-  // 5. 拉取 OWASP CRS PHP 攻击模式
+  // 4. 拉取 OWASP CRS PHP 攻击模式（准入校验）
   try {
     console.log('\n[owaspPhp] 拉取中...');
     const text = await fetch(SOURCES.owaspPhp);
-    const patterns = parseOWASPPHp(text);
-    let added = 0;
-    for (const p of patterns) {
-      if (!newPhpPatterns.has(p)) {
-        newPhpPatterns.add(p);
-        added++;
-      }
-    }
-    console.log(`[owaspPhp] 获取 ${patterns.length} 个模式，新增 ${added} 个`);
+    const patterns = parseOWASRRxPatterns(text);
+    const { added, rejected } = admitPatterns(patterns, newPhpPatterns);
+    console.log(`[owaspPhp] 获取 ${patterns.length} 个模式，新增 ${added} 个，拒绝 ${rejected} 个`);
     if (added > 0) changelog.push(`+${added} 个 PHP 攻击模式 (OWASP CRS)`);
   } catch (err) {
     console.error(`[owaspPhp] 失败: ${err.message}`);
   }
 
-  // 6. 检查 CISA 已知漏洞（仅记录数量变化，不自动加规则，供人工审核）
+  // 5. 检查 CISA 已知漏洞（仅记录数量变化，不自动加规则，供人工审核）
   try {
     console.log('\n[cisaVuln] 拉取中...');
     const text = await fetch(SOURCES.cisaVuln);
@@ -413,23 +492,27 @@ async function main() {
   const uaArray = [...newUAs];
   let finalUAs = uaArray;
   if (uaArray.length > MAX_UAS) {
-    // 保留原始的 + 新增的按字母排序取前 MAX_UAS 个
+    // 保留已有 + 新增（按插入顺序）取前 MAX_UAS 个
     finalUAs = uaArray.slice(0, MAX_UAS);
-    console.log(`\nUA 列表超过 ${MAX_UAS}，截断`);
+    warn(`UA 列表已达上限 ${MAX_UAS}，本次丢弃 ${uaArray.length - MAX_UAS} 条（新情报未生效，需人工评估后清理冗余或上调上限）`);
   }
 
-  // 限制 WAF 模式大小
+  // 限制 WAF 模式大小（超限会静默丢规则，必须告警）
   const MAX_PATTERNS = 50;
-  const limitPatterns = (set) => {
+  const limitPatterns = (set, label) => {
     const arr = [...set];
-    return arr.length > MAX_PATTERNS ? arr.slice(0, MAX_PATTERNS) : arr;
+    if (arr.length > MAX_PATTERNS) {
+      warn(`${label} 模式已达上限 ${MAX_PATTERNS}，丢弃 ${arr.length - MAX_PATTERNS} 条（需人工评估后清理冗余或上调上限）`);
+      return arr.slice(0, MAX_PATTERNS);
+    }
+    return arr;
   };
 
   // 更新配置
   config.blocked_user_agents = finalUAs;
-  config.waf_patterns.sql_injection = limitPatterns(newSqliPatterns);
-  config.waf_patterns.xss = limitPatterns(newXssPatterns);
-  config.waf_patterns.php_malicious = limitPatterns(newPhpPatterns);
+  config.waf_patterns.sql_injection = limitPatterns(newSqliPatterns, 'SQL 注入');
+  config.waf_patterns.xss = limitPatterns(newXssPatterns, 'XSS');
+  config.waf_patterns.php_malicious = limitPatterns(newPhpPatterns, 'PHP 恶意代码');
 
   // 只有真正新增了规则/模式时才记版本号和变更历史
   // 否则不产生 diff，就不会有"每天都提交"的噪音
