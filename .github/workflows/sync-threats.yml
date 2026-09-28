@@ -50,5 +50,5 @@ jobs:
           git push
 
       - name: Clean up
-        if: always
+        if: always()
         run: rm -f scripts/.threat-changed
