@@ -393,6 +393,10 @@ async function main() {
 
   // 读取当前配置
   const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+
+  // 让元数据始终反映实际拉取的源，避免配置里的 sources 字段与实际脱节
+  config.sources = Object.values(SOURCES);
+
   const oldUACount = config.blocked_user_agents.length;
   const oldWafCount = Object.values(config.waf_patterns).flat().length;
 
