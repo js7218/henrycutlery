@@ -25,6 +25,50 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import threatIntel from './config/threat-intel.json';
+
+// ============================================================================
+// 动态威胁情报加载
+// 从 threat-intel.json 加载（由 scripts/sync-threats.js 自动更新）
+// ============================================================================
+
+// 编译 UA 黑名单正则（来自威胁情报配置，自动更新）
+const BLOCKED_UAS_DYNAMIC: RegExp[] = (threatIntel.blocked_user_agents || []).map(
+  (ua: string) => new RegExp(ua, 'i')
+);
+
+// 编译 WAF 攻击模式正则（来自 OWASP CRS + 情报源，自动更新）
+function compilePatterns(categories: string[]): RegExp[] {
+  const patterns: RegExp[] = [];
+  for (const cat of categories) {
+    const items = (threatIntel.waf_patterns as Record<string, string[]>)[cat];
+    if (items) {
+      for (const p of items) {
+        try {
+          patterns.push(new RegExp(p, 'i'));
+        } catch {
+          // 跳过无效正则
+        }
+      }
+    }
+  }
+  return patterns;
+}
+
+const DYNAMIC_PATTERNS = {
+  php_malicious: compilePatterns(['php_malicious']),
+  image_trojan: compilePatterns(['image_trojan']),
+  command_execution: compilePatterns(['command_execution']),
+  sql_injection: compilePatterns(['sql_injection']),
+  xss: compilePatterns(['xss']),
+  path_traversal: compilePatterns(['path_traversal']),
+  ssrf: compilePatterns(['ssrf']),
+  file_inclusion: compilePatterns(['file_inclusion']),
+  malicious_redirect: compilePatterns(['malicious_redirect']),
+};
+
+// 动态安全头（来自配置，可自动更新）
+const DYNAMIC_SECURITY_HEADERS = (threatIntel.security_headers || {}) as Record<string, string>;
 
 // ============================================================================
 // PROTECTED PATHS: Block direct access to sensitive files and directories
@@ -1186,39 +1230,53 @@ function validateCSRF(request: NextRequest): boolean {
 // payloads cannot bypass the WAF.
 // ============================================================================
 function detectThreatRaw(value: string): { detected: boolean; type: string; pattern?: string } {
+  // 静态模式 + 动态威胁情报模式双重检测
   // PHP Malicious Code / WebShell / One-liner Trojan
-  for (const pattern of PHP_MALICIOUS_PATTERNS) {
+  const phpPats = [...PHP_MALICIOUS_PATTERNS, ...DYNAMIC_PATTERNS.php_malicious];
+  for (const pattern of phpPats) {
     if (pattern.test(value)) return { detected: true, type: 'PHP_MALICIOUS_CODE', pattern: pattern.source };
   }
   // Image Trojan
-  for (const pattern of IMAGE_TROJAN_PATTERNS) {
+  const imgPats = [...IMAGE_TROJAN_PATTERNS, ...DYNAMIC_PATTERNS.image_trojan];
+  for (const pattern of imgPats) {
     if (pattern.test(value)) return { detected: true, type: 'IMAGE_TROJAN', pattern: pattern.source };
   }
   // Command Execution
-  for (const pattern of CMD_EXECUTION_PATTERNS) {
+  const cmdPats = [...CMD_EXECUTION_PATTERNS, ...DYNAMIC_PATTERNS.command_execution];
+  for (const pattern of cmdPats) {
     if (pattern.test(value)) return { detected: true, type: 'CMD_EXECUTION', pattern: pattern.source };
   }
   // SSRF (skip in development to allow localhost testing)
   if (process.env.NODE_ENV !== 'development') {
-    for (const pattern of SSRF_PATTERNS) {
+    const ssrfPats = [...SSRF_PATTERNS, ...DYNAMIC_PATTERNS.ssrf];
+    for (const pattern of ssrfPats) {
       if (pattern.test(value)) return { detected: true, type: 'SSRF_DETECTED', pattern: pattern.source };
     }
   }
   // Path Traversal
-  for (const pattern of PATH_TRAVERSAL_PATTERNS) {
+  const ptPats = [...PATH_TRAVERSAL_PATTERNS, ...DYNAMIC_PATTERNS.path_traversal];
+  for (const pattern of ptPats) {
     if (pattern.test(value)) return { detected: true, type: 'PATH_TRAVERSAL', pattern: pattern.source };
   }
   // SQL Injection
-  for (const pattern of SQL_PATTERNS) {
+  const sqlPats = [...SQL_PATTERNS, ...DYNAMIC_PATTERNS.sql_injection];
+  for (const pattern of sqlPats) {
     if (pattern.test(value)) return { detected: true, type: 'SQL_INJECTION', pattern: pattern.source };
   }
   // XSS
-  for (const pattern of XSS_PATTERNS) {
+  const xssPats = [...XSS_PATTERNS, ...DYNAMIC_PATTERNS.xss];
+  for (const pattern of xssPats) {
     if (pattern.test(value)) return { detected: true, type: 'XSS_DETECTED', pattern: pattern.source };
   }
   // Malicious Redirect
-  for (const pattern of REDIRECT_PATTERNS) {
+  const redirPats = [...REDIRECT_PATTERNS, ...DYNAMIC_PATTERNS.malicious_redirect];
+  for (const pattern of redirPats) {
     if (pattern.test(value)) return { detected: true, type: 'MALICIOUS_REDIRECT', pattern: pattern.source };
+  }
+  // File Inclusion
+  const fiPats = [...FILE_INCLUSION_PATTERNS, ...DYNAMIC_PATTERNS.file_inclusion];
+  for (const pattern of fiPats) {
+    if (pattern.test(value)) return { detected: true, type: 'FILE_INCLUSION', pattern: pattern.source };
   }
   return { detected: false, type: '' };
 }
@@ -1263,7 +1321,9 @@ function isHoneypotPath(path: string): boolean {
 
 function isBlockedUA(ua: string): boolean {
   if (!ua || ua.length < 4) return true;
-  return BLOCKED_UAS.some(pat => pat.test(ua));
+  // 检查静态 UA 黑名单 + 动态威胁情报 UA 列表
+  return BLOCKED_UAS.some(pat => pat.test(ua)) ||
+    BLOCKED_UAS_DYNAMIC.some(pat => pat.test(ua));
 }
 
 // ============================================================================
@@ -1282,28 +1342,38 @@ function generateNonce(): string {
 
 function addSecurityHeaders(response: NextResponse, nonce?: string): NextResponse {
   const cspNonce = nonce || generateNonce();
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-  response.headers.set('X-Download-Options', 'noopen');
-  response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('Permissions-Policy', 'accelerometer=(), camera=(), microphone=(), geolocation=(), payment=(), display-capture=()');
-  response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  // 动态安全头：从威胁情报配置加载（可自动更新）
+  // 如果配置中存在则用配置值，否则用静态默认值
+  const headers: Record<string, string> = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'X-Download-Options': 'noopen',
+    'X-Permitted-Cross-Domain-Policies': 'none',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'accelerometer=(), camera=(), microphone=(), geolocation=(), payment=(), display-capture=()',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+    'Content-Security-Policy': [
+      "default-src 'self'",
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com`,
+      `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+      "img-src 'self' data: https: blob:",
+      "font-src 'self' https://fonts.gstatic.com data:",
+      "connect-src 'self' https: https://vitals.vercel-insights.com",
+      "frame-src 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "object-src 'none'",
+    ].join('; '),
+    // 合并动态配置（覆盖静态默认值）
+    ...DYNAMIC_SECURITY_HEADERS,
+  };
+
+  for (const [key, value] of Object.entries(headers)) {
+    response.headers.set(key, value);
+  }
   // Note: COEP/COOP removed - they block cross-origin resource loading and cause blank pages
-  response.headers.set('Content-Security-Policy', [
-    "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com`,
-    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
-    "img-src 'self' data: https: blob:",
-    "font-src 'self' https://fonts.gstatic.com data:",
-    "connect-src 'self' https: https://vitals.vercel-insights.com",
-    "frame-src 'self'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "object-src 'none'",
-  ].join('; '));
   response.headers.delete('X-Powered-By');
   response.headers.delete('Server');
   response.headers.delete('X-AspNet-Version');

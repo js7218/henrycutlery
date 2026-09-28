@@ -1,0 +1,54 @@
+name: Sync Threat Intelligence
+
+on:
+  schedule:
+    # 每天 UTC 06:00（北京时间 14:00）执行
+    - cron: '0 6 * * *'
+  workflow_dispatch: # 支持手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Threat Sync
+        run: node scripts/sync-threats.js
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -f scripts/.threat-changed ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "::notice::New threat intelligence detected"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "::notice::No new threats found"
+          fi
+
+      - name: Commit and Push
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "ThreatSync Bot"
+          git config user.email "actions@github.com"
+          git add src/config/threat-intel.json
+          git commit -m "security: update threat intelligence [skip ci]
+
+          - Automated sync from OWASP CRS, bad-bot lists, CISA
+          - Triggered: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
+
+      - name: Clean up
+        if: always
+        run: rm -f scripts/.threat-changed
