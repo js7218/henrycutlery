@@ -1,0 +1,59 @@
+name: Publish SEO Content
+
+on:
+  schedule:
+    # 每天 UTC 07:00（北京时间 15:00）执行，排在威胁情报同步之后
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pg
+        run: npm install --no-save --no-audit --no-fund pg
+
+      - name: Publish approved SEO content
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/publish-seo-content.mjs
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -f scripts/.seo-changed ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "::notice::New SEO content approved and published"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "::notice::No approved SEO content to publish"
+          fi
+
+      - name: Commit and Push
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "SEO Content Bot"
+          git config user.email "actions@github.com"
+          git add src/data/seo-content.json
+          git commit -m "seo: publish approved product content [skip ci]
+
+          - Source: approved rows in seo_drafts
+          - Published: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
+
+      - name: Clean up
+        if: always()
+        run: rm -f scripts/.seo-changed
