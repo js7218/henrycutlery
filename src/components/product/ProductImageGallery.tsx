@@ -11,9 +11,11 @@ type ViewMode = 'tilt' | 'rotate';
 interface ProductImageGalleryProps {
   images: string[];
   productName: string;
+  /** 每张图的英文 alt 文本，顺序与 images 对齐；缺省时回退到 productName。 */
+  alts?: string[];
 }
 
-export default function ProductImageGallery({ images, productName }: ProductImageGalleryProps) {
+export default function ProductImageGallery({ images, productName, alts }: ProductImageGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<ViewMode>('rotate');
@@ -72,7 +74,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
         {viewMode === 'tilt' ? (
           <ThreeDImage
             src={currentSrc}
-            alt={`${productName} - Image ${currentIndex + 1}`}
+            alt={alts?.[currentIndex] || `${productName} - Image ${currentIndex + 1}`}
             fill
             fillContainer
             priority
@@ -86,7 +88,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
         ) : (
           <Product3DViewer
             src={currentSrc}
-            alt={`${productName} - Image ${currentIndex + 1}`}
+            alt={alts?.[currentIndex] || `${productName} - Image ${currentIndex + 1}`}
             className="absolute inset-0"
           />
         )}
@@ -128,7 +130,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
             >
               <Image
                 src={image}
-                alt={`${productName} - Thumbnail ${index + 1}`}
+                alt={alts?.[index] || `${productName} - Thumbnail ${index + 1}`}
                 fill
                 className="object-cover"
                 sizes="96px"

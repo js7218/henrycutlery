@@ -117,21 +117,21 @@ function ProductsContent() {
 
   // Filter states
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | ''>(
-    (searchParams.get('category') as ProductCategory) || ''
+    (searchParams?.get('category') as ProductCategory) || ''
   );
   const [selectedBrand, setSelectedBrand] = useState<string>('');
   const [selectedPriceRange, setSelectedPriceRange] = useState<number>(0);
   const [sortBy, setSortBy] = useState<string>('default');
   const [searchQuery, setSearchQuery] = useState<string>(
-    searchParams.get('search') || ''
+    searchParams?.get('search') || ''
   );
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const category = searchParams.get('category');
-    const search = searchParams.get('search');
+    const category = searchParams?.get('category');
+    const search = searchParams?.get('search');
     if (category) {
       setSelectedCategory(category as ProductCategory);
     }

@@ -19,6 +19,7 @@ import {
   Star
 } from 'lucide-react';
 import { getProductById, products } from '@/data/products';
+import { getPublishedSeo, resolveProductId } from '@/lib/seo/content';
 import { useApp } from '@/context/AppContext';
 import { formatPrice, cn } from '@/lib/utils';
 import { buildSafeMailtoLink, getSafeCategoryPath } from '@/lib/safeNavigation';
@@ -30,8 +31,11 @@ import ThreeDButton from '@/components/animation/ThreeDButton';
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const productId = params.id as string;
+  const paramId = (params?.id as string) ?? '';
+  // 支持关键词化 slug：先解析回产品 id，老链接（直接用 id）依然可用
+  const productId = resolveProductId(paramId) || paramId;
   const product = getProductById(productId);
+  const seo = getPublishedSeo(productId);
   
   const { addToCart, state, toggleFavorite } = useApp();
   const [quantity, setQuantity] = useState(product?.moq || 1);
@@ -294,7 +298,7 @@ export default function ProductDetailPage() {
         {/* Image Gallery */}
         <ScrollReveal direction="left">
           <div>
-            <ProductImageGallery images={product.images} productName={product.name} />
+            <ProductImageGallery images={product.images} productName={product.name} alts={seo?.altTexts} />
           </div>
         </ScrollReveal>
 
@@ -305,7 +309,7 @@ export default function ProductDetailPage() {
           <div>
             <p className="text-sm text-steel uppercase tracking-wider mb-2">{product.brand}</p>
             <h1 className="text-3xl font-bold text-foreground mb-4" style={{ fontFamily: 'Playfair Display, serif' }}>
-              {product.name.toUpperCase()}
+              {(seo?.seoTitle || product.name).toUpperCase()}
             </h1>
             <div className="flex items-center gap-4 mb-4">
               {product.isNew && (
@@ -504,7 +508,7 @@ export default function ProductDetailPage() {
           {activeTab === 'description' && (
             <div className="prose prose-invert max-w-none">
               <h3 className="text-xl font-semibold text-foreground mb-4">Product Description</h3>
-              <p className="text-gray-300 leading-relaxed mb-8">{product.longDescription}</p>
+              <p className="text-gray-300 leading-relaxed mb-8 whitespace-pre-line">{seo?.longDescription || product.longDescription}</p>
               
               <h3 className="text-xl font-semibold text-foreground mb-4">Product Features</h3>
               <ul className="space-y-3">

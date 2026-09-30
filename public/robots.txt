@@ -1,9 +1,9 @@
-# robots.txt for henrycutlery
+# robots.txt for Adam Cutlery
+# Sitemap / canonical 统一使用 https://adamcutlery.com
 
+# --- 搜索引擎 ---
 User-agent: *
 Allow: /
-
-# Disallow sensitive paths
 Disallow: /api/admin
 Disallow: /api/debug
 Disallow: /admin
@@ -11,11 +11,49 @@ Disallow: /checkout
 Disallow: /profile
 Disallow: /orders
 Disallow: /cart
-
-# Disallow sensitive files
 Disallow: /*.env*
 Disallow: /*.log
 Disallow: /.git/
 
+# --- 海外 AI 搜索引擎 / AI 助手（显式放行，进入 AI 搜索答案） ---
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
 # Sitemap
-Sitemap: https://henrycutlery.com/sitemap.xml
+Sitemap: https://adamcutlery.com/sitemap.xml

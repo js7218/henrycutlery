@@ -268,6 +268,24 @@ async function runSchemaMigration(): Promise<void> {
       `);
       await db.query(`CREATE INDEX IF NOT EXISTS review_votes_review_idx ON review_votes(review_id);`);
       await db.query(`CREATE INDEX IF NOT EXISTS review_votes_user_idx ON review_votes(user_id);`);
+
+      // SEO content drafts with human review flow. Drafts are produced by the
+      // LLM generator, approved in the admin panel, then published to
+      // src/data/seo-content.json by a GitHub Action.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS seo_drafts (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL UNIQUE,
+          status TEXT NOT NULL DEFAULT 'draft',
+          content JSONB NOT NULL DEFAULT '{}'::jsonb,
+          model TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          reviewed_by TEXT,
+          reviewed_at TIMESTAMPTZ
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS seo_drafts_status_idx ON seo_drafts(status);`);
 }
 
 export async function getUserAddresses(userId: string): Promise<Address[]> {

@@ -89,7 +89,7 @@ function ProfileContent() {
   const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
-    const tab = searchParams.get('tab') as Tab;
+    const tab = searchParams?.get('tab') as Tab;
     if (tab && tabs.some(t => t.id === tab)) {
       setActiveTab(tab);
     }

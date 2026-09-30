@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 function ResetPasswordInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const token = params.get('token') || '';
+  const token = params?.get('token') || '';
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
