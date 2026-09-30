@@ -824,6 +824,20 @@ const ALLOWED_UAS = [
   /sogou\s+(web|inst|news)\s+spider/i,
   /applebot/i,
   /exabot/i,
+  // Google 其他官方爬虫与验证工具（Feed、Ads、站长工具、页面检测等）。
+  // 这些 UA 含 bot/fetch/crawler 字样或出现在 URL 文本里，会被下面的黑名单误伤，
+  // 例如 GA「测试安装」、Search Console 自检、Feed 抓取都依赖它们。
+  /google-site-verification/i,
+  /adsbot-google/i,
+  /storebot-google/i,
+  /feedfetcher-google/i,
+  /google-read-aloud/i,
+  /apis-google/i,
+  /mediapartners-google/i,
+  /googlefavicon/i,
+  /google-safe-browsing/i,
+  /google-structured-data-testing-tool/i,
+  /google-tag/i,
   // 社交平台链接预览
   /facebookexternalhit/i,
   /twitterbot/i,
