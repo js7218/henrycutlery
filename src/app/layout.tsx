@@ -27,9 +27,9 @@ export const metadata: Metadata = {
   title: "Adam Cutlery - Premium Knife E-commerce Platform",
   description: "A professional e-commerce platform specializing in premium knives, featuring works from world-class master smiths.",
   metadataBase: new URL("https://adamcutlery.com"),
-  alternates: {
-    canonical: "/",
-  },
+  // 注意：不要在这里设置 alternates.canonical。根 layout 的 canonical 会套用到
+  // 所有未自行覆写的路由，使 /products、/cart 等页面都声明 canonical 指向首页，
+  // 被 Google 判定为重复内容而无法收录。canonical 交给各页面自行声明。
   robots: {
     index: true,
     follow: true,
@@ -100,7 +100,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="canonical" href="https://adamcutlery.com" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
