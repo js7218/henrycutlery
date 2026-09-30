@@ -213,10 +213,11 @@ export async function requireAdmin():
     };
   }
 
-  // Check IP whitelist and TOTP
-  // In middleware context, we can't easily get IP here, so TOTP check is done
-  // via a separate endpoint. The requireAdmin function checks if TOTP is verified.
-  if (!(await isAdminTOTPVerified(dbUser.id))) {
+  // MFA (TOTP) 改为「按需启用」：只有管理员配置了 TOTP 密钥时才强制校验。
+  // 代码库目前没有 TOTP 的验证入口（setAdminTOTPSession 无任何调用方），
+  // 若无条件强制，所有 /api/admin/* 都会被永久挡死。
+  const totpEnrolled = Boolean(process.env[getTOTPSecretEnvKey(dbUser.id)]);
+  if (totpEnrolled && !(await isAdminTOTPVerified(dbUser.id))) {
     return {
       response: NextResponse.json(
         { success: false, error: 'Admin MFA (TOTP) verification required.', code: 'ADMIN_TOTP_REQUIRED' },
