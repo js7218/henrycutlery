@@ -73,7 +73,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export default function AdminPage() {
-  const { hasRole } = useApp();
+  const { hasRole, isSessionReady } = useApp();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -90,13 +90,12 @@ export default function AdminPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const checkAuthorization = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      setIsAuthorized(hasRole('admin'));
-      setIsLoading(false);
-    };
-    checkAuthorization();
-  }, [hasRole]);
+    // 必须等服务端会话加载完成后才能判断权限。
+    // 之前这里用固定 200ms 延迟，会话慢于 200ms 时会把管理员误判为无权限。
+    if (!isSessionReady) return;
+    setIsAuthorized(hasRole('admin'));
+    setIsLoading(false);
+  }, [hasRole, isSessionReady]);
 
   useEffect(() => {
     if (!isAuthorized) return;
@@ -253,7 +252,7 @@ export default function AdminPage() {
             value={pin}
             onChange={(event) => setPin(event.target.value)}
             placeholder="Admin panel PIN"
-            autoComplete="current-password"
+            autoComplete="off"
             disabled={pinSubmitting}
             className="mb-4 w-full rounded-lg border border-border bg-surfaceLight px-4 py-3 text-foreground placeholder:text-gray-500 focus:border-gold focus:outline-none disabled:opacity-60"
           />

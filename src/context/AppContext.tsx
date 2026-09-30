@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { CartItem, Product, User, Order, Address, PaymentMethod } from '@/types';
 import { generateOrderNumber } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
@@ -200,12 +200,15 @@ interface AppContextType {
   canAccessResource: (resourceUserId: string) => boolean;
   // SECURITY: Vertical privilege check
   hasRole: (requiredRole: 'user' | 'admin') => boolean;
+  /** 服务端会话是否已完成首次加载。会话未就绪时不应判断权限，否则会误判为未登录。 */
+  isSessionReady: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const [isSessionReady, setIsSessionReady] = useState(false);
   const sessionCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
   // ============================================================================
@@ -286,7 +289,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'SET_ORDERS', orders: data.user.orders || [] });
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        // 无论成功或失败都要标记就绪，避免依赖会话状态的页面一直停在加载中
+        if (!cancelled) setIsSessionReady(true);
+      });
 
     return () => {
       cancelled = true;
@@ -619,6 +626,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isSessionValid,
         canAccessResource,
         hasRole,
+        isSessionReady,
       }}
     >
       {children}
