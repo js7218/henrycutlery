@@ -238,14 +238,9 @@ export default function AdminPage() {
               </span>
               <span className="text-sm text-steel">Admin Panel</span>
             </Link>
-            <div className="flex items-center gap-4">
-              <Link href="/admin/seo" className="text-sm text-gold hover:text-goldLight transition-colors">
-                SEO Content
-              </Link>
-              <Link href="/" className="text-sm text-gray-400 hover:text-gold transition-colors">
-                Back to Store
-              </Link>
-            </div>
+            <Link href="/" className="text-sm text-gray-400 hover:text-gold transition-colors">
+              Back to Store
+            </Link>
           </div>
         </div>
       </header>

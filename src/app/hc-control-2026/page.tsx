@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BarChart3, Database, Loader2, MessageSquare, Search, ShieldX, Users } from 'lucide-react';
+import { BarChart3, Database, Loader2, MessageSquare, Search, ShieldX, Sparkles, Users } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatDate, formatPrice, cn } from '@/lib/utils';
+import SeoReviewPanel from '@/components/admin/SeoReviewPanel';
 
-type Tab = 'dashboard' | 'customers' | 'reviews' | 'security';
+type Tab = 'dashboard' | 'customers' | 'reviews' | 'seo' | 'security';
 
 type Customer = {
   id: string;
@@ -58,6 +59,7 @@ const tabs: Array<{ id: Tab; label: string; icon: typeof BarChart3 }> = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { id: 'customers', label: 'Customers', icon: Users },
   { id: 'reviews', label: 'Reviews', icon: MessageSquare },
+  { id: 'seo', label: 'SEO', icon: Sparkles },
   { id: 'security', label: 'Security', icon: Database },
 ];
 
@@ -462,6 +464,8 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {activeTab === 'seo' && <SeoReviewPanel />}
 
         {activeTab === 'security' && (
           <div className="bg-surface border border-border rounded-xl p-6 space-y-5">
