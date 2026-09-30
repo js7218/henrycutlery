@@ -92,6 +92,25 @@ async function main() {
   await client.connect();
   let rows;
   try {
+    // 幂等兜底：生产库可能尚未部署新版应用（ensureDatabaseSchema 未执行过），
+    // 这里先确保目标表存在。定义需与 src/lib/db.ts 的 ensureDatabaseSchema 保持一致。
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS seo_drafts (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'draft',
+        content JSONB NOT NULL DEFAULT '{}'::jsonb,
+        model TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        reviewed_by TEXT,
+        reviewed_at TIMESTAMPTZ
+      );
+    `);
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS seo_drafts_status_idx ON seo_drafts(status);`,
+    );
+
     const result = await client.query(
       `SELECT product_id, content
        FROM seo_drafts
