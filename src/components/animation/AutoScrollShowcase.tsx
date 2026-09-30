@@ -47,8 +47,10 @@ export default function AutoScrollShowcase({
 
       if (!isPaused && delta < 200) {
         offsetRef.current += (speed * delta) / 1000;
-        // Loop: when we've scrolled past the first full set, reset
-        const singleSetWidth = track.scrollWidth / 2;
+        // Loop: when we've scrolled past the first full set, reset.
+        // scrollWidth 不含末尾的 gap，而平移一个完整周期需要额外跨过一个 gap，
+        // 所以要 +gap 再除以 2，否则每次循环都会回跳 gap/2 像素。
+        const singleSetWidth = (track.scrollWidth + gap) / 2;
         if (offsetRef.current >= singleSetWidth) {
           offsetRef.current -= singleSetWidth;
         }
@@ -60,7 +62,7 @@ export default function AutoScrollShowcase({
 
     animRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animRef.current);
-  }, [isPaused, speed]);
+  }, [isPaused, speed, gap]);
 
   const doubled = [...products, ...products];
 
