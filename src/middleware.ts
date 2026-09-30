@@ -824,20 +824,11 @@ const ALLOWED_UAS = [
   /sogou\s+(web|inst|news)\s+spider/i,
   /applebot/i,
   /exabot/i,
-  // Google 其他官方爬虫与验证工具（Feed、Ads、站长工具、页面检测等）。
-  // 这些 UA 含 bot/fetch/crawler 字样或出现在 URL 文本里，会被下面的黑名单误伤，
-  // 例如 GA「测试安装」、Search Console 自检、Feed 抓取都依赖它们。
-  /google-site-verification/i,
-  /adsbot-google/i,
-  /storebot-google/i,
-  /feedfetcher-google/i,
-  /google-read-aloud/i,
-  /apis-google/i,
-  /mediapartners-google/i,
-  /googlefavicon/i,
-  /google-safe-browsing/i,
-  /google-structured-data-testing-tool/i,
-  /google-tag/i,
+  // Google 全部官方服务 UA 一律放行。黑名单会误伤含 bot/fetch 字样
+  // （AdsBot-Google、FeedFetcher-Google）或 URL 文本里带 crawler 的 UA，
+  // 导致 GA「测试安装」自检、Feed 抓取等被判失败。
+  // 注：UA 本就可伪造，Googlebot 已按 UA 放行，此处放宽不降低实际防护。
+  /google/i,
   // 社交平台链接预览
   /facebookexternalhit/i,
   /twitterbot/i,
