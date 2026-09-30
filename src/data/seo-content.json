@@ -1,4 +1,52 @@
 {
-  "generated_at": null,
-  "items": {}
+  "generated_at": "2026-09-30T07:01:33.167Z",
+  "items": {
+    "benchmade-003": {
+      "productId": "benchmade-003",
+      "seoTitle": "Rugged Classic Folding Knife, Premium Steel OEM Custom Wholesale | 600 MOQ",
+      "metaDescription": "OEM/ODM classic folding knife with premium steel blade and wood/brass handle. Wholesale for private label brands. MOQ 600 pcs. Customize handle and packaging.",
+      "slug": "classic-folding-knife-premium-steel-oem-wholesale",
+      "summary": "Classic folding knife with premium steel blade and wood/brass handle. OEM/ODM available for wholesale brands with 600-piece minimum order.",
+      "longDescription": "This classic folding knife combines a premium steel blade with a handle crafted from wood and brass, offering a traditional look and durable build. The folding mechanism allows for safe carry and storage, making it suitable for everyday use, outdoor activities, and collection. As a B2B OEM/ODM manufacturer, we offer customization options including blade material, handle material, logo engraving, and packaging to match your brand. The minimum order quantity is 600 pieces, ideal for wholesale buyers and private-label brands. Contact us for samples and production details.",
+      "keywords": [
+        "classic folding knife",
+        "premium steel folding knife",
+        "oem folding knife",
+        "wholesale folding knife",
+        "custom pocket knife",
+        "private label knife",
+        "wood brass handle knife",
+        "bulk folding knife"
+      ],
+      "altTexts": [
+        "Classic folding knife with premium steel blade and wood handle with brass bolsters",
+        "Folding knife shown in closed position highlighting wood and brass handle construction"
+      ],
+      "generatedAt": "2026-09-30T06:47:58.750Z",
+      "model": "deepseek-chat"
+    },
+    "spyderco-002": {
+      "productId": "spyderco-002",
+      "seoTitle": "Versatile D2 Folding Knife, Stonewashed Blade OEM Custom EDC | 600 MOQ",
+      "metaDescription": "OEM/ODM D2 folding knife with stonewashed blade, 3D printing G10 handle, line lock and ball bearing. Wholesale MOQ 600 pcs. Customize for your brand.",
+      "slug": "d2-folding-knife-oem-custom-edc",
+      "summary": "Stonewashed D2 blade folding knife with 3D printing G10 handle, line lock and ball bearing. OEM/ODM custom options available at 600 pcs MOQ.",
+      "longDescription": "This folding knife features a stonewashed D2 blade for a rugged, wear-resistant finish. The handle is made from 3D printing G10, offering a textured grip and lightweight feel. The knife uses a line lock mechanism combined with a ball bearing pivot for smooth, reliable opening.\n\nDesigned for everyday carry, outdoor, and utility tasks, this knife balances durability and function. The D2 steel provides good edge retention, while the G10 handle resists moisture and wear. The ball bearing system ensures quick, consistent deployment.\n\nAs an OEM/ODM manufacturer, we offer customization options including blade finish, handle color, logo engraving, and packaging. The minimum order quantity is 600 pcs, making it suitable for private-label brands and wholesale buyers.\n\nWhether you need a reliable EDC knife for your product line or a promotional tool, this model can be tailored to your specifications. Contact us to discuss your custom requirements.",
+      "keywords": [
+        "d2 folding knife oem",
+        "stonewashed d2 blade knife",
+        "g10 handle folding knife",
+        "ball bearing folding knife",
+        "line lock knife wholesale",
+        "custom edc knife manufacturer",
+        "private label folding knife",
+        "oem folding knife 600 moq"
+      ],
+      "altTexts": [
+        "Stonewashed D2 blade folding knife with 3D printing G10 handle and ball bearing pivot."
+      ],
+      "generatedAt": "2026-09-30T06:48:01.998Z",
+      "model": "deepseek-chat"
+    }
+  }
 }
