@@ -1,6 +1,6 @@
 {
-  "version": 18,
-  "last_updated": "2026-10-21T11:25:36.099Z",
+  "version": 19,
+  "last_updated": "2026-10-22T11:25:39.469Z",
   "sources": [
     "https://raw.githubusercontent.com/coreruleset/coreruleset/main/rules/scanners-user-agents.data",
     "https://raw.githubusercontent.com/coreruleset/coreruleset/main/rules/REQUEST-942-APPLICATION-ATTACK-SQLI.conf",
@@ -116,7 +116,8 @@
     "w3af\\.org",
     "Mozilla/4\\.0 \\(Hydra\\)",
     "Mozilla/5\\.0 \\(compatible; Panoptic",
-    "Mozilla/5\\.0 \\(compatible; AppScan;"
+    "Mozilla/5\\.0 \\(compatible; AppScan;",
+    "php2shell-"
   ],
   "waf_patterns": {
     "php_malicious": [
@@ -242,6 +243,13 @@
     "Content-Security-Policy": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com;style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;img-src 'self' data: https: blob:;font-src 'self' https://fonts.gstatic.com data:;connect-src 'self' https: https://vitals.vercel-insights.com;frame-src 'self';frame-ancestors 'none';base-uri 'self';form-action 'self';object-src 'none'"
   },
   "changelog": [
+    {
+      "date": "2026-10-22",
+      "changes": [
+        "+1 个扫描器 UA (OWASP CRS)"
+      ],
+      "version": 19
+    },
     {
       "date": "2026-10-21",
       "changes": [
