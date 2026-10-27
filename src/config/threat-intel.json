@@ -1,6 +1,6 @@
 {
-  "version": 21,
-  "last_updated": "2026-10-24T10:34:26.368Z",
+  "version": 22,
+  "last_updated": "2026-10-27T11:49:44.550Z",
   "sources": [
     "https://raw.githubusercontent.com/coreruleset/coreruleset/main/rules/scanners-user-agents.data",
     "https://raw.githubusercontent.com/coreruleset/coreruleset/main/rules/REQUEST-942-APPLICATION-ATTACK-SQLI.conf",
@@ -245,6 +245,13 @@
   },
   "changelog": [
     {
+      "date": "2026-10-27",
+      "changes": [
+        "CISA 已知漏洞库: 1756 → 1758"
+      ],
+      "version": 22
+    },
+    {
       "date": "2026-10-24",
       "changes": [
         "CISA 已知漏洞库: 1754 → 1756"
@@ -375,5 +382,5 @@
       "version": 4
     }
   ],
-  "cisa_known_vulns": 1756
+  "cisa_known_vulns": 1758
 }
