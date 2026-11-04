@@ -26,6 +26,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import threatIntel from './config/threat-intel.json';
+import { resolveProductId } from './lib/seo/content';
 
 // ============================================================================
 // 动态威胁情报加载
@@ -1510,6 +1511,44 @@ function addSecurityHeaders(response: NextResponse, nonce?: string): NextRespons
 // ============================================================================
 const GLOBAL_LOCKDOWN = false;
 
+/**
+ * 商品不存在时的 404 响应。
+ * 放在 middleware 里生成，是为了让 HTTP 状态码确定地是 404：
+ * 页面层调用 notFound() 时流式响应已经以 200 发出，状态码改不回来。
+ */
+function productNotFoundResponse(): NextResponse {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,follow">
+<title>Product not found | Adam Cutlery</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f0f0f;color:#f5f5f5;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+main{text-align:center;padding:32px}
+h1{font-size:22px;margin:0 0 8px}
+p{color:#a3a3a3;margin:0 0 24px}
+a{display:inline-block;padding:10px 20px;border:1px solid #c9a227;border-radius:8px;color:#c9a227;text-decoration:none}
+a:hover{background:#c9a227;color:#0f0f0f}
+</style>
+</head>
+<body><main>
+<h1>Product not found</h1>
+<p>The item you are looking for does not exist or has been removed.</p>
+<a href="/products">Browse all products</a>
+</main></body>
+</html>`;
+  return new NextResponse(html, {
+    status: 404,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'X-Robots-Tag': 'noindex, follow',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
 // ============================================================================
 // Main Middleware
 // ============================================================================
@@ -1528,6 +1567,21 @@ export function middleware(request: NextRequest) {
   const ip = getClientIP(request);
   const path = request.nextUrl.pathname;
   const method = request.method;
+
+  // 商品页不存在时直接返回真正的 404。
+  // 不能依赖页面里的 notFound()：该路由是流式渲染，响应头会先以 200 发出，
+  // Google 会把 “Product not found” 当成有效页面收录（软 404）。
+  if (path.startsWith('/product/')) {
+    let segment = '';
+    try {
+      segment = decodeURIComponent(path.slice('/product/'.length));
+    } catch {
+      segment = '';
+    }
+    if (!resolveProductId(segment)) {
+      return productNotFoundResponse();
+    }
+  }
 
   // 动态 IP 信誉拦截（Tor 出口节点 / 僵尸网络 C2 / 被劫持网段），每日自动更新
   if (isBlockedIP(ip)) {
