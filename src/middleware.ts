@@ -1443,9 +1443,28 @@ function addSecurityHeaders(response: NextResponse, nonce?: string): NextRespons
 }
 
 // ============================================================================
+// 全站封锁开关（临时维护）
+// true：所有请求一律返回 503，任何 IP 都无法访问。
+// 恢复时把它改回 false 并部署即可。
+// 用 503（而非 403）是为了告诉搜索引擎这是"临时不可用"，避免被判为永久封禁。
+// ============================================================================
+const GLOBAL_LOCKDOWN = true;
+
+// ============================================================================
 // Main Middleware
 // ============================================================================
 export function middleware(request: NextRequest) {
+  if (GLOBAL_LOCKDOWN) {
+    return new NextResponse('Service temporarily unavailable', {
+      status: 503,
+      headers: {
+        'Retry-After': '3600',
+        'Cache-Control': 'no-store',
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+    });
+  }
+
   const ip = getClientIP(request);
   const path = request.nextUrl.pathname;
   const method = request.method;
