@@ -26,7 +26,9 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const product = getProductById(productId);
 
   if (!product) {
-    return { title: 'Product not found', robots: { index: false, follow: false } };
+    // 在 metadata 阶段直接 404：仅返回 noindex 的 200 页面仍属软 404，
+    // Google 会把它当作有效页面收录。
+    notFound();
   }
 
   const published = getPublishedSeo(productId);
