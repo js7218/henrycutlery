@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { getProductById } from '@/data/products';
 import { getPublishedSeo, resolveProductId, productPath } from '@/lib/seo/content';
 import { SITE_NAME, absoluteUrl } from '@/lib/seo/site';
@@ -26,9 +25,7 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const product = getProductById(productId);
 
   if (!product) {
-    // 在 metadata 阶段直接 404：仅返回 noindex 的 200 页面仍属软 404，
-    // Google 会把它当作有效页面收录。
-    notFound();
+    return { title: 'Product not found', robots: { index: false, follow: false } };
   }
 
   const published = getPublishedSeo(productId);
@@ -125,13 +122,6 @@ export default async function ProductLayout({
 }) {
   const { id } = await params;
   const productId = resolveProductId(id) || id;
-
-  // 商品不存在时返回真正的 404，避免以 200 渲染 “Product not found” 形成软 404，
-  // 被 Google 当作有效页面收录。
-  if (!getProductById(productId)) {
-    notFound();
-  }
-
   const jsonLd = buildProductJsonLd(productId);
 
   return (
