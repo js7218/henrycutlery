@@ -7,6 +7,7 @@ Allow: /
 Disallow: /api/admin
 Disallow: /api/debug
 Disallow: /admin
+Disallow: /hc-control-2026
 Disallow: /checkout
 Disallow: /profile
 Disallow: /orders
