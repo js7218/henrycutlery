@@ -1792,7 +1792,9 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|eot)$).*)',
-  ],
+  // 全站封锁期间需要连静态资源（图片/JS/CSS/字体）和 favicon 一起拦截，
+  // 因此 matcher 覆盖所有路径。解除封锁时必须恢复下面这行，
+  // 否则 WAF 会对每个静态资源请求都执行一次，白白增加开销：
+  // '/((?!_next/static|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|eot)$).*)'
+  matcher: ['/:path*'],
 };
