@@ -65,7 +65,63 @@ const DYNAMIC_PATTERNS = {
   ssrf: compilePatterns(['ssrf']),
   file_inclusion: compilePatterns(['file_inclusion']),
   malicious_redirect: compilePatterns(['malicious_redirect']),
+  // 已知 CVE 利用 payload（Log4Shell / Spring4Shell / Struts 等）
+  cve_exploit: compilePatterns(['cve_exploit']),
 };
+
+// ---------------------------------------------------------------------------
+// IP 信誉库（Tor 出口节点 / 僵尸网络 C2 / 被劫持网段），由每日同步自动更新。
+// 仅处理 IPv4：情报源均以 IPv4 提供；IPv6 直接放行，避免误伤正常用户。
+// ---------------------------------------------------------------------------
+const TI = threatIntel as unknown as {
+  blocked_ips?: { exact?: string[]; cidrs?: string[] };
+  malicious_paths?: string[];
+  waf_patterns?: Record<string, string[]>;
+};
+
+const BLOCKED_IP_EXACT: Set<string> = new Set(TI.blocked_ips?.exact || []);
+
+function ipv4ToInt(ip: string): number | null {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return null;
+  let n = 0;
+  for (const part of parts) {
+    const v = Number(part);
+    if (!Number.isInteger(v) || v < 0 || v > 255) return null;
+    n = (n << 8) | v;
+  }
+  return n >>> 0;
+}
+
+const BLOCKED_IP_CIDRS: Array<{ network: number; mask: number }> = [];
+for (const cidr of TI.blocked_ips?.cidrs || []) {
+  const [base, bitsStr] = cidr.split('/');
+  const bits = Number(bitsStr);
+  const baseInt = ipv4ToInt(base);
+  if (baseInt === null || !Number.isInteger(bits) || bits < 0 || bits > 32) continue;
+  const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+  BLOCKED_IP_CIDRS.push({ network: (baseInt & mask) >>> 0, mask });
+}
+
+function isBlockedIP(ip: string): boolean {
+  if (!ip) return false;
+  if (BLOCKED_IP_EXACT.has(ip)) return true;
+  const n = ipv4ToInt(ip);
+  if (n === null) return false;
+  for (const { network, mask } of BLOCKED_IP_CIDRS) {
+    if (((n & mask) >>> 0) === network) return true;
+  }
+  return false;
+}
+
+// 恶意路径（webshell / 后门 / 常见探测入口），由情报同步更新。
+const MALICIOUS_PATH_PATTERNS: RegExp[] = (TI.malicious_paths || []).map((p) => {
+  try {
+    return new RegExp(p, 'i');
+  } catch {
+    return null;
+  }
+}).filter((r): r is RegExp => r !== null);
 
 // 动态安全头（来自配置，可自动更新）
 const DYNAMIC_SECURITY_HEADERS = (threatIntel.security_headers || {}) as Record<string, string>;
@@ -1337,6 +1393,10 @@ function detectThreatRaw(value: string): { detected: boolean; type: string; patt
   for (const pattern of fiPats) {
     if (pattern.test(value)) return { detected: true, type: 'FILE_INCLUSION', pattern: pattern.source };
   }
+  // 已知 CVE 利用 payload（动态情报：Log4Shell / Spring4Shell / Struts 等）
+  for (const pattern of DYNAMIC_PATTERNS.cve_exploit) {
+    if (pattern.test(value)) return { detected: true, type: 'CVE_EXPLOIT', pattern: pattern.source };
+  }
   return { detected: false, type: '' };
 }
 
@@ -1468,6 +1528,22 @@ export function middleware(request: NextRequest) {
   const ip = getClientIP(request);
   const path = request.nextUrl.pathname;
   const method = request.method;
+
+  // 动态 IP 信誉拦截（Tor 出口节点 / 僵尸网络 C2 / 被劫持网段），每日自动更新
+  if (isBlockedIP(ip)) {
+    return NextResponse.json(
+      { error: 'Forbidden', code: 'BLOCKED_IP_REPUTATION' },
+      { status: 403 }
+    );
+  }
+
+  // 恶意路径探针（webshell / 后门 / 常见扫描入口），每日自动更新
+  if (MALICIOUS_PATH_PATTERNS.some((re) => re.test(path))) {
+    return NextResponse.json(
+      { error: 'Forbidden', code: 'MALICIOUS_PATH' },
+      { status: 403 }
+    );
+  }
 
   // WeChat Work / WeCom callback endpoint — bypass all WAF rules.
   // This endpoint is called by Tencent's servers, which don't carry

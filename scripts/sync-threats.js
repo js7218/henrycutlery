@@ -548,6 +548,15 @@ async function main() {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + '\n', 'utf8');
   console.log(`\n配置已写入: ${CONFIG_PATH}`);
 
+  // 拉取 IP 信誉情报（Tor 出口 / 僵尸网络 C2 / 被劫持网段），
+  // 与上面的规则同步串行执行，避免同时读写配置文件。
+  try {
+    const { syncIpReputation } = require('./sync-ip-reputation');
+    await syncIpReputation();
+  } catch (e) {
+    console.warn(`IP 信誉同步失败: ${e.message}`);
+  }
+
   // 如果有变更，输出标记供 CI 检测
   if (hasRealChanges) {
     console.log('\n::CHANGES_DETECTED::');
