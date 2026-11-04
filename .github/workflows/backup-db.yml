@@ -1,0 +1,33 @@
+name: Database Backup
+
+on:
+  schedule:
+    # 每天 UTC 03:00（北京时间 11:00）执行
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump Postgres
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not configured"
+            exit 1
+          fi
+          mkdir -p backup
+          # 用 postgres:17 自带 pg_dump（高版本客户端可备份低版本服务端）
+          docker run --rm -e DATABASE_URL -v "$PWD/backup:/backup" postgres:17-alpine \
+            sh -c 'pg_dump "$DATABASE_URL" --no-owner --no-privileges | gzip > "/backup/db-$(date -u +%Y%m%d-%H%M%S).sql.gz"'
+          ls -lh backup
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup/
+          retention-days: 90
+          if-no-files-found: error
