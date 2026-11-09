@@ -226,9 +226,6 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
   if (!validAddressPart(normalized.province)) {
     return { valid: false, address: null, error: 'Please enter a valid province/state (not "N/A", "province", etc.).', field: 'province' };
   }
-  if (!isValidPlaceName(normalized.province)) {
-    return { valid: false, address: null, error: 'Please enter a valid province/state name, e.g. "Guangdong", "California"', field: 'province' };
-  }
 
   if (!normalized.city) {
     return { valid: false, address: null, error: 'City is required.', field: 'city' };
@@ -236,18 +233,12 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
   if (!validAddressPart(normalized.city)) {
     return { valid: false, address: null, error: 'Please enter a valid city (not "N/A", "city", etc.).', field: 'city' };
   }
-  if (!isValidPlaceName(normalized.city)) {
-    return { valid: false, address: null, error: 'Please enter a valid city name, e.g. "Yangjiang", "London"', field: 'city' };
-  }
 
   if (!normalized.district) {
     return { valid: false, address: null, error: 'District/Area is required.', field: 'district' };
   }
   if (!validAddressPart(normalized.district)) {
     return { valid: false, address: null, error: 'Please enter a valid district/area (not "N/A", "district", etc.).', field: 'district' };
-  }
-  if (!isValidPlaceName(normalized.district)) {
-    return { valid: false, address: null, error: 'Please enter a valid district name, e.g. "Jiangcheng", "Manhattan"', field: 'district' };
   }
 
   if (!normalized.detail) {

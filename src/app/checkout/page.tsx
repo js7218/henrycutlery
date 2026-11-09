@@ -269,7 +269,10 @@ export default function CheckoutPage() {
   };
 
   const submitOrder = async (force: boolean) => {
-    if (!selectedAddress) return;
+    if (!selectedAddress) {
+      setPaymentError('Please select a shipping address before paying.');
+      return;
+    }
     setIsProcessing(true);
     setPaymentError('');
 
@@ -344,6 +347,8 @@ export default function CheckoutPage() {
         if (result.field) {
           setFieldErrors({ [result.field]: result.error || 'Invalid value' });
           setAddressError(result.error || 'Please correct the highlighted field.');
+          setPaymentError(result.error || 'Please correct the highlighted field.');
+          setCurrentStep('confirm');
         } else {
           setPaymentError(result.error ? `${result.error}${errorCode}` : `Order failed (Error ${response.status}). Please try again.`);
         }
@@ -373,7 +378,10 @@ export default function CheckoutPage() {
   };
 
   const handlePayment = async () => {
-    if (!selectedAddress) return;
+    if (!selectedAddress) {
+      setPaymentError('Please select a shipping address before paying.');
+      return;
+    }
     if (isProcessing) return;
     const now = Date.now();
     if (now - lastPaymentAttemptRef.current < 3000) return;
@@ -383,6 +391,7 @@ export default function CheckoutPage() {
     if (addressValidation) {
       securityLogger.log('INPUT_VALIDATION_FAILURE', 'Checkout: incomplete address');
       setAddressError(addressValidation);
+      setPaymentError(addressValidation);
       return;
     }
 
