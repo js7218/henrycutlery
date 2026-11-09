@@ -104,10 +104,14 @@ function parseModelJson(content: string): { reply: string; offerUsd: number | nu
     const parsed = JSON.parse(text) as { reply?: unknown; offerUsd?: unknown };
     const reply = typeof parsed.reply === 'string' ? parsed.reply.trim().slice(0, 800) : '';
     if (!reply) return null;
+    // Models often answer with "$4.00" instead of 4; accept both so the offer
+    // is not silently dropped.
+    const rawOffer =
+      typeof parsed.offerUsd === 'string'
+        ? Number(parsed.offerUsd.replace(/[^0-9.]/g, ''))
+        : parsed.offerUsd;
     const offerUsd =
-      typeof parsed.offerUsd === 'number' && Number.isFinite(parsed.offerUsd)
-        ? parsed.offerUsd
-        : null;
+      typeof rawOffer === 'number' && Number.isFinite(rawOffer) ? rawOffer : null;
     return { reply, offerUsd };
   } catch {
     return null;
@@ -116,6 +120,10 @@ function parseModelJson(content: string): { reply: string; offerUsd: number | nu
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function fallbackLine(amount: number): string {
+  return `I can do $${amount.toFixed(2)} for shipping on this order — that's the best we can offer.`;
 }
 
 function buildSystemPrompt(fee: number, floor: number): string {
@@ -234,7 +242,7 @@ export async function POST(request: NextRequest) {
       );
       const fallback = round2(fee * (1 - settings.maxDiscountPct / 100));
       modelOffer = fallback >= floor ? fallback : floor;
-      reply = `I can do $${modelOffer.toFixed(2)} for shipping on this order — that's the best we can offer.`;
+      reply = fallbackLine(modelOffer);
     }
 
     let offerUsd: number | null = null;
@@ -244,6 +252,14 @@ export async function POST(request: NextRequest) {
       if (clamped < fee - 0.005) {
         offerUsd = clamped;
         token = signShippingQuote({ countryCode, weightKg: weight.kg, amountUsd: clamped });
+        // If the model promised a number we could not honour (below the floor),
+        // replace the reply so the text always matches the price we charge.
+        if (Math.abs(clamped - modelOffer) > 0.005) {
+          reply = fallbackLine(clamped);
+        }
+      } else if (modelOffer < fee - 0.005) {
+        // The model tried to discount but the floor blocked it entirely.
+        reply = fallbackLine(fee);
       }
     }
 

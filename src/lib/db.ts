@@ -466,7 +466,7 @@ async function runSchemaMigration(): Promise<void> {
           enabled BOOLEAN NOT NULL DEFAULT TRUE,
           max_discount_pct NUMERIC(5,2) NOT NULL DEFAULT 30,
           floor_ratio NUMERIC(5,4) NOT NULL DEFAULT 0.70,
-          min_shipping_usd NUMERIC(10,2) NOT NULL DEFAULT 5,
+          min_shipping_usd NUMERIC(10,2) NOT NULL DEFAULT 0,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
