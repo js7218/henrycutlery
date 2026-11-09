@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import type { CompanyCheck } from '@/lib/companyLookup';
 import { formatPrice } from '@/lib/utils';
 
 type OrderEmailItem = {
@@ -592,8 +593,12 @@ const reasonLabels: Record<string, string> = {
 
 /**
  * Notify the owner immediately when a bulk-order inquiry is submitted.
+ * `companyCheck` is advisory context for the owner; it never gates the send.
  */
-export async function sendInquiryNotificationEmail(inquiry: InquiryEmailPayload) {
+export async function sendInquiryNotificationEmail(
+  inquiry: InquiryEmailPayload,
+  companyCheck?: CompanyCheck
+) {
   const itemRows = inquiry.items.map((item, index) => `
     <tr>
       <td style="padding:8px;border-bottom:1px solid #eee;">${index + 1}</td>
@@ -610,6 +615,14 @@ export async function sendInquiryNotificationEmail(inquiry: InquiryEmailPayload)
     .filter(Boolean)
     .map((reason) => reasonLabels[reason] || reason);
 
+  const companyVerificationText = companyCheck
+    ? companyCheck.status === 'skipped'
+      ? 'Company verification: not configured'
+      : `Company verification: ${companyCheck.status} — ${companyCheck.note}${
+          companyCheck.sources.length ? ` (sources: ${companyCheck.sources.join(', ')})` : ''
+        }`
+    : '';
+
   const text = [
     'New Adam Cutlery bulk order inquiry.',
     '',
@@ -621,6 +634,7 @@ export async function sendInquiryNotificationEmail(inquiry: InquiryEmailPayload)
     `Email: ${inquiry.contactEmail}`,
     `Phone: ${inquiry.contactPhone}`,
     inquiry.company ? `Company: ${inquiry.company}` : '',
+    companyVerificationText,
     '',
     `Reference Total: ${formatPrice(inquiry.totalAmount)}`,
     inquiry.expectedDelivery ? `Expected Delivery: ${inquiry.expectedDelivery}` : '',
@@ -643,6 +657,15 @@ export async function sendInquiryNotificationEmail(inquiry: InquiryEmailPayload)
       <p><strong>Email:</strong> ${escapeHtml(inquiry.contactEmail)}</p>
       <p><strong>Phone:</strong> ${escapeHtml(inquiry.contactPhone)}</p>
       ${inquiry.company ? `<p><strong>Company:</strong> ${escapeHtml(inquiry.company)}</p>` : ''}
+      ${
+        companyCheck
+          ? companyCheck.status === 'skipped'
+            ? '<p><strong>Company verification:</strong> not configured</p>'
+            : `<p><strong>Company verification:</strong> ${escapeHtml(companyCheck.status)} — ${escapeHtml(companyCheck.note)}${
+                companyCheck.sources.length ? ` (sources: ${escapeHtml(companyCheck.sources.join(', '))})` : ''
+              }</p>`
+          : ''
+      }
 
       <h3 style="margin-top:20px;">Request</h3>
       <p><strong>Reference Total:</strong> ${formatPrice(inquiry.totalAmount)}</p>

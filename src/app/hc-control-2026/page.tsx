@@ -68,6 +68,7 @@ type Inquiry = {
   customization: string;
   notes: string;
   reason: string;
+  companyCheck: { status: string; note: string; sources: string[] } | null;
   status: 'new' | 'quoted' | 'sample_sent' | 'won' | 'closed';
   createdAt: string;
 };
@@ -686,6 +687,12 @@ export default function AdminPage() {
                       {inquiry.customization && <p>Customization: {inquiry.customization}</p>}
                       {inquiry.notes && <p>Notes: {inquiry.notes}</p>}
                     </div>
+                  )}
+
+                  {inquiry.companyCheck && (
+                    <p className="text-xs text-gray-400 mb-3">
+                      Company: {inquiry.companyCheck.status} — {inquiry.companyCheck.note}
+                    </p>
                   )}
 
                   <div className="flex items-center gap-3">

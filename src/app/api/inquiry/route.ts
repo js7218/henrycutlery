@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { randomUUID } from 'crypto';
 import { products } from '@/data/products';
 import { getAuthUser } from '@/lib/auth';
+import { checkCompany, type CompanyCheck } from '@/lib/companyLookup';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import { sendInquiryNotificationEmail } from '@/lib/orderEmail';
 import { consumeRateLimit } from '@/lib/rateLimit';
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const items = [];
+    const items: Array<{ productId: string; productName: string; price: number; quantity: number; lineTotal: number }> = [];
     let totalAmount = 0;
 
     for (const raw of rawItems) {
@@ -119,6 +120,8 @@ export async function POST(request: Request) {
     const pool = getPool();
     const createdAt = new Date().toISOString();
 
+    // Advisory only: checkCompany never throws and cannot block the inquiry.
+    // It runs after the response so the customer never waits for it.
     await pool.query(
       `
         INSERT INTO inquiries (
@@ -143,25 +146,38 @@ export async function POST(request: Request) {
       ]
     );
 
-    // Real-time alert to the owner. A mail failure must not lose the inquiry.
-    try {
-      await sendInquiryNotificationEmail({
-        id,
-        contactName,
-        contactEmail: authUser.email,
-        contactPhone,
-        company,
-        items,
-        totalAmount,
-        expectedDelivery,
-        customization,
-        notes,
-        reason,
-        createdAt,
-      });
-    } catch (err) {
-      console.error('[inquiry] failed to send notification email:', err instanceof Error ? err.message : 'Unknown error');
-    }
+    after(async () => {
+      let companyCheck: CompanyCheck = { status: 'skipped', note: 'Company check not configured', sources: [] };
+      try {
+        companyCheck = await checkCompany(company);
+        await pool.query('UPDATE inquiries SET company_check = $1 WHERE id = $2', [
+          JSON.stringify(companyCheck),
+          id,
+        ]);
+      } catch (err) {
+        console.error('[inquiry] company check failed:', err instanceof Error ? err.message : 'Unknown error');
+      }
+
+      // Real-time alert to the owner. A mail failure must not lose the inquiry.
+      try {
+        await sendInquiryNotificationEmail({
+          id,
+          contactName,
+          contactEmail: authUser.email,
+          contactPhone,
+          company,
+          items,
+          totalAmount,
+          expectedDelivery,
+          customization,
+          notes,
+          reason,
+          createdAt,
+        }, companyCheck);
+      } catch (err) {
+        console.error('[inquiry] failed to send notification email:', err instanceof Error ? err.message : 'Unknown error');
+      }
+    });
 
     return NextResponse.json({
       success: true,

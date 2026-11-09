@@ -320,6 +320,9 @@ async function runSchemaMigration(): Promise<void> {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
+      // Advisory company lookup verdict, stored as JSON text. Empty when the
+      // check was skipped or predates this column.
+      await db.query(`ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS company_check TEXT NOT NULL DEFAULT '';`);
       await db.query(`
         CREATE INDEX IF NOT EXISTS inquiries_status_created_idx
         ON inquiries (status, created_at DESC);

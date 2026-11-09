@@ -1,8 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/adminGuard';
+import type { CompanyCheck, CompanyCheckStatus } from '@/lib/companyLookup';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+
+const COMPANY_CHECK_STATUSES: CompanyCheckStatus[] = ['verified', 'uncertain', 'not_found', 'skipped'];
+
+/**
+ * Stored as JSON text; tolerate legacy rows that are empty or invalid.
+ */
+function parseCompanyCheck(value: unknown): CompanyCheck | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+
+  try {
+    const parsed = JSON.parse(value) as Partial<CompanyCheck>;
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!COMPANY_CHECK_STATUSES.includes(parsed.status as CompanyCheckStatus)) return null;
+
+    return {
+      status: parsed.status as CompanyCheckStatus,
+      note: typeof parsed.note === 'string' ? parsed.note : '',
+      sources: Array.isArray(parsed.sources)
+        ? parsed.sources.filter((source): source is string => typeof source === 'string')
+        : [],
+    };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * GET /api/admin/inquiries?status=all
@@ -26,7 +52,7 @@ export async function GET(request: NextRequest) {
         ? await getPool().query(
             `SELECT id, user_id, contact_name, contact_email, contact_phone, company,
                     items, total_amount, expected_delivery, customization, notes, reason,
-                    status, created_at, updated_at
+                    company_check, status, created_at, updated_at
              FROM inquiries
              ORDER BY created_at DESC
              LIMIT 200`
@@ -34,7 +60,7 @@ export async function GET(request: NextRequest) {
         : await getPool().query(
             `SELECT id, user_id, contact_name, contact_email, contact_phone, company,
                     items, total_amount, expected_delivery, customization, notes, reason,
-                    status, created_at, updated_at
+                    company_check, status, created_at, updated_at
              FROM inquiries
              WHERE status = $1
              ORDER BY created_at DESC
@@ -58,6 +84,7 @@ export async function GET(request: NextRequest) {
         customization: row.customization,
         notes: row.notes,
         reason: row.reason,
+        companyCheck: parseCompanyCheck(row.company_check),
         status: row.status,
         createdAt: row.created_at?.toISOString?.() || new Date().toISOString(),
         updatedAt: row.updated_at?.toISOString?.() || new Date().toISOString(),
