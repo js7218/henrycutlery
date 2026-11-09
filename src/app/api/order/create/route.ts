@@ -539,8 +539,9 @@ export async function POST(request: NextRequest) {
               countryMatches &&
               weightMatches &&
               quote.amountUsd >= floor - 0.005 &&
-              // Customers may round the shipping up, so the cap is twice the quote.
-              quote.amountUsd <= shippingFee * 2 + 0.005
+              // Paying more than the quote is allowed; the ceiling only guards
+              // against obviously broken numbers.
+              quote.amountUsd <= 1_000_000
             ) {
               shippingFee = Math.round(quote.amountUsd * 100) / 100;
               shippingNegotiated = true;
