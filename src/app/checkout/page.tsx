@@ -147,6 +147,22 @@ export default function CheckoutPage() {
   // when the phone and the delivery country are not the same.
   const [shipToCountry, setShipToCountry] = useState('');
   const [customerArrangesShipping, setCustomerArrangesShipping] = useState(false);
+  // Live stock from the database, used for the pre-flight quantity check.
+  const [liveStock, setLiveStock] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/products/stock')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.success) return;
+        setLiveStock(data.stock || {});
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -262,7 +278,7 @@ export default function CheckoutPage() {
     const bulkReasons: string[] = [];
     if (cartTotal >= 10000) bulkReasons.push('order_value');
     if (state.cart.some((item) => item.quantity >= 1300)) bulkReasons.push('bulk_quantity');
-    if (state.cart.some((item) => item.quantity > item.product.stock)) bulkReasons.push('insufficient_stock');
+    if (state.cart.some((item) => item.quantity > (liveStock[item.product.id] ?? item.product.stock))) bulkReasons.push('insufficient_stock');
     if (bulkReasons.length > 0) {
       setInquiryPrompt({
         reasons: bulkReasons,
@@ -367,6 +383,14 @@ export default function CheckoutPage() {
             customization: '',
             notes: '',
           });
+          setIsProcessing(false);
+          return;
+        }
+        if (response.status === 409 && result.code === 'INSUFFICIENT_STOCK') {
+          const stockMessage = result.error || 'One of your items no longer has enough stock.';
+          setPaymentError(stockMessage);
+          setAddressError(stockMessage);
+          setCurrentStep('confirm');
           setIsProcessing(false);
           return;
         }

@@ -39,6 +39,33 @@ export default function ProductDetailPage() {
   
   const { addToCart, state, toggleFavorite } = useApp();
   const [quantity, setQuantity] = useState(product?.moq || 1);
+  // Live stock from the database. The catalogue file only contains opening
+  // stock, so the page must not claim units that have already been sold.
+  const [liveStock, setLiveStock] = useState<number | null>(null);
+  const availableStock = liveStock ?? (product?.stock || 0);
+  const stockRef = useRef(availableStock);
+  stockRef.current = availableStock;
+
+  useEffect(() => {
+    if (!productId) return;
+    let cancelled = false;
+    fetch('/api/products/stock')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.success) return;
+        const value = data.stock?.[productId];
+        if (typeof value === 'number') setLiveStock(value);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
+
+  useEffect(() => {
+    if (liveStock === null) return;
+    setQuantity((current) => Math.min(current, Math.max(liveStock, product?.moq || 1)));
+  }, [liveStock, product?.moq]);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('reviews');
   const [shareMessage, setShareMessage] = useState('');
   const [reviews, setReviews] = useState<Array<{ id: string; author: string; rating: number; content: string; createdAt: string }>>([]);
@@ -85,17 +112,17 @@ export default function ProductDetailPage() {
   const startIncrement = useCallback(() => {
     const p = productRef.current;
     if (!p) return;
-    if (quantity >= p.stock) return;
-    setQuantity(prev => Math.min(p.stock, prev + 1));
+    if (quantity >= stockRef.current) return;
+    setQuantity(prev => Math.min(stockRef.current, prev + 1));
     
     incrementTimeoutRef.current = setTimeout(() => {
       incrementIntervalRef.current = setInterval(() => {
         setQuantity(prev => {
-          if (prev >= p.stock) {
+          if (prev >= stockRef.current) {
             stopIncrement();
             return prev;
           }
-          return Math.min(p.stock, prev + 1);
+          return Math.min(stockRef.current, prev + 1);
         });
       }, 80);
     }, 300);
@@ -317,12 +344,12 @@ export default function ProductDetailPage() {
                   New Arrival
                 </span>
               )}
-              {product.stock <= 5 && product.stock > 0 && (
+              {availableStock <= 5 && availableStock > 0 && (
                 <span className="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs font-medium rounded-full">
-                  Only {product.stock} left
+                  Only {availableStock} left
                 </span>
               )}
-              {product.stock === 0 && (
+              {availableStock === 0 && (
                 <span className="px-3 py-1 bg-red-500/20 text-red-400 text-xs font-medium rounded-full">
                   Out of Stock
                 </span>
@@ -390,10 +417,10 @@ export default function ProductDetailPage() {
                       setQuantity(0);
                       return;
                     }
-                    setQuantity(Math.min(parseInt(raw, 10) || 0, product.stock));
+                    setQuantity(Math.min(parseInt(raw, 10) || 0, availableStock));
                   }}
                   onBlur={() => {
-                    setQuantity((q) => Math.max(product.moq || 1, Math.min(product.stock, q || 0)));
+                    setQuantity((q) => Math.max(product.moq || 1, Math.min(availableStock, q || 0)));
                   }}
                   className="w-16 text-center bg-transparent text-foreground border-none focus:outline-none"
                 />
@@ -403,18 +430,18 @@ export default function ProductDetailPage() {
                   onMouseLeave={stopIncrement}
                   onTouchStart={startIncrement}
                   onTouchEnd={stopIncrement}
-                  disabled={quantity >= product.stock}
+                  disabled={quantity >= availableStock}
                   className="p-3 text-gray-400 hover:text-gold transition-colors disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-              <span className="text-sm text-gray-500">Stock: {product.stock} pcs</span>
+              <span className="text-sm text-gray-500">Stock: {availableStock} pcs</span>
             </div>
             <div className="flex flex-wrap gap-4">
               <ThreeDButton
                 onClick={handleAddToCart}
-                disabled={product.stock === 0}
+                disabled={availableStock === 0}
                 variant="cta"
                 size="lg"
                 className="flex-1 min-w-[200px]"

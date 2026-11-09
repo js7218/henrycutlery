@@ -30,19 +30,50 @@ export async function POST(request: Request) {
 
     await ensureDatabaseSchema();
     const pool = getPool();
+    const client = await pool.connect();
 
-    const result = await pool.query(
-      `DELETE FROM orders
-       WHERE id = $1 AND user_id = $2 AND status = ANY($3::text[])
-       RETURNING id`,
-      [orderId, authUser.id, DELETABLE_STATUSES]
-    );
-
-    if (result.rowCount === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Order not found, or it can no longer be deleted.' },
-        { status: 404 }
+    try {
+      // Delete and restock atomically so an order can never disappear while
+      // its reserved units stay locked away.
+      await client.query('BEGIN');
+      const result = await client.query(
+        `DELETE FROM orders
+         WHERE id = $1 AND user_id = $2 AND status = ANY($3::text[])
+         RETURNING id, status, items`,
+        [orderId, authUser.id, DELETABLE_STATUSES]
       );
+
+      if (result.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return NextResponse.json(
+          { success: false, error: 'Order not found, or it can no longer be deleted.' },
+          { status: 404 }
+        );
+      }
+
+      // A pending order never shipped, so its reserved stock goes back on sale.
+      // Cancelled orders were already released, and delivered ones left the warehouse.
+      const deleted = result.rows[0];
+      if (deleted.status === 'pending') {
+        const items = Array.isArray(deleted.items) ? deleted.items : [];
+        for (const item of items as Array<{ productId?: string; quantity?: number }>) {
+          const quantity = Number(item.quantity) || 0;
+          if (!item.productId || quantity <= 0) continue;
+          await client.query(
+            `UPDATE product_stock
+             SET stock = stock + $2, updated_at = NOW()
+             WHERE product_id = $1`,
+            [item.productId, quantity]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
 
     return NextResponse.json({ success: true });

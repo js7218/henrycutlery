@@ -3,6 +3,7 @@ import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import { sendOrderNotificationEmail, sendCustomerOrderConfirmation, sendCustomerShippedEmail } from '@/lib/orderEmail';
 import { requireAdmin } from '@/lib/adminGuard';
 import { getAuthUser } from '@/lib/auth';
+import { releaseStock, reserveStock } from '@/lib/inventory';
 
 /**
  * POST /api/order/update-status
@@ -95,10 +96,48 @@ export async function POST(request: Request) {
     }
 
     values.push(orderId);
-    await pool.query(
-      `UPDATE orders SET ${setClauses.join(', ')} WHERE id = $${values.length}`,
-      values
+    const lines = (Array.isArray(order.items) ? order.items : []).map(
+      (item: { productId: string; quantity: number }) => ({
+        productId: item.productId,
+        quantity: Number(item.quantity) || 0,
+      })
     );
+
+    // Keep inventory in sync with the status flow. Stock is reserved BEFORE a
+    // cancelled order is reopened (so it can never oversell) and released only
+    // AFTER the cancellation is saved (a failed update must not free units).
+    if (previousStatus === 'cancelled' && status !== 'cancelled') {
+      const reserved = await reserveStock(lines);
+      if (!reserved.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'INSUFFICIENT_STOCK',
+            error: `${reserved.productName} only has ${reserved.available} unit${reserved.available === 1 ? '' : 's'} left, so this order cannot be reopened.`,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    try {
+      await pool.query(
+        `UPDATE orders SET ${setClauses.join(', ')} WHERE id = $${values.length}`,
+        values
+      );
+    } catch (err) {
+      // Put stock back if we had just reserved it for a reopened order.
+      if (previousStatus === 'cancelled' && status !== 'cancelled') {
+        await releaseStock(lines).catch(() => {});
+      }
+      throw err;
+    }
+
+    if (status === 'cancelled' && previousStatus !== 'cancelled' && previousStatus !== 'delivered') {
+      await releaseStock(lines).catch((err) => {
+        console.error('[update-status] stock release failed:', err instanceof Error ? err.message : 'Unknown error');
+      });
+    }
 
     // Send email notification when status changes to 'paid'
     if (status === 'paid' && previousStatus === 'pending') {

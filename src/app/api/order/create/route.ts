@@ -15,6 +15,7 @@ import { sendOrderNotificationEmail, sendCustomerOrderReceivedEmail } from '@/li
 import { customerOrderNumberFields } from '@/lib/orderView';
 import { getAuthUser } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
+import { getStockMap } from '@/lib/inventory';
 import { DEFAULT_PER_KG_USD, countryOfPhone, totalWeightKg } from '@/lib/shipping';
 
 const MAX_ORDER_ITEMS = 50;
@@ -27,6 +28,17 @@ const MAX_ITEM_QUANTITY = 5000;
 const BULK_ORDER_AMOUNT_USD = 10000;
 const BULK_ITEM_QUANTITY = 1300;
 const HARD_MAX_ITEM_QUANTITY = 100000;
+
+class InsufficientStockError extends Error {
+  constructor(
+    public productId: string,
+    public productName: string,
+    public available: number
+  ) {
+    super('Insufficient stock');
+    this.name = 'InsufficientStockError';
+  }
+}
 
 // In production, this would be a database lookup
 function getProductById(productId: string) {
@@ -321,6 +333,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Live stock is the authoritative quantity. If the lookup fails we fall
+    // back to the catalogue value so a database hiccup cannot block checkout.
+    let liveStockMap: Record<string, number> | null = null;
+    try {
+      await ensureDatabaseSchema();
+      liveStockMap = await getStockMap();
+    } catch (err) {
+      console.error('[order/create] stock lookup failed:', err instanceof Error ? err.message : 'Unknown error');
+    }
+
     // SECURITY: Validate each item - server-side price lookup
     const verifiedItems = [];
     const inquiryReasons: string[] = [];
@@ -374,7 +396,11 @@ export async function POST(request: NextRequest) {
       if (isBulkQuantity && !inquiryReasons.includes('bulk_quantity')) {
         inquiryReasons.push('bulk_quantity');
       }
-      if (quantity > product.stock && !inquiryReasons.includes('insufficient_stock')) {
+      const effectiveStock =
+        liveStockMap && typeof liveStockMap[product.id] === 'number'
+          ? liveStockMap[product.id]
+          : product.stock;
+      if (quantity > effectiveStock && !inquiryReasons.includes('insufficient_stock')) {
         inquiryReasons.push('insufficient_stock');
       }
 
@@ -580,35 +606,87 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 3) Insert. ON CONFLICT covers both a duplicated id and a concurrent
-      // request carrying the same idempotency key.
-      const inserted = await db.query(
-        `
-          INSERT INTO orders (
-            id, user_id, order_number, items, total_amount, status,
-            shipping_address, payment_method, created_at, updated_at, idempotency_key
-          )
-          VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb, $8, $9, $10, $11)
-          ON CONFLICT DO NOTHING
-          RETURNING id, order_number, items, total_amount, status, shipping_address,
-                    payment_method, tracking_number, created_at, updated_at
-        `,
-        [
-          order.id,
-          authUser.id,
-          order.orderNumber,
-          JSON.stringify(order.items),
-          order.totalAmount,
-          order.status,
-          JSON.stringify(order.shippingAddress),
-          order.paymentMethod,
-          order.createdAt,
-          order.updatedAt,
-          idempotencyKey,
-        ]
-      );
+      // 3) Reserve stock and insert the order in one transaction. ON CONFLICT
+      // covers both a duplicated id and a concurrent request carrying the same
+      // idempotency key. The conditional UPDATE makes overselling impossible.
+      const client = await db.connect();
+      let inserted: { rowCount: number | null; rows: Record<string, unknown>[] } | undefined;
+      try {
+        await client.query('BEGIN');
+        // Stable product order prevents deadlocks between concurrent checkouts.
+        const linesToReserve = [...verifiedItems].sort((a, b) => a.productId.localeCompare(b.productId));
+        for (const item of linesToReserve) {
+          const reserved = await client.query(
+            `UPDATE product_stock
+             SET stock = stock - $2, updated_at = NOW()
+             WHERE product_id = $1 AND stock >= $2`,
+            [item.productId, item.quantity]
+          );
+          if (!reserved.rowCount) {
+            const available = await client.query(
+              'SELECT stock FROM product_stock WHERE product_id = $1',
+              [item.productId]
+            );
+            throw new InsufficientStockError(
+              item.productId,
+              item.productName,
+              Number(available.rows[0]?.stock || 0)
+            );
+          }
+        }
 
-      if (!inserted.rowCount) {
+        inserted = await client.query(
+          `
+            INSERT INTO orders (
+              id, user_id, order_number, items, total_amount, status,
+              shipping_address, payment_method, created_at, updated_at, idempotency_key
+            )
+            VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb, $8, $9, $10, $11)
+            ON CONFLICT DO NOTHING
+            RETURNING id, order_number, items, total_amount, status, shipping_address,
+                      payment_method, tracking_number, created_at, updated_at
+          `,
+          [
+            order.id,
+            authUser.id,
+            order.orderNumber,
+            JSON.stringify(order.items),
+            order.totalAmount,
+            order.status,
+            JSON.stringify(order.shippingAddress),
+            order.paymentMethod,
+            order.createdAt,
+            order.updatedAt,
+            idempotencyKey,
+          ]
+        );
+        if (!inserted.rowCount) {
+          // Another request with the same idempotency key won the insert race.
+          // Roll back so its stock reservation stays the only one.
+          await client.query('ROLLBACK');
+        } else {
+          await client.query('COMMIT');
+        }
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        if (err instanceof InsufficientStockError) {
+          return NextResponse.json(
+            {
+              success: false,
+              code: 'INSUFFICIENT_STOCK',
+              error: `${err.productName} only has ${err.available} unit${err.available === 1 ? '' : 's'} in stock. Please reduce the quantity or contact us for a backorder.`,
+              productId: err.productId,
+              available: err.available,
+            },
+            { status: 409 }
+          );
+        }
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      if (!inserted || !inserted.rowCount) {
         // A concurrent request won the race for this idempotency key.
         const existing = await db.query(
           `SELECT id, order_number, items, total_amount, status, shipping_address, payment_method,
@@ -638,7 +716,7 @@ export async function POST(request: NextRequest) {
 
       // Send the customer their payment instructions and alert the owner as
       // soon as the order exists. Failures here must never lose the order.
-      const createdOrder = mapOrderRow(inserted.rows[0]);
+      const createdOrder = mapOrderRow(inserted.rows[0] as unknown as Parameters<typeof mapOrderRow>[0]);
       const emailPayload = {
         orderNumber: order.orderNumber,
         items: order.items.map((item) => ({
@@ -648,6 +726,8 @@ export async function POST(request: NextRequest) {
         })),
         totalAmount: orderTotal,
         paymentMethod: order.paymentMethod,
+        shippingFee,
+        shippingQuoted,
         shippingAddress: {
           name: address.name,
           phone: address.phone,

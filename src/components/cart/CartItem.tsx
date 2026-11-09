@@ -5,11 +5,17 @@ import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice } from '@/lib/utils';
 import { getSafeProductPath } from '@/lib/safeNavigation';
+import { useLiveStock } from '@/hooks/useLiveStock';
 import { useCallback, useRef, useEffect } from 'react';
 import ThreeDButton from '@/components/animation/ThreeDButton';
 
 export default function CartItem({ item }: { item: { product: any; quantity: number } }) {
   const { updateQuantity, removeFromCart } = useApp();
+  const liveStock = useLiveStock();
+  // Live stock wins over the catalogue value so the stepper cannot exceed
+  // units that are still actually available.
+  const maxStock =
+    typeof liveStock[item.product.id] === 'number' ? liveStock[item.product.id] : item.product.stock;
 
   // Hold-to-repeat refs
   const incrementIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -41,19 +47,19 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
 
   // Hold-to-increment logic
   const startIncrement = useCallback(() => {
-    if (item.quantity >= item.product.stock) return;
-    updateQuantity(item.product.id, Math.min(item.product.stock, item.quantity + 1));
+    if (item.quantity >= maxStock) return;
+    updateQuantity(item.product.id, Math.min(maxStock, item.quantity + 1));
     
     incrementTimeoutRef.current = setTimeout(() => {
       incrementIntervalRef.current = setInterval(() => {
-        if (item.quantity >= item.product.stock) {
+        if (item.quantity >= maxStock) {
           stopIncrement();
           return;
         }
-        updateQuantity(item.product.id, Math.min(item.product.stock, item.quantity + 1));
+        updateQuantity(item.product.id, Math.min(maxStock, item.quantity + 1));
       }, 80);
     }, 300);
-  }, [item.quantity, item.product.stock, item.product.id, updateQuantity, stopIncrement]);
+  }, [item.quantity, maxStock, item.product.id, updateQuantity, stopIncrement]);
 
   // Hold-to-decrement logic
   const startDecrement = useCallback(() => {
@@ -139,7 +145,7 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
               onMouseLeave={stopIncrement}
               onTouchStart={startIncrement}
               onTouchEnd={stopIncrement}
-              disabled={item.quantity >= item.product.stock}
+              disabled={item.quantity >= maxStock}
               className="w-8 h-8 flex items-center justify-center border border-border rounded hover:border-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4 text-gray-400" />
@@ -156,6 +162,11 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
             )}
           </div>
         </div>
+        {item.quantity > maxStock && (
+          <p className="text-xs text-orange-400 mt-2">
+            Only {maxStock} left in stock. Please lower the quantity before checkout.
+          </p>
+        )}
       </div>
     </div>
   );

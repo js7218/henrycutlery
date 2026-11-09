@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import type { Address, Order, User } from '@/types';
 import { customerOrderNumberFields } from '@/lib/orderView';
+import { products as catalogProducts } from '@/data/products';
 
 const connectionString =
   process.env.DATABASE_URL ||
@@ -150,6 +151,30 @@ async function runSchemaMigration(): Promise<void> {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
+
+      // Live inventory. The static product catalogue only provides the opening
+      // stock; every order decrements this table atomically so two customers
+      // can never buy the same units.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS product_stock (
+          product_id TEXT PRIMARY KEY,
+          stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      if (catalogProducts.length > 0) {
+        await db.query(
+          `
+            INSERT INTO product_stock (product_id, stock)
+            SELECT * FROM UNNEST($1::text[], $2::int[])
+            ON CONFLICT (product_id) DO NOTHING
+          `,
+          [
+            catalogProducts.map((product) => product.id),
+            catalogProducts.map((product) => Math.max(0, Math.trunc(Number(product.stock) || 0))),
+          ]
+        );
+      }
 
       await db.query(`
         INSERT INTO shipping_rates (country_code, country_name, per_kg_usd) VALUES

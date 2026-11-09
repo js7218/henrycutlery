@@ -7,6 +7,7 @@ import { Product } from '@/types';
 import { formatPrice, cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
 import { getSafeProductPath } from '@/lib/safeNavigation';
+import { useLiveStock } from '@/hooks/useLiveStock';
 import TiltCard from '@/components/animation/TiltCard';
 
 interface ProductCardProps {
@@ -15,6 +16,10 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const { addToCart, state, toggleFavorite } = useApp();
+  const liveStock = useLiveStock();
+  const availableStock =
+    typeof liveStock[product.id] === 'number' ? liveStock[product.id] : product.stock;
+  const soldOut = availableStock <= 0;
   const [imageSrc, setImageSrc] = useState(product.images[0] || '/products/test-product-placeholder.png');
   const [justAdded, setJustAdded] = useState(false);
   const isFavorite = state.user?.favorites.includes(product.id) || false;
@@ -43,6 +48,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (soldOut) return;
     addToCart(product);
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1200);
@@ -97,16 +103,19 @@ export default function ProductCard({ product }: ProductCardProps) {
           <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-background/95 to-transparent sm:translate-y-full sm:group-hover:translate-y-0 transition-transform duration-300 z-10">
             <button
               onClick={handleAddToCart}
+              disabled={soldOut}
               className={cn(
                 "w-full py-2.5 text-sm font-medium rounded flex items-center justify-center space-x-2 transition-all btn-comfort active:scale-95",
-                justAdded
-                  ? "bg-green-500 text-white"
-                  : "bg-gold text-background hover:bg-goldLight"
+                soldOut
+                  ? "bg-surfaceLight text-gray-500 cursor-not-allowed"
+                  : justAdded
+                    ? "bg-green-500 text-white"
+                    : "bg-gold text-background hover:bg-goldLight"
               )}
             >
               <ShoppingCart className="w-4 h-4" />
               <span>
-                {justAdded ? 'Added!' : 'Add to Cart'}
+                {soldOut ? 'Out of Stock' : justAdded ? 'Added!' : 'Add to Cart'}
               </span>
             </button>
           </div>
@@ -141,8 +150,12 @@ export default function ProductCard({ product }: ProductCardProps) {
                 </span>
               )}
             </div>
-            {product.stock <= 5 && product.stock > 0 && (
-              <span className="text-xs text-orange-400">Only {product.stock} left</span>
+            {soldOut ? (
+              <span className="text-xs text-gray-500">Out of Stock</span>
+            ) : (
+              availableStock <= 5 && (
+                <span className="text-xs text-orange-400">Only {availableStock} left</span>
+              )
             )}
           </div>
           {product.moq && product.moq > 1 && (

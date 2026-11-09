@@ -14,6 +14,8 @@ type OrderEmailAddress = {
   city?: string;
   district?: string;
   detail: string;
+  shippingFee?: number;
+  shippingQuoted?: boolean;
 };
 
 type OrderEmailPayload = {
@@ -23,6 +25,10 @@ type OrderEmailPayload = {
   paymentMethod: string;
   shippingAddress: OrderEmailAddress;
   createdAt: string;
+  /** Estimated shipping included in totalAmount, when it could be calculated. */
+  shippingFee?: number;
+  /** True when shipping is quoted manually (no SKU weights / destination rate). */
+  shippingQuoted?: boolean;
 };
 
 function getOrderReceiverEmail() {
@@ -69,6 +75,25 @@ function paymentLabel(method: string) {
     default:
       return method;
   }
+}
+
+/**
+ * How to label the money figure in an email: when freight still has to be
+ * quoted, the number is only the goods total and the customer must be told.
+ */
+function shippingSummary(order: OrderEmailPayload) {
+  const quoted = order.shippingQuoted ?? order.shippingAddress.shippingQuoted;
+  const fee = order.shippingFee ?? order.shippingAddress.shippingFee;
+  if (quoted) {
+    return {
+      label: 'Goods Total (excl. shipping)',
+      note: 'Shipping: quoted separately by destination and weight. We will confirm it before you pay.',
+    };
+  }
+  if (typeof fee === 'number' && fee > 0) {
+    return { label: 'Order Total', note: `Estimated shipping: ${formatPrice(fee)}` };
+  }
+  return { label: 'Order Total', note: '' };
 }
 
 function smtpReady() {
@@ -217,6 +242,9 @@ export async function sendCustomerOrderReceivedEmail(
   const reference = order.orderNumber.slice(-8).toUpperCase();
   const bank = getPrivateBankDetails();
   const isWechat = order.paymentMethod === 'wechat';
+  // Be explicit about shipping so the customer never assumes the goods total
+  // is the final amount when the freight still has to be quoted.
+  const { label: totalLabel, note: shippingNote } = shippingSummary(order);
 
   const paymentLines = isWechat
     ? [
@@ -237,7 +265,8 @@ export async function sendCustomerOrderReceivedEmail(
     '',
     'Your order has been received and is awaiting payment.',
     `Payment Reference: ${reference}`,
-    `Order Total: ${formatPrice(order.totalAmount)}`,
+    `${totalLabel}: ${formatPrice(order.totalAmount)}`,
+    ...(shippingNote ? [shippingNote] : []),
     `Created At: ${order.createdAt}`,
     '',
     ...paymentLines,
@@ -273,7 +302,8 @@ export async function sendCustomerOrderReceivedEmail(
       <p>Your order is awaiting payment. Please complete the payment using the details below.</p>
 
       <p><strong>Payment Reference:</strong> ${escapeHtml(reference)}</p>
-      <p><strong>Order Total:</strong> ${formatPrice(order.totalAmount)}</p>
+      <p><strong>${escapeHtml(totalLabel)}:</strong> ${formatPrice(order.totalAmount)}</p>
+      ${shippingNote ? `<p>${escapeHtml(shippingNote)}</p>` : ''}
       ${paymentHtml}
       <p>Your order number will be confirmed once we receive your payment.</p>
 
@@ -357,12 +387,15 @@ export async function sendCustomerOrderConfirmation(
     `;
   }).join('');
 
+  const { label: totalLabel, note: shippingNote } = shippingSummary(order);
+
   const text = [
     'Thank you for your order from Adam Cutlery!',
     '',
     `Order Number: ${order.orderNumber}`,
     `Payment Method: ${paymentLabel(order.paymentMethod)}`,
-    `Total Amount: ${formatPrice(order.totalAmount)}`,
+    `${totalLabel}: ${formatPrice(order.totalAmount)}`,
+    ...(shippingNote ? [shippingNote] : []),
     `Created At: ${order.createdAt}`,
     '',
     'Shipping Address:',
@@ -388,6 +421,7 @@ export async function sendCustomerOrderConfirmation(
       <p><strong>Order Number:</strong> ${escapeHtml(order.orderNumber)}</p>
       <p><strong>Payment Method:</strong> ${escapeHtml(paymentLabel(order.paymentMethod))}</p>
       <p><strong>Total Amount:</strong> ${formatPrice(order.totalAmount)}</p>
+      ${shippingNote ? `<p>${escapeHtml(shippingNote)}</p>` : ''}
       <p><strong>Created At:</strong> ${escapeHtml(order.createdAt)}</p>
 
       <h3 style="margin-top:24px;">Shipping Address</h3>
