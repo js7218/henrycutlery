@@ -14,6 +14,10 @@ interface Rate {
 export default function ShippingAdminPage() {
   const [rates, setRates] = useState<Rate[]>([]);
   const [weights, setWeights] = useState<Record<string, string>>({});
+  const [defaultItemWeightKg, setDefaultItemWeightKg] = useState('0.4');
+  const [packagingKg, setPackagingKg] = useState('0.3');
+  const [settingsSavedAt, setSettingsSavedAt] = useState('');
+  const [savingSettings, setSavingSettings] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -26,6 +30,9 @@ export default function ShippingAdminPage() {
       .then((data) => {
         if (!data?.success) throw new Error(data?.error || 'Failed to load');
         setRates(data.rates || []);
+        setDefaultItemWeightKg(String(data.defaultItemWeightKg ?? 0.4));
+        setPackagingKg(String(data.packagingKg ?? 0.3));
+        setSettingsSavedAt(data.settingsUpdatedAt ? new Date(data.settingsUpdatedAt).toLocaleString() : '');
         const map: Record<string, string> = {};
         for (const [id, kg] of Object.entries(data.weights || {})) {
           map[id] = String(kg);
@@ -60,6 +67,30 @@ export default function ShippingAdminPage() {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSavingRates(false);
+    }
+  }
+
+  async function saveSettings() {
+    setSavingSettings(true);
+    setError('');
+    setStatus('');
+    try {
+      const res = await fetch('/api/admin/shipping/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          defaultItemWeightKg: Number(defaultItemWeightKg),
+          packagingKg: Number(packagingKg),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Save failed');
+      setStatus('Default weights saved.');
+      setSettingsSavedAt(new Date().toLocaleString());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSavingSettings(false);
     }
   }
 
@@ -100,6 +131,46 @@ export default function ShippingAdminPage() {
 
         {status && <p className="text-sm text-green-400">{status}</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
+
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium">Default weights</h2>
+            <button
+              onClick={saveSettings}
+              disabled={savingSettings}
+              className="px-4 py-2 bg-gold text-background rounded text-sm font-medium disabled:opacity-50"
+            >
+              {savingSettings ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+          <div className="flex flex-wrap items-end gap-6">
+            <label className="text-sm text-gray-400">
+              <span className="block mb-1">Weight per knife when SKU is blank (kg)</span>
+              <input
+                type="number"
+                min="0.001"
+                step="0.001"
+                value={defaultItemWeightKg}
+                onChange={(e) => setDefaultItemWeightKg(e.target.value)}
+                className="w-32 bg-background border border-border rounded px-2 py-1 text-foreground"
+              />
+            </label>
+            <label className="text-sm text-gray-400">
+              <span className="block mb-1">Packaging per order (kg)</span>
+              <input
+                type="number"
+                min="0"
+                step="0.001"
+                value={packagingKg}
+                onChange={(e) => setPackagingKg(e.target.value)}
+                className="w-32 bg-background border border-border rounded px-2 py-1 text-foreground"
+              />
+            </label>
+            <p className="text-xs text-gray-500 pb-2">
+              {settingsSavedAt ? `Last updated: ${settingsSavedAt}` : 'Using code defaults'}
+            </p>
+          </div>
+        </section>
 
         <section className="bg-surface border border-border rounded-lg p-5">
           <div className="flex items-center justify-between mb-4">

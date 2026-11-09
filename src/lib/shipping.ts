@@ -9,7 +9,17 @@
 
 export const DEFAULT_ITEM_WEIGHT_KG = 0.4;
 export const DEFAULT_PER_KG_USD = 20;
-export const PACKAGING_KG = 0.3;
+export const DEFAULT_PACKAGING_KG = 0.3;
+
+export interface ShippingSettings {
+  defaultItemWeightKg: number;
+  packagingKg: number;
+}
+
+export const DEFAULT_SHIPPING_SETTINGS: ShippingSettings = {
+  defaultItemWeightKg: DEFAULT_ITEM_WEIGHT_KG,
+  packagingKg: DEFAULT_PACKAGING_KG,
+};
 
 export interface ShippingRate {
   countryCode: string;
@@ -94,26 +104,33 @@ export interface ShippingLine {
   quantity: number;
 }
 
-export function totalWeightKg(items: ShippingLine[], weights: Record<string, number>): number {
+export function totalWeightKg(
+  items: ShippingLine[],
+  weights: Record<string, number>,
+  settings: ShippingSettings = DEFAULT_SHIPPING_SETTINGS
+): number {
   const units = items.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0);
   if (units <= 0) return 0;
+  const defaultKg = Number(settings.defaultItemWeightKg) > 0 ? Number(settings.defaultItemWeightKg) : DEFAULT_ITEM_WEIGHT_KG;
+  const packagingKg = Number(settings.packagingKg) >= 0 ? Number(settings.packagingKg) : DEFAULT_PACKAGING_KG;
   const goodsKg = items.reduce((sum, item) => {
-    const unitKg = weights[item.productId] ?? DEFAULT_ITEM_WEIGHT_KG;
+    const unitKg = weights[item.productId] ?? defaultKg;
     return sum + Math.max(0, Number(item.quantity) || 0) * unitKg;
   }, 0);
-  return Math.round((goodsKg + PACKAGING_KG) * 100) / 100;
+  return Math.round((goodsKg + packagingKg) * 100) / 100;
 }
 
 export function shippingFeeFor(
   items: ShippingLine[],
   phone: string,
   rates: ShippingRate[],
-  weights: Record<string, number>
+  weights: Record<string, number>,
+  settings: ShippingSettings = DEFAULT_SHIPPING_SETTINGS
 ): { fee: number; kg: number; perKgUsd: number; countryCode: string; countryName: string; known: boolean } {
   const country = countryOfPhone(phone);
   const rate = country ? rates.find((r) => r.countryCode === country.code) : undefined;
   const perKgUsd = rate?.perKgUsd ?? DEFAULT_PER_KG_USD;
-  const kg = totalWeightKg(items, weights);
+  const kg = totalWeightKg(items, weights, settings);
   const fee = Math.round(kg * perKgUsd * 100) / 100;
   return {
     fee,

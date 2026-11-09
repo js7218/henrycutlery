@@ -464,11 +464,20 @@ export async function POST(request: NextRequest) {
         'SELECT product_id, weight_kg FROM product_weights WHERE product_id = ANY($1)',
         [verifiedItems.map((item) => item.productId)]
       );
+      const settingsResult = await shippingDb.query(
+        'SELECT default_item_weight_kg, packaging_kg FROM shipping_settings WHERE id = 1'
+      );
       const weightMap: Record<string, number> = {};
       for (const row of weightResult.rows) {
         weightMap[row.product_id] = Number(row.weight_kg);
       }
-      shippingWeightKg = totalWeightKg(verifiedItems, weightMap);
+      const shippingSettings = settingsResult.rowCount
+        ? {
+            defaultItemWeightKg: Number(settingsResult.rows[0].default_item_weight_kg),
+            packagingKg: Number(settingsResult.rows[0].packaging_kg),
+          }
+        : undefined;
+      shippingWeightKg = totalWeightKg(verifiedItems, weightMap, shippingSettings);
       shippingFee = Math.round(shippingWeightKg * shippingPerKg * 100) / 100;
     }
 

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard, AlertCircle, ShieldCheck, Globe, Package } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice } from '@/lib/utils';
-import { shippingFeeFor, type ShippingRate } from '@/lib/shipping';
+import { shippingFeeFor, DEFAULT_SHIPPING_SETTINGS, type ShippingRate, type ShippingSettings } from '@/lib/shipping';
 import { securityLogger } from '@/lib/securityLogger';
 import { Address, PaymentMethod } from '@/types';
 import { products as currentProducts } from '@/data/products';
@@ -137,9 +137,10 @@ export default function CheckoutPage() {
   });
 
   // Shipping = total weight x per-kg rate of the destination country.
-  const [shippingConfig, setShippingConfig] = useState<{ rates: ShippingRate[]; weights: Record<string, number> }>({
+  const [shippingConfig, setShippingConfig] = useState<{ rates: ShippingRate[]; weights: Record<string, number>; settings: ShippingSettings }>({
     rates: [],
     weights: {},
+    settings: DEFAULT_SHIPPING_SETTINGS,
   });
   const [customerArrangesShipping, setCustomerArrangesShipping] = useState(false);
 
@@ -149,7 +150,14 @@ export default function CheckoutPage() {
       .then((res) => res.json())
       .then((data) => {
         if (cancelled || !data?.success) return;
-        setShippingConfig({ rates: data.rates || [], weights: data.weights || {} });
+        setShippingConfig({
+          rates: data.rates || [],
+          weights: data.weights || {},
+          settings: {
+            defaultItemWeightKg: Number(data.defaultItemWeightKg) || DEFAULT_SHIPPING_SETTINGS.defaultItemWeightKg,
+            packagingKg: Number.isFinite(Number(data.packagingKg)) ? Number(data.packagingKg) : DEFAULT_SHIPPING_SETTINGS.packagingKg,
+          },
+        });
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -159,7 +167,8 @@ export default function CheckoutPage() {
     state.cart.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
     selectedAddress?.phone || '',
     shippingConfig.rates,
-    shippingConfig.weights
+    shippingConfig.weights,
+    shippingConfig.settings
   );
   const shippingFee = customerArrangesShipping ? 0 : shipping.fee;
   const totalAmount = cartTotal + shippingFee;

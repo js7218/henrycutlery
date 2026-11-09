@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
-import { DEFAULT_ITEM_WEIGHT_KG } from '@/lib/shipping';
+import { DEFAULT_ITEM_WEIGHT_KG, DEFAULT_PACKAGING_KG } from '@/lib/shipping';
 
 /**
  * GET /api/shipping/rates
@@ -10,12 +10,16 @@ export async function GET() {
   try {
     await ensureDatabaseSchema();
     const pool = getPool();
-    const [rates, weights] = await Promise.all([
+    const [rates, weights, settings] = await Promise.all([
       pool.query(
         `SELECT country_code, country_name, per_kg_usd, updated_at
          FROM shipping_rates ORDER BY country_name ASC`
       ),
       pool.query(`SELECT product_id, weight_kg FROM product_weights`),
+      pool.query(
+        `SELECT default_item_weight_kg, packaging_kg, updated_at
+         FROM shipping_settings WHERE id = 1`
+      ),
     ]);
 
     const weightMap: Record<string, number> = {};
@@ -26,7 +30,9 @@ export async function GET() {
     return NextResponse.json(
       {
         success: true,
-        defaultItemWeightKg: DEFAULT_ITEM_WEIGHT_KG,
+        defaultItemWeightKg: settings.rowCount ? Number(settings.rows[0].default_item_weight_kg) : DEFAULT_ITEM_WEIGHT_KG,
+        packagingKg: settings.rowCount ? Number(settings.rows[0].packaging_kg) : DEFAULT_PACKAGING_KG,
+        settingsUpdatedAt: settings.rowCount ? settings.rows[0].updated_at : null,
         rates: rates.rows.map((row) => ({
           countryCode: row.country_code,
           countryName: row.country_name,
