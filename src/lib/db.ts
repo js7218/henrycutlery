@@ -457,6 +457,32 @@ async function runSchemaMigration(): Promise<void> {
         );
       `);
       await db.query(`CREATE INDEX IF NOT EXISTS seo_drafts_status_idx ON seo_drafts(status);`);
+
+      // Shipping-fee negotiation. The customer talks to an assistant, but the
+      // server owns the floor and every amount is recomputed server-side.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS negotiation_settings (
+          id TEXT PRIMARY KEY DEFAULT 'default',
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          max_discount_pct NUMERIC(5,2) NOT NULL DEFAULT 30,
+          floor_ratio NUMERIC(5,4) NOT NULL DEFAULT 0.70,
+          min_shipping_usd NUMERIC(10,2) NOT NULL DEFAULT 5,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS shipping_negotiations (
+          id TEXT PRIMARY KEY,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          country_code TEXT NOT NULL DEFAULT '',
+          weight_kg NUMERIC(12,6) NOT NULL DEFAULT 0,
+          quote_usd NUMERIC(10,2) NOT NULL DEFAULT 0,
+          final_usd NUMERIC(10,2),
+          granted BOOLEAN NOT NULL DEFAULT FALSE,
+          messages JSONB,
+          reply TEXT NOT NULL DEFAULT ''
+        );
+      `);
 }
 
 export async function getUserAddresses(userId: string): Promise<Address[]> {

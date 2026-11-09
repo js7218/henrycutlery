@@ -14,6 +14,7 @@ import { products as currentProducts } from '@/data/products';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
 import PaymentSelector from '@/components/checkout/PaymentSelector';
 import ThreeDButton from '@/components/animation/ThreeDButton';
+import NegotiationChat from '@/components/NegotiationChat';
 
 type CheckoutStep = 'confirm' | 'payment' | 'complete';
 
@@ -147,6 +148,9 @@ export default function CheckoutPage() {
   // when the phone and the delivery country are not the same.
   const [shipToCountry, setShipToCountry] = useState('');
   const [customerArrangesShipping, setCustomerArrangesShipping] = useState(false);
+  // Signed shipping quote returned by the negotiation assistant. The original
+  // computed fee stays intact; only the displayed/charged fee is replaced.
+  const [negotiatedShipping, setNegotiatedShipping] = useState<{ amountUsd: number; token: string } | null>(null);
   // Live stock from the database, used for the pre-flight quantity check.
   const [liveStock, setLiveStock] = useState<Record<string, number>>({});
 
@@ -188,7 +192,14 @@ export default function CheckoutPage() {
   );
   const shippingQuoted = !shipping.complete && !customerArrangesShipping;
   const shippingFee = customerArrangesShipping || !shipping.complete ? 0 : shipping.fee;
-  const totalAmount = cartTotal + shippingFee;
+  const effectiveShippingFee = negotiatedShipping ? negotiatedShipping.amountUsd : shippingFee;
+  const totalAmount = cartTotal + effectiveShippingFee;
+
+  // A quote is only valid for the exact fee and shipping choice it was
+  // negotiated against, so drop it whenever either changes.
+  useEffect(() => {
+    setNegotiatedShipping(null);
+  }, [shippingFee, customerArrangesShipping]);
 
   useEffect(() => {
     if (selectedAddress || !state.user?.addresses?.length) return;
@@ -355,6 +366,7 @@ export default function CheckoutPage() {
           force,
           shippingSelfArranged: customerArrangesShipping,
           shippingCountryCode: shipToCountry || undefined,
+          shippingQuoteToken: negotiatedShipping?.token || undefined,
         }),
       });
 
@@ -824,8 +836,14 @@ export default function CheckoutPage() {
                   <span>{formatPrice(cartTotal)}</span>
                 </div>
                 <div className="flex justify-between text-gray-400">
-                  <span>Estimated Shipping</span>
-                  <span className="text-gold">{shippingQuoted ? 'To Be Quoted' : formatPrice(shippingFee)}</span>
+                  <span>{negotiatedShipping ? 'Negotiated shipping' : 'Estimated Shipping'}</span>
+                  <span className="text-gold">
+                    {negotiatedShipping
+                      ? formatPrice(negotiatedShipping.amountUsd)
+                      : shippingQuoted
+                        ? 'To Be Quoted'
+                        : formatPrice(shippingFee)}
+                  </span>
                 </div>
                 <p className="text-xs text-gray-500">
                   {shippingQuoted
@@ -833,6 +851,17 @@ export default function CheckoutPage() {
                     : `${shipping.kg} kg at ${formatPrice(shipping.perKgUsd)}/kg to ${shipping.countryName}.`}
                   {customerArrangesShipping ? ' Shipping excluded — you arrange your own carrier.' : ' Final shipping is confirmed by email.'}
                 </p>
+                {shippingFee > 0 && !customerArrangesShipping && !shippingQuoted && (
+                  <NegotiationChat
+                    items={state.cart.map((item) => ({
+                      productId: item.product.id,
+                      quantity: item.quantity,
+                    }))}
+                    countryCode={shipToCountry || shipping.countryCode}
+                    quoteUsd={shippingFee}
+                    onQuote={setNegotiatedShipping}
+                  />
+                )}
               </div>
               <div className="pt-4 border-t border-border">
                 <div className="flex justify-between items-center mb-6">
@@ -905,8 +934,14 @@ export default function CheckoutPage() {
                   <span>{formatPrice(cartTotal)}</span>
                 </div>
                 <div className="flex justify-between text-gray-400">
-                  <span>Estimated Shipping</span>
-                  <span className="text-gold">{shippingQuoted ? 'To Be Quoted' : formatPrice(shippingFee)}</span>
+                  <span>{negotiatedShipping ? 'Negotiated shipping' : 'Estimated Shipping'}</span>
+                  <span className="text-gold">
+                    {negotiatedShipping
+                      ? formatPrice(negotiatedShipping.amountUsd)
+                      : shippingQuoted
+                        ? 'To Be Quoted'
+                        : formatPrice(shippingFee)}
+                  </span>
                 </div>
                 <p className="text-xs text-gray-500 pt-2">
                   Order confirmation and secure payment arrangement will be handled by email.

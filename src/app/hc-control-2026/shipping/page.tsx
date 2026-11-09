@@ -13,6 +13,23 @@ interface Rate {
   updatedAt?: string;
 }
 
+interface NegotiationSettingsForm {
+  enabled: boolean;
+  maxDiscountPct: string;
+  floorRatio: string;
+  minShippingUsd: string;
+}
+
+interface NegotiationLog {
+  id: string;
+  createdAt: string;
+  countryCode: string;
+  quoteUsd: number;
+  finalUsd: number | null;
+  granted: boolean;
+  reply: string;
+}
+
 export default function ShippingAdminPage() {
   const [rates, setRates] = useState<Rate[]>([]);
   const [weights, setWeights] = useState<Record<string, string>>({});
@@ -21,6 +38,16 @@ export default function ShippingAdminPage() {
   const [error, setError] = useState('');
   const [savingRates, setSavingRates] = useState(false);
   const [savingWeights, setSavingWeights] = useState(false);
+  const [negotiation, setNegotiation] = useState<NegotiationSettingsForm>({
+    enabled: true,
+    maxDiscountPct: '30',
+    floorRatio: '0.7',
+    minShippingUsd: '5',
+  });
+  const [negotiations, setNegotiations] = useState<NegotiationLog[]>([]);
+  const [savingNegotiation, setSavingNegotiation] = useState(false);
+  const [negotiationStatus, setNegotiationStatus] = useState('');
+  const [negotiationError, setNegotiationError] = useState('');
 
   const missingWeightCount = useMemo(
     () => products.filter((product) => !weights[product.id]).length,
@@ -44,6 +71,23 @@ export default function ShippingAdminPage() {
         setWeights(map);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/negotiation')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data?.success) throw new Error(data?.error || 'Failed to load');
+        const settings = data.settings || {};
+        setNegotiation({
+          enabled: settings.enabled !== false,
+          maxDiscountPct: String(settings.maxDiscountPct ?? 30),
+          floorRatio: String(settings.floorRatio ?? 0.7),
+          minShippingUsd: String(settings.minShippingUsd ?? 5),
+        });
+        setNegotiations(Array.isArray(data.negotiations) ? data.negotiations : []);
+      })
+      .catch((err) => setNegotiationError(err instanceof Error ? err.message : 'Failed to load'));
   }, []);
 
   const filteredProducts = useMemo(() => {
@@ -113,6 +157,46 @@ export default function ShippingAdminPage() {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSavingWeights(false);
+    }
+  }
+
+  async function saveNegotiation() {
+    setSavingNegotiation(true);
+    setNegotiationError('');
+    setNegotiationStatus('');
+    try {
+      const maxDiscountPct = Number(negotiation.maxDiscountPct);
+      const floorRatio = Number(negotiation.floorRatio);
+      const minShippingUsd = Number(negotiation.minShippingUsd);
+      if (!Number.isFinite(maxDiscountPct) || maxDiscountPct < 0 || maxDiscountPct > 90) {
+        setNegotiationError('Max discount must be between 0 and 90.');
+        return;
+      }
+      if (!Number.isFinite(floorRatio) || floorRatio < 0.05 || floorRatio > 1) {
+        setNegotiationError('Floor ratio must be between 0.05 and 1.');
+        return;
+      }
+      if (!Number.isFinite(minShippingUsd) || minShippingUsd < 0 || minShippingUsd > 500) {
+        setNegotiationError('Minimum shipping must be between 0 and 500.');
+        return;
+      }
+      const res = await fetch('/api/admin/negotiation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: negotiation.enabled,
+          maxDiscountPct,
+          floorRatio,
+          minShippingUsd,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Save failed');
+      setNegotiationStatus('Negotiation settings saved.');
+    } catch (err) {
+      setNegotiationError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSavingNegotiation(false);
     }
   }
 
@@ -241,6 +325,115 @@ export default function ShippingAdminPage() {
           <p className="text-xs text-gray-500 mt-3">
             Leave blank to use the default 0.4 kg. Saving sends every non-empty value.
           </p>
+        </section>
+
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-lg font-medium mb-1">Shipping negotiation (AI)</h2>
+              <p className="text-xs text-gray-500">
+                The assistant may lower the shipping fee, never below max(quote x floor ratio,
+                minimum shipping, quote x (1 - max discount)). Product prices are never negotiable.
+              </p>
+            </div>
+            <button
+              onClick={saveNegotiation}
+              disabled={savingNegotiation}
+              className="px-4 py-2 bg-gold text-background rounded text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+            >
+              {savingNegotiation ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+
+          {negotiationStatus && <p className="text-sm text-green-400 mb-3">{negotiationStatus}</p>}
+          {negotiationError && <p className="text-sm text-red-400 mb-3">{negotiationError}</p>}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={negotiation.enabled}
+                onChange={(e) => setNegotiation((prev) => ({ ...prev, enabled: e.target.checked }))}
+              />
+              Enable negotiation
+            </label>
+            <div className="text-sm">
+              <label className="block text-gray-400 mb-1" htmlFor="negotiation-max-discount">
+                Max discount %
+              </label>
+              <input
+                id="negotiation-max-discount"
+                type="text"
+                inputMode="decimal"
+                value={negotiation.maxDiscountPct}
+                onChange={(e) => setNegotiation((prev) => ({ ...prev, maxDiscountPct: e.target.value }))}
+                className="w-28 bg-background border border-border rounded px-2 py-1"
+              />
+            </div>
+            <div className="text-sm">
+              <label className="block text-gray-400 mb-1" htmlFor="negotiation-floor-ratio">
+                Floor ratio (0-1, e.g. 0.7)
+              </label>
+              <input
+                id="negotiation-floor-ratio"
+                type="text"
+                inputMode="decimal"
+                value={negotiation.floorRatio}
+                onChange={(e) => setNegotiation((prev) => ({ ...prev, floorRatio: e.target.value }))}
+                className="w-28 bg-background border border-border rounded px-2 py-1"
+              />
+            </div>
+            <div className="text-sm">
+              <label className="block text-gray-400 mb-1" htmlFor="negotiation-min-shipping">
+                Minimum shipping USD
+              </label>
+              <input
+                id="negotiation-min-shipping"
+                type="text"
+                inputMode="decimal"
+                value={negotiation.minShippingUsd}
+                onChange={(e) => setNegotiation((prev) => ({ ...prev, minShippingUsd: e.target.value }))}
+                className="w-28 bg-background border border-border rounded px-2 py-1"
+              />
+            </div>
+          </div>
+
+          <h3 className="text-sm font-medium mb-2">Last 10 negotiations</h3>
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="text-gray-400">
+                <tr>
+                  <th className="text-left py-2">Time</th>
+                  <th className="text-left py-2">Country</th>
+                  <th className="text-left py-2">Quote → Final</th>
+                  <th className="text-left py-2">Granted</th>
+                </tr>
+              </thead>
+              <tbody>
+                {negotiations.slice(0, 10).map((log) => (
+                  <tr key={log.id} className="border-t border-border">
+                    <td className="py-1.5 pr-3 text-gray-400">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </td>
+                    <td className="py-1.5 pr-3 text-gray-400">{log.countryCode || '-'}</td>
+                    <td className="py-1.5 pr-3">
+                      ${log.quoteUsd.toFixed(2)}
+                      {' → '}
+                      {log.finalUsd === null ? '-' : `$${log.finalUsd.toFixed(2)}`}
+                    </td>
+                    <td className="py-1.5 pr-3">{log.granted ? 'Yes' : 'No'}</td>
+                  </tr>
+                ))}
+                {negotiations.length === 0 && (
+                  <tr>
+                    <td className="py-3 text-gray-500" colSpan={4}>
+                      No negotiations yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
     </div>

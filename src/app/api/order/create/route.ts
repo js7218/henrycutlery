@@ -17,6 +17,7 @@ import { getAuthUser } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import { getStockMap } from '@/lib/inventory';
 import { DEFAULT_PER_KG_USD, countryOfPhone, totalWeightKg } from '@/lib/shipping';
+import { floorPriceUsd, getNegotiationSettings, verifyShippingQuote } from '@/lib/negotiation';
 
 const MAX_ORDER_ITEMS = 50;
 const MAX_ITEM_QUANTITY = 5000;
@@ -488,6 +489,7 @@ export async function POST(request: NextRequest) {
     let shippingWeightKg = 0;
     let shippingPerKg = 0;
     let shippingQuoted = false;
+    let shippingNegotiated = false;
     let shippingCountryCode = '';
     if (!shippingSelfArranged) {
       await ensureDatabaseSchema();
@@ -515,6 +517,41 @@ export async function POST(request: NextRequest) {
         // Some SKUs have no weight configured yet; quote shipping manually.
         shippingQuoted = true;
       }
+
+      // A negotiated shipping quote is only honoured when its signature is
+      // valid, it is unexpired and it still matches this cart's weight,
+      // destination and the server-side floor. Anything else is ignored and
+      // the normal fee applies.
+      const shippingQuoteToken =
+        typeof body.shippingQuoteToken === 'string' ? body.shippingQuoteToken : '';
+      if (shippingQuoteToken && shippingFee > 0) {
+        try {
+          const quote = verifyShippingQuote(shippingQuoteToken);
+          if (quote) {
+            const settings = await getNegotiationSettings();
+            const floor = floorPriceUsd(shippingFee, settings);
+            const countryMatches =
+              !quote.countryCode ||
+              !shippingCountryCode ||
+              quote.countryCode.toUpperCase() === shippingCountryCode.toUpperCase();
+            const weightMatches = Math.abs(quote.weightKg - shippingWeightKg) <= 0.05;
+            if (
+              countryMatches &&
+              weightMatches &&
+              quote.amountUsd >= floor - 0.005 &&
+              quote.amountUsd <= shippingFee + 0.005
+            ) {
+              shippingFee = Math.round(quote.amountUsd * 100) / 100;
+              shippingNegotiated = true;
+            }
+          }
+        } catch (err) {
+          console.error(
+            '[order/create] shipping quote verification failed:',
+            err instanceof Error ? err.message : 'Unknown error'
+          );
+        }
+      }
     }
 
     const orderTotal = Math.round((serverTotal + shippingFee) * 100) / 100;
@@ -535,6 +572,7 @@ export async function POST(request: NextRequest) {
         shippingWeightKg,
         shippingPerKg,
         shippingQuoted,
+        shippingNegotiated,
         shippingCountryCode,
       },
       paymentMethod,
