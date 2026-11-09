@@ -132,6 +132,44 @@ async function runSchemaMigration(): Promise<void> {
       await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS district TEXT NOT NULL DEFAULT '';`);
       await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS detail TEXT NOT NULL DEFAULT '';`);
       await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT FALSE;`);
+
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS shipping_rates (
+          country_code TEXT PRIMARY KEY,
+          country_name TEXT NOT NULL DEFAULT '',
+          per_kg_usd NUMERIC(10,2) NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS product_weights (
+          product_id TEXT PRIMARY KEY,
+          weight_kg NUMERIC(10,3) NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      await db.query(`
+        INSERT INTO shipping_rates (country_code, country_name, per_kg_usd) VALUES
+          ('US','United States',20), ('CA','Canada',20), ('GB','United Kingdom',18),
+          ('DE','Germany',18), ('FR','France',18), ('IT','Italy',18), ('ES','Spain',18),
+          ('NL','Netherlands',18), ('BE','Belgium',18), ('CH','Switzerland',20),
+          ('AT','Austria',18), ('PL','Poland',18), ('SE','Sweden',20), ('NO','Norway',20),
+          ('DK','Denmark',18), ('FI','Finland',20), ('IE','Ireland',18), ('PT','Portugal',18),
+          ('GR','Greece',18), ('AU','Australia',20), ('NZ','New Zealand',20),
+          ('JP','Japan',16), ('KR','South Korea',16), ('SG','Singapore',14),
+          ('MY','Malaysia',14), ('TH','Thailand',14), ('VN','Vietnam',14),
+          ('ID','Indonesia',14), ('PH','Philippines',14), ('IN','India',16),
+          ('PK','Pakistan',16), ('BD','Bangladesh',16), ('LK','Sri Lanka',16),
+          ('AE','United Arab Emirates',16), ('SA','Saudi Arabia',16), ('IL','Israel',18),
+          ('TR','Turkey',18), ('RU','Russia',22), ('MX','Mexico',20), ('BR','Brazil',24),
+          ('AR','Argentina',24), ('CL','Chile',24), ('CO','Colombia',24), ('PE','Peru',24),
+          ('ZA','South Africa',24), ('EG','Egypt',22), ('NG','Nigeria',24),
+          ('KE','Kenya',24), ('HK','Hong Kong',10), ('MO','Macau',10),
+          ('TW','Taiwan',12), ('CN','China',8)
+        ON CONFLICT (country_code) DO NOTHING;
+      `);
       await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
       await db.query(`ALTER TABLE addresses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
 

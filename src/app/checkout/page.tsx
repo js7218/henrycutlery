@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard, AlertCircle, ShieldCheck, Globe, Package } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice } from '@/lib/utils';
-import { estimateShipping } from '@/lib/shipping';
+import { shippingFeeFor, type ShippingRate } from '@/lib/shipping';
 import { securityLogger } from '@/lib/securityLogger';
 import { Address, PaymentMethod } from '@/types';
 import { products as currentProducts } from '@/data/products';
@@ -136,9 +136,33 @@ export default function CheckoutPage() {
     isDefault: false,
   });
 
-  // Distance-based shipping estimate; recalculated server-side on submit.
-  const shipping = estimateShipping(state.cart, selectedAddress?.phone || '');
-  const totalAmount = cartTotal + shipping.fee;
+  // Shipping = total weight x per-kg rate of the destination country.
+  const [shippingConfig, setShippingConfig] = useState<{ rates: ShippingRate[]; weights: Record<string, number> }>({
+    rates: [],
+    weights: {},
+  });
+  const [customerArrangesShipping, setCustomerArrangesShipping] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/shipping/rates')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.success) return;
+        setShippingConfig({ rates: data.rates || [], weights: data.weights || {} });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const shipping = shippingFeeFor(
+    state.cart.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
+    selectedAddress?.phone || '',
+    shippingConfig.rates,
+    shippingConfig.weights
+  );
+  const shippingFee = customerArrangesShipping ? 0 : shipping.fee;
+  const totalAmount = cartTotal + shippingFee;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -299,6 +323,7 @@ export default function CheckoutPage() {
           paymentMethod,
           idempotencyKey: getOrCreateIdempotencyKey(),
           force,
+          shippingSelfArranged: customerArrangesShipping,
         }),
       });
 
@@ -699,11 +724,11 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>Estimated Shipping</span>
-                  <span className="text-gold">{formatPrice(shipping.fee)}</span>
+                  <span className="text-gold">{formatPrice(shippingFee)}</span>
                 </div>
                 <p className="text-xs text-gray-500">
-                  Estimated for ~{shipping.distanceKm.toLocaleString()} km and {shipping.billableKg} kg.
-                  Final shipping is confirmed by email.
+                  {shipping.kg} kg at {formatPrice(shipping.perKgUsd)}/kg to {shipping.countryName}.
+                  {customerArrangesShipping ? ' Shipping excluded — you arrange your own carrier.' : ' Final shipping is confirmed by email.'}
                 </p>
               </div>
               <div className="pt-4 border-t border-border">
@@ -778,11 +803,22 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>Estimated Shipping</span>
-                  <span className="text-gold">{formatPrice(shipping.fee)}</span>
+                  <span className="text-gold">{formatPrice(shippingFee)}</span>
                 </div>
                 <p className="text-xs text-gray-500 pt-2">
                   Order confirmation and secure payment arrangement will be handled by email.
                 </p>
+                <label className="flex items-start gap-2 pt-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={customerArrangesShipping}
+                    onChange={(e) => setCustomerArrangesShipping(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-gray-400">
+                    I will arrange my own shipping (shipping fee excluded)
+                  </span>
+                </label>
               </div>
             </div>
           </div>

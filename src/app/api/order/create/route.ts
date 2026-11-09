@@ -14,7 +14,7 @@ import { findUnsafeUrl } from '@/lib/ssrfProtection';
 import { sendOrderNotificationEmail } from '@/lib/orderEmail';
 import { getAuthUser } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
-import { estimateShipping } from '@/lib/shipping';
+import { DEFAULT_PER_KG_USD, countryOfPhone, totalWeightKg } from '@/lib/shipping';
 
 const MAX_ORDER_ITEMS = 50;
 const MAX_ITEM_QUANTITY = 5000;
@@ -445,9 +445,34 @@ export async function POST(request: NextRequest) {
     const idempotencyKey = clientKey.length >= 8 ? clientKey.slice(0, 128) : randomUUID();
     const force = body.force === true;
 
-    // Estimated distance-based shipping, recalculated server-side.
-    const shippingEstimate = estimateShipping(verifiedItems, address.phone);
-    const orderTotal = Math.round((serverTotal + shippingEstimate.fee) * 100) / 100;
+    // Estimated shipping = total weight x destination country's per-kg rate.
+    // Customers who arrange their own carrier pay no shipping here.
+    const shippingSelfArranged = body.shippingSelfArranged === true;
+    let shippingFee = 0;
+    let shippingWeightKg = 0;
+    let shippingPerKg = 0;
+    if (!shippingSelfArranged) {
+      await ensureDatabaseSchema();
+      const shippingDb = getPool();
+      const country = countryOfPhone(address.phone);
+      const rateResult = country
+        ? await shippingDb.query('SELECT per_kg_usd FROM shipping_rates WHERE country_code = $1', [country.code])
+        : null;
+      shippingPerKg = rateResult?.rowCount ? Number(rateResult.rows[0].per_kg_usd) : DEFAULT_PER_KG_USD;
+
+      const weightResult = await shippingDb.query(
+        'SELECT product_id, weight_kg FROM product_weights WHERE product_id = ANY($1)',
+        [verifiedItems.map((item) => item.productId)]
+      );
+      const weightMap: Record<string, number> = {};
+      for (const row of weightResult.rows) {
+        weightMap[row.product_id] = Number(row.weight_kg);
+      }
+      shippingWeightKg = totalWeightKg(verifiedItems, weightMap);
+      shippingFee = Math.round(shippingWeightKg * shippingPerKg * 100) / 100;
+    }
+
+    const orderTotal = Math.round((serverTotal + shippingFee) * 100) / 100;
 
     const order = {
       id: `o${randomUUID()}`,
@@ -458,7 +483,13 @@ export async function POST(request: NextRequest) {
       // SECURITY: Include hash for integrity verification
       orderHash: generateOrderHash(verifiedItems, orderTotal),
       status: 'pending',
-      shippingAddress: address,
+      shippingAddress: {
+        ...address,
+        shippingSelfArranged,
+        shippingFee,
+        shippingWeightKg,
+        shippingPerKg,
+      },
       paymentMethod,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
