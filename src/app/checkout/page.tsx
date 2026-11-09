@@ -169,6 +169,13 @@ export default function CheckoutPage() {
   const totalAmount = cartTotal + shippingFee;
 
   useEffect(() => {
+    if (selectedAddress || !state.user?.addresses?.length) return;
+    setSelectedAddress(
+      state.user.addresses.find((address) => address.isDefault) || state.user.addresses[0]
+    );
+  }, [state.user, selectedAddress]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       if (!state.user && currentStep !== 'complete') {
         router.replace('/login?next=/checkout');
@@ -961,7 +968,7 @@ export default function CheckoutPage() {
               You placed an identical order less than a minute ago
               {pendingDuplicate.orderNumber ? (
                 <>
-                  {' '}(<span className="font-mono text-gold">{pendingDuplicate.orderNumber}</span>)
+                  {' '}(<span className="font-mono text-gold">{pendingDuplicate.orderNumber.slice(-8).toUpperCase()}</span>)
                 </>
               ) : null}
               . Place another one only if that was intentional.
