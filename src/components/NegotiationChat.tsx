@@ -96,7 +96,7 @@ export default function NegotiationChat({
         type="button"
         onClick={() => setOpen(true)}
         aria-expanded={false}
-        className="mt-2 inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-medium text-gold hover:border-gold"
+        className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm font-medium text-gold hover:border-gold"
       >
         Shipping seems high? Chat with us
       </button>

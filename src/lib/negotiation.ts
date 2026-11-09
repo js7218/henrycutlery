@@ -19,7 +19,7 @@ export interface NegotiationSettings {
 
 export const DEFAULT_NEGOTIATION_SETTINGS: NegotiationSettings = {
   enabled: true,
-  maxDiscountPct: 30,
+  maxDiscountPct: 5,
   floorRatio: 0.7,
   minShippingUsd: 0,
 };

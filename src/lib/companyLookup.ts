@@ -185,6 +185,65 @@ async function judgeCompany(
   return verdictSchema.parse(JSON.parse(content));
 }
 
+async function judgeFromKnowledge(name: string): Promise<z.infer<typeof verdictSchema>> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    throw new Error('DEEPSEEK_API_KEY is not configured');
+  }
+
+  const baseUrl = (process.env.DEEPSEEK_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
+  const model = process.env.DEEPSEEK_MODEL || DEFAULT_MODEL;
+
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: 'You assess company names from your own knowledge. Reply with strict JSON only.',
+        },
+        {
+          role: 'user',
+          content: [
+            `Company name: ${name}`,
+            '',
+            'Without browsing the web, decide whether this is a real, identifiable company:',
+            '- "verified": you are confident it exists and is a well-known or clearly identifiable business.',
+            '- "uncertain": plausible, but you cannot confirm it.',
+            '- "not_found": it looks like a made-up, random or meaningless string.',
+            '',
+            'Never invent a website or registration number. If unsure, answer "uncertain".',
+            'Reply with strict JSON: {"status":"verified"|"uncertain"|"not_found","note":"one short English sentence"}.',
+          ].join('\n'),
+        },
+      ],
+      temperature: 0,
+      response_format: { type: 'json_object' },
+    }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+
+  if (!res.ok) {
+    throw new Error(`DeepSeek request failed (${res.status})`);
+  }
+
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = data.choices?.[0]?.message?.content;
+
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new Error('DeepSeek returned empty content');
+  }
+
+  return verdictSchema.parse(JSON.parse(content));
+}
+
 function normalize(value: string): string {
   return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 }
@@ -225,7 +284,25 @@ export async function checkCompany(name: string): Promise<CompanyCheck> {
 
   const search = getSearchProvider();
   if (!search) {
-    return { status: 'skipped', note: 'Company check not configured', sources: [] };
+    // No search provider configured: fall back to the model's own knowledge.
+    // This is a rough signal, so the note says so explicitly.
+    if (!process.env.DEEPSEEK_API_KEY) {
+      return { status: 'skipped', note: 'Company check not configured', sources: [] };
+    }
+    try {
+      const verdict = await judgeFromKnowledge(company);
+      return {
+        status: verdict.status,
+        note: `${verdict.note} (AI knowledge check, not a live registry lookup)`,
+        sources: [],
+      };
+    } catch (err) {
+      console.error(
+        '[companyLookup] knowledge judge failed:',
+        err instanceof Error ? err.message : 'Unknown error'
+      );
+      return { status: 'skipped', note: 'Company check unavailable', sources: [] };
+    }
   }
 
   let results: SearchResult[] = [];

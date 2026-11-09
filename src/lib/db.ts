@@ -467,12 +467,29 @@ async function runSchemaMigration(): Promise<void> {
         CREATE TABLE IF NOT EXISTS negotiation_settings (
           id TEXT PRIMARY KEY DEFAULT 'default',
           enabled BOOLEAN NOT NULL DEFAULT TRUE,
-          max_discount_pct NUMERIC(5,2) NOT NULL DEFAULT 30,
+          max_discount_pct NUMERIC(5,2) NOT NULL DEFAULT 5,
           floor_ratio NUMERIC(5,4) NOT NULL DEFAULT 0.70,
           min_shipping_usd NUMERIC(10,2) NOT NULL DEFAULT 0,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS app_migrations (
+          id TEXT PRIMARY KEY,
+          applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      // One-off: the owner lowered the negotiation ceiling from 30% to 5%.
+      // Guarded by a migration row so a later manual change is never reverted.
+      const migration = await db.query(
+        `INSERT INTO app_migrations (id) VALUES ('negotiation-discount-5')
+         ON CONFLICT (id) DO NOTHING RETURNING id`
+      );
+      if (migration.rowCount) {
+        await db.query(
+          `UPDATE negotiation_settings SET max_discount_pct = 5, updated_at = NOW() WHERE id = 'default'`
+        );
+      }
       await db.query(`
         CREATE TABLE IF NOT EXISTS shipping_negotiations (
           id TEXT PRIMARY KEY,

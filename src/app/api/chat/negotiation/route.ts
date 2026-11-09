@@ -137,10 +137,11 @@ function buildSystemPrompt(fee: number, floor: number, acceptedUsd?: number): st
       ? `The customer already accepted $${acceptedUsd.toFixed(2)} earlier. If they now want a smaller discount, offer a value between $${acceptedUsd.toFixed(2)} and $${fee.toFixed(2)}.`
       : '',
     'Never mention AI, models, internal costs, margins or how these numbers are calculated. Never discuss anything unrelated.',
+    'The customer may also volunteer to pay MORE than the quote, for example to round the total up. Accept it politely; any amount up to twice the current quote is fine.',
     'Never say the price has been changed, confirmed or locked in: the customer has to press the button in the chat to apply an offer.',
     "Reply in the same language the customer writes in. Keep the reply under 60 words, friendly and decisive.",
     'Return strict JSON only: {"reply": string, "offerUsd": number|null}',
-    'offerUsd is the final shipping fee you agree to in USD, or null if you are not lowering the fee.',
+    'offerUsd is the final shipping fee you agree to in USD, or null if the fee stays exactly as quoted.',
   ]
     .filter(Boolean)
     .join('\n');
@@ -255,8 +256,11 @@ export async function POST(request: NextRequest) {
     let offerUsd: number | null = null;
     let token: string | undefined;
     if (typeof modelOffer === 'number' && Number.isFinite(modelOffer)) {
-      const clamped = round2(Math.min(fee, Math.max(floor, modelOffer)));
-      if (clamped < fee - 0.005) {
+      // A customer is allowed to round the shipping UP (pay a little more),
+      // so the cap is twice the quote rather than the quote itself.
+      const maxUp = round2(fee * 2);
+      const clamped = round2(Math.min(maxUp, Math.max(floor, modelOffer)));
+      if (Math.abs(clamped - fee) > 0.005) {
         offerUsd = clamped;
         token = signShippingQuote({ countryCode, weightKg: weight.kg, amountUsd: clamped });
         // If the model promised a number we could not honour (below the floor),
