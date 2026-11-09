@@ -7,6 +7,7 @@ interface NegotiationChatProps {
   countryCode: string;
   quoteUsd: number;
   onQuote: (result: { amountUsd: number; token: string } | null) => void;
+  onAddUnits?: (productId: string, quantity: number) => void;
 }
 
 interface ChatMessage {
@@ -24,6 +25,7 @@ export default function NegotiationChat({
   countryCode,
   quoteUsd,
   onQuote,
+  onAddUnits,
 }: NegotiationChatProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -82,6 +84,12 @@ export default function NegotiationChat({
 
       if (typeof data.offerUsd === 'number' && typeof data.token === 'string') {
         setPending({ amountUsd: data.offerUsd, token: data.token });
+      }
+
+      // Paying above the quote buys extra units of the product.
+      const added = data.addUnits;
+      if (added && typeof added.quantity === 'number' && added.quantity > 0 && onAddUnits) {
+        onAddUnits(added.productId, added.quantity);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');

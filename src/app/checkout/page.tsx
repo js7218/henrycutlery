@@ -872,6 +872,15 @@ export default function CheckoutPage() {
                     countryCode={shipToCountry || shipping.countryCode}
                     quoteUsd={shippingFee}
                     onQuote={setNegotiatedShipping}
+                    onAddUnits={(productId, quantity) => {
+                      const current = state.cart.find((item) => item.product.id === productId);
+                      if (!current) return;
+                      dispatch({
+                        type: 'UPDATE_QUANTITY',
+                        productId,
+                        quantity: current.quantity + quantity,
+                      });
+                    }}
                   />
                 )}
               </div>

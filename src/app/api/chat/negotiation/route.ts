@@ -291,10 +291,36 @@ export async function POST(request: NextRequest) {
         /\b(pay|paying|make it|do|take|accept|ok|okay|let'?s|how about|fine|deal|agreed?|use|set|go with|will pay|i can)\b/i.test(
           lastUserText
         ));
+    let addUnits: { productId: string; quantity: number; unitPrice: number } | null = null;
     if (looksLikeOffer) {
-      modelOffer = namedAmounts[namedAmounts.length - 1];
-      if (!reply.includes(modelOffer.toFixed(2)) && !reply.includes(String(modelOffer))) {
-        reply = acceptLine(modelOffer);
+      const named = namedAmounts[namedAmounts.length - 1];
+      if (named > fee + 0.005) {
+        // Paying above the quote means buying more product: the surplus over the
+        // quote is spent on whole units of the item the customer is ordering.
+        const primary = [...items].sort((a, b) => {
+          const valueA = (getProductById(a.productId)?.price || 0) * a.quantity;
+          const valueB = (getProductById(b.productId)?.price || 0) * b.quantity;
+          return valueB - valueA;
+        })[0];
+        const product = primary ? getProductById(primary.productId) : undefined;
+        if (product && product.price > 0) {
+          const extra = round2(named - fee);
+          const units = Math.floor(extra / product.price);
+          if (units > 0) {
+            addUnits = { productId: product.id, quantity: units, unitPrice: product.price };
+            reply = `That covers ${units} more ${units === 1 ? 'unit' : 'units'} of ${product.name}. I have added ${units === 1 ? 'it' : 'them'} to your cart — shipping is recalculated for the new weight.`;
+          } else {
+            reply = `The extra $${extra.toFixed(2)} does not cover another ${product.name} ($${product.price.toFixed(2)} each). Add $${(product.price - extra).toFixed(2)} more to include one.`;
+          }
+          modelOffer = null;
+        } else {
+          modelOffer = named;
+        }
+      } else {
+        modelOffer = named;
+        if (!reply.includes(modelOffer.toFixed(2)) && !reply.includes(String(modelOffer))) {
+          reply = acceptLine(modelOffer);
+        }
       }
     } else if (modelOffer === null && namedAmounts.length > 0) {
       // Safety net: the customer named an acceptable amount and the model only
@@ -347,6 +373,7 @@ export async function POST(request: NextRequest) {
       reply,
       offerUsd,
       ...(token ? { token } : {}),
+      ...(addUnits ? { addUnits } : {}),
     });
   } catch (error) {
     console.error(
