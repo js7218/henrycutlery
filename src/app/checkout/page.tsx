@@ -874,9 +874,6 @@ export default function CheckoutPage() {
                     onQuote={setNegotiatedShipping}
                   />
                 )}
-                <div className="pt-3 border-t border-border text-xs text-gray-500">
-                  Need a different quantity or a rounder total? Adjust the quantity in your cart, or contact us.
-                </div>
               </div>
               <div className="pt-4 border-t border-border">
                 <div className="flex justify-between items-center mb-6">

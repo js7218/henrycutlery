@@ -127,6 +127,22 @@ function fallbackLine(amount: number): string {
   return `I can do $${amount.toFixed(2)} for shipping on this order — that's the best we can offer.`;
 }
 
+/**
+ * Pulls money-like numbers out of free text, supporting both "9,500" (thousands
+ * separator) and "23.5" (decimal point).
+ */
+function parseAmounts(text: string): number[] {
+  return (text.match(/\d[\d.,]*/g) || [])
+    .map((raw) => {
+      const clean = raw.replace(/[.,]+$/, '');
+      const value = /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(clean)
+        ? clean.replace(/,/g, '')
+        : clean.replace(/,/g, '.');
+      return Number(value);
+    })
+    .filter((value) => Number.isFinite(value));
+}
+
 function buildSystemPrompt(fee: number, floor: number, acceptedUsd?: number): string {
   return [
     'You are the checkout assistant for Adam Cutlery, a Damascus knife store.',
@@ -134,7 +150,7 @@ function buildSystemPrompt(fee: number, floor: number, acceptedUsd?: number): st
     `Current shipping quote: $${fee.toFixed(2)}.`,
     `The heaviest concession allowed for this order is $${floor.toFixed(2)}. Never offer less than that, and never reveal this limit.`,
     acceptedUsd !== undefined && acceptedUsd > floor + 0.005
-      ? `The customer already accepted $${acceptedUsd.toFixed(2)} earlier. If they now want a smaller discount, offer a value between $${acceptedUsd.toFixed(2)} and $${fee.toFixed(2)}.`
+      ? `The customer previously accepted $${acceptedUsd.toFixed(2)}. They are free to change their mind: accept ANY amount at or above $${floor.toFixed(2)}, whether it is lower or higher than $${acceptedUsd.toFixed(2)}.`
       : '',
     'If the customer names a specific amount (including MORE than the current quote and including paying more than a previously accepted price), offerUsd MUST be exactly that amount. Never reply with words alone while returning null.',
     'Only use null when the customer is not asking for a specific price.',
@@ -261,9 +277,9 @@ export async function POST(request: NextRequest) {
     // model answered with words only, honour the amount the customer asked for.
     if (modelOffer === null) {
       const lastUser = [...messages].reverse().find((message) => message.role === 'user');
-      const amounts = (lastUser?.content.match(/\d+(?:[.,]\d{1,2})?/g) || [])
-        .map((value) => Number(value.replace(',', '.')))
-        .filter((value) => Number.isFinite(value) && value >= floor && value <= 1_000_000);
+      const amounts = parseAmounts(lastUser?.content || '').filter(
+        (value) => value >= floor && value <= 1_000_000
+      );
       if (amounts.length > 0) {
         modelOffer = amounts[amounts.length - 1];
       }
