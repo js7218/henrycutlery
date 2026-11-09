@@ -226,6 +226,35 @@ export default function CheckoutPage() {
       }
     }
 
+    // Show the bulk inquiry form as soon as the cart qualifies, instead of
+    // waiting for the server response after the payment step.
+    const bulkReasons: string[] = [];
+    if (cartTotal >= 10000) bulkReasons.push('order_value');
+    if (state.cart.some((item) => item.quantity >= 1300)) bulkReasons.push('bulk_quantity');
+    if (state.cart.some((item) => item.quantity > item.product.stock)) bulkReasons.push('insufficient_stock');
+    if (bulkReasons.length > 0) {
+      setInquiryPrompt({
+        reasons: bulkReasons,
+        totalAmount: cartTotal,
+        items: state.cart.map((item) => ({
+          productId: item.product.id,
+          productName: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+          lineTotal: item.product.price * item.quantity,
+        })),
+      });
+      setInquirySent(false);
+      setInquiryForm({
+        company: '',
+        phone: selectedAddress?.phone || '',
+        expectedDelivery: '',
+        customization: '',
+        notes: '',
+      });
+      return;
+    }
+
     setCurrentStep('payment');
   };
 

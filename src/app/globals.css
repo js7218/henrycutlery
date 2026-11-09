@@ -1274,3 +1274,10 @@ img {
   z-index: -1;
   transform: translateZ(-10px);
 }
+
+/* Hide the browser's built-in password reveal button (Edge/IE) so it does not
+   duplicate the custom eye toggle in the login form. */
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none;
+}
