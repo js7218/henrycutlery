@@ -147,6 +147,46 @@ function parseAmounts(text: string): number[] {
     .filter((value) => Number.isFinite(value));
 }
 
+/**
+ * Detects "add one more knife" / "再加两把" style requests and returns how many
+ * units the customer wants to buy. Returns null when the message is not asking
+ * for more units.
+ */
+function parseUnitIntent(text: string): number | null {
+  if (!text) return null;
+  if (/(remove|delete|reduce|fewer|less|take away|减|少买|去掉|删除)/i.test(text)) return null;
+
+  const words: Record<string, number> = {
+    one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  };
+  const spelled = /\b(?:add|another|more)\s+(one|two|three|four|five|six|seven|eight|nine|ten)\b/i.exec(text);
+  const wordBeforeMore = /\b(one|two|three|four|five|six|seven|eight|nine|ten)\s+more\b/i.exec(text);
+  const digitsWithNoun =
+    /\b(?:add|another|plus)\s+(\d{1,3})\s*(?:knife|knives|unit|units|piece|pieces|pcs|pce)\b/i.exec(text);
+  const plusSign = /\+\s*(\d{1,3})\b/.exec(text);
+
+  const english = spelled || wordBeforeMore || digitsWithNoun || plusSign;
+  if (english) {
+    const raw = english[1].toLowerCase();
+    const amount = /^\d+$/.test(raw) ? Number(raw) : words[raw];
+    if (amount > 0 && amount <= 500) return amount;
+  }
+
+  const chinese = /(?:再加|再买|多加|多买|加买|加)\s*([一二三四五六七八九十两\d]{1,3})\s*(?:把|件|个|支)/.exec(text);
+  if (chinese) {
+    const raw = chinese[1];
+    const cn: Record<string, number> = {
+      一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10,
+    };
+    const amount = /^\d+$/.test(raw)
+      ? Number(raw)
+      : [...raw].reduce((sum, char) => sum + (cn[char] || 0), 0);
+    if (amount > 0 && amount <= 500) return amount;
+  }
+
+  return null;
+}
+
 function buildSystemPrompt(fee: number, floor: number, acceptedUsd?: number): string {
   return [
     'You are the checkout assistant for Adam Cutlery, a Damascus knife store.',
@@ -292,17 +332,42 @@ export async function POST(request: NextRequest) {
           lastUserText
         ));
     let addUnits: { productId: string; quantity: number; unitPrice: number } | null = null;
-    if (looksLikeOffer) {
+    const primaryItem = [...items].sort((a, b) => {
+      const valueA = (getProductById(a.productId)?.price || 0) * a.quantity;
+      const valueB = (getProductById(b.productId)?.price || 0) * b.quantity;
+      return valueB - valueA;
+    })[0];
+    const primaryProduct = primaryItem ? getProductById(primaryItem.productId) : undefined;
+
+    const addUnitsToCart = async (wanted: number) => {
+      if (!primaryProduct || primaryProduct.price <= 0) return 0;
+      const stockResult = await db.query('SELECT stock FROM product_stock WHERE product_id = $1', [
+        primaryProduct.id,
+      ]);
+      const inCart = items
+        .filter((item) => item.productId === primaryProduct.id)
+        .reduce((sum, item) => sum + item.quantity, 0);
+      const available = Math.max(0, Number(stockResult.rows[0]?.stock ?? 0) - inCart);
+      return Math.min(wanted, available, Math.max(0, 1200 - inCart));
+    };
+
+    const unitIntent = parseUnitIntent(lastUserText);
+    if (primaryProduct && primaryProduct.price > 0 && unitIntent !== null) {
+      // "Add one more knife" / "再加两把": buy whole units of the item directly.
+      const units = await addUnitsToCart(unitIntent);
+      if (units > 0) {
+        addUnits = { productId: primaryProduct.id, quantity: units, unitPrice: primaryProduct.price };
+        reply = `Added ${units} more ${units === 1 ? 'unit' : 'units'} of ${primaryProduct.name} to your cart. Shipping is recalculated for the new weight.`;
+      } else {
+        reply = `Sorry, there are no more units of ${primaryProduct.name} available to add right now.`;
+      }
+      modelOffer = null;
+    } else if (looksLikeOffer) {
       const named = namedAmounts[namedAmounts.length - 1];
       if (named > fee + 0.005) {
         // Paying above the quote means buying more product: the surplus over the
         // quote is spent on whole units of the item the customer is ordering.
-        const primary = [...items].sort((a, b) => {
-          const valueA = (getProductById(a.productId)?.price || 0) * a.quantity;
-          const valueB = (getProductById(b.productId)?.price || 0) * b.quantity;
-          return valueB - valueA;
-        })[0];
-        const product = primary ? getProductById(primary.productId) : undefined;
+        const product = primaryProduct;
         if (product && product.price > 0) {
           const extra = round2(named - fee);
           let units = Math.floor(extra / product.price);
@@ -316,15 +381,7 @@ export async function POST(request: NextRequest) {
             }
           }
           // Never let a chat message push the cart past what can actually ship.
-          const stockResult = await db.query(
-            'SELECT stock FROM product_stock WHERE product_id = $1',
-            [product.id]
-          );
-          const inCart = items
-            .filter((item) => item.productId === product.id)
-            .reduce((sum, item) => sum + item.quantity, 0);
-          const available = Math.max(0, Number(stockResult.rows[0]?.stock ?? 0) - inCart);
-          units = Math.min(units, available, Math.max(0, 1200 - inCart));
+          units = await addUnitsToCart(units);
           if (units > 0) {
             addUnits = { productId: product.id, quantity: units, unitPrice: product.price };
             reply = `That covers ${units} more ${units === 1 ? 'unit' : 'units'} of ${product.name}. I have added ${units === 1 ? 'it' : 'them'} to your cart — shipping is recalculated for the new weight.`;
