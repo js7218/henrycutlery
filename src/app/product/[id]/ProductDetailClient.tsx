@@ -43,6 +43,9 @@ export default function ProductDetailPage() {
   // stock, so the page must not claim units that have already been sold.
   const [liveStock, setLiveStock] = useState<number | null>(null);
   const availableStock = liveStock ?? (product?.stock || 0);
+  // Some units are left, but fewer than the minimum order quantity, so the
+  // item cannot be bought online and needs a manual backorder conversation.
+  const belowMoq = availableStock > 0 && availableStock < (product?.moq || 1);
   const stockRef = useRef(availableStock);
   stockRef.current = availableStock;
 
@@ -196,6 +199,7 @@ export default function ProductDetailPage() {
     .slice(0, 4);
 
   const handleAddToCart = () => {
+    if (availableStock === 0 || belowMoq) return;
     const moq = product.moq || 1;
     const finalQty = quantity >= moq ? quantity : moq;
     addToCart(product, finalQty);
@@ -354,6 +358,11 @@ export default function ProductDetailPage() {
                   Out of Stock
                 </span>
               )}
+              {availableStock > 0 && availableStock < (product.moq || 1) && (
+                <span className="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs font-medium rounded-full">
+                  Below minimum order ({product.moq} pcs)
+                </span>
+              )}
             </div>
           </div>
 
@@ -441,7 +450,7 @@ export default function ProductDetailPage() {
             <div className="flex flex-wrap gap-4">
               <ThreeDButton
                 onClick={handleAddToCart}
-                disabled={availableStock === 0}
+                disabled={availableStock === 0 || belowMoq}
                 variant="cta"
                 size="lg"
                 className="flex-1 min-w-[200px]"
