@@ -25,8 +25,10 @@ export async function POST(request: Request) {
     const name = safeText(body.name, 100);
     const email = safeText(body.email, 254).toLowerCase();
     const phone = safeText(body.phone, 40);
-    // Normalize phone: strip country code prefix (e.g., "+86 ") so we store just the local number
-    const normalizedPhone = phone.replace(/^\+\d{1,4}[\s-]*/, '');
+    // Normalize phone: strip country code prefix (e.g., "+86 ") so we store just the local number.
+    // A separator is required so numbers sent without one (e.g. "+8613800000001")
+    // are not truncated into a wrong local number.
+    const normalizedPhone = phone.replace(/^\+\d{1,3}[\s-]+/, '');
     const password = typeof body.password === 'string' ? body.password : '';
     const code = typeof body.code === 'string' ? body.code.trim() : '';
     const rateKey = `register:${getClientIp(request)}:${email || 'unknown'}`;

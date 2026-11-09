@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     const userResult = await getPool().query(
       type === 'email'
         ? `SELECT id, email, phone FROM users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL LIMIT 1`
-        : `SELECT id, email, phone FROM users WHERE REPLACE(phone, ' ', '') = REPLACE(REGEXP_REPLACE($1::text, '^\\+\\d{1,4}[\\s-]*', ''), ' ', '') AND deleted_at IS NULL LIMIT 1`,
+        : `SELECT id, email, phone FROM users WHERE REPLACE(phone, ' ', '') = REPLACE(REGEXP_REPLACE($1::text, '^\\+\\d{1,3}[\\s-]+', ''), ' ', '') AND deleted_at IS NULL LIMIT 1`,
       [identifier]
     );
     const userRow = userResult.rows[0];

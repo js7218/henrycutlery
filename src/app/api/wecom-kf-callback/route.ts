@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const TOKEN = '044df401e801ef824363f868c9d17d22';
-const ENCODING_AES_KEY = 'u6rQqzPhqmSes2PZux0ynL2Gwsfiz6OqkGWrhQG3bku';
+const TOKEN = process.env.WECOM_KF_TOKEN || '';
+const ENCODING_AES_KEY = process.env.WECOM_KF_ENCODING_AES_KEY || '';
 
 /**
  * 企业微信客服回调 URL 验证 + 消息接收
@@ -49,6 +49,11 @@ function verifySignature(
 
 // ---- GET：URL 验证 ----
 export async function GET(request: NextRequest) {
+  if (!TOKEN || !ENCODING_AES_KEY) {
+    console.error('[wecom-kf] WECOM_KF_TOKEN / WECOM_KF_ENCODING_AES_KEY are not configured');
+    return new NextResponse('not configured', { status: 500 });
+  }
+
   const { searchParams } = new URL(request.url);
   const timestamp = searchParams.get('timestamp') || '';
   const nonce = searchParams.get('nonce') || '';
