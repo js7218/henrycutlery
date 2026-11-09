@@ -45,11 +45,15 @@ export function getAdminNotifyEmails() {
 }
 
 function getPrivateBankDetails() {
+  // Fall back to the same NEXT_PUBLIC_ values the checkout page shows, so the
+  // email never contradicts what the customer saw on screen.
   return {
-    accountName: process.env.BANK_ACCOUNT_NAME || 'Adam Cutlery',
-    accountNumber: process.env.BANK_ACCOUNT_NUMBER || '',
-    bankName: process.env.BANK_NAME || 'HSBC',
-    bankAddress: process.env.BANK_ADDRESS || '',
+    accountName:
+      process.env.BANK_ACCOUNT_NAME || process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'Adam Cutlery',
+    accountNumber:
+      process.env.BANK_ACCOUNT_NUMBER || process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '',
+    bankName: process.env.BANK_NAME || process.env.NEXT_PUBLIC_BANK_NAME || 'HSBC',
+    bankAddress: process.env.BANK_ADDRESS || process.env.NEXT_PUBLIC_BANK_ADDRESS || '',
   };
 }
 
