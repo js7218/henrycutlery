@@ -226,6 +226,9 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
   if (normalized.name.length > 100) {
     return { valid: false, address: null, error: 'Name is too long (max 100 characters).', field: 'name' };
   }
+  if (hasObviousAttackPayload(normalized.name)) {
+    return { valid: false, address: null, error: 'Name contains characters that are not allowed.', field: 'name' };
+  }
 
   if (!normalized.phone) {
     return { valid: false, address: null, error: 'Phone number is required.', field: 'phone' };
