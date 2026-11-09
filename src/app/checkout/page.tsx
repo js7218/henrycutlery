@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard, AlertCircle, ShieldCheck, Globe, Package } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice } from '@/lib/utils';
+import { estimateShipping } from '@/lib/shipping';
 import { securityLogger } from '@/lib/securityLogger';
 import { Address, PaymentMethod } from '@/types';
 import { products as currentProducts } from '@/data/products';
@@ -135,8 +136,9 @@ export default function CheckoutPage() {
     isDefault: false,
   });
 
-  // Shipping is quoted per order, so it never adds to the displayed total.
-  const totalAmount = cartTotal;
+  // Distance-based shipping estimate; recalculated server-side on submit.
+  const shipping = estimateShipping(state.cart, selectedAddress?.phone || '');
+  const totalAmount = cartTotal + shipping.fee;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -696,11 +698,12 @@ export default function CheckoutPage() {
                   <span>{formatPrice(cartTotal)}</span>
                 </div>
                 <div className="flex justify-between text-gray-400">
-                  <span>Shipping</span>
-                  <span className="text-gold">To Be Negotiated</span>
+                  <span>Estimated Shipping</span>
+                  <span className="text-gold">{formatPrice(shipping.fee)}</span>
                 </div>
                 <p className="text-xs text-gray-500">
-                  International shipping will be quoted by email based on destination and order volume.
+                  Estimated for ~{shipping.distanceKm.toLocaleString()} km and {shipping.billableKg} kg.
+                  Final shipping is confirmed by email.
                 </p>
               </div>
               <div className="pt-4 border-t border-border">
@@ -774,8 +777,8 @@ export default function CheckoutPage() {
                   <span>{formatPrice(cartTotal)}</span>
                 </div>
                 <div className="flex justify-between text-gray-400">
-                  <span>Shipping</span>
-                  <span className="text-gold">To Be Negotiated</span>
+                  <span>Estimated Shipping</span>
+                  <span className="text-gold">{formatPrice(shipping.fee)}</span>
                 </div>
                 <p className="text-xs text-gray-500 pt-2">
                   Order confirmation and secure payment arrangement will be handled by email.

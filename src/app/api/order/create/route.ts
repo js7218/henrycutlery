@@ -14,6 +14,7 @@ import { findUnsafeUrl } from '@/lib/ssrfProtection';
 import { sendOrderNotificationEmail } from '@/lib/orderEmail';
 import { getAuthUser } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
+import { estimateShipping } from '@/lib/shipping';
 
 const MAX_ORDER_ITEMS = 50;
 const MAX_ITEM_QUANTITY = 5000;
@@ -444,14 +445,18 @@ export async function POST(request: NextRequest) {
     const idempotencyKey = clientKey.length >= 8 ? clientKey.slice(0, 128) : randomUUID();
     const force = body.force === true;
 
+    // Estimated distance-based shipping, recalculated server-side.
+    const shippingEstimate = estimateShipping(verifiedItems, address.phone);
+    const orderTotal = Math.round((serverTotal + shippingEstimate.fee) * 100) / 100;
+
     const order = {
       id: `o${randomUUID()}`,
       orderNumber: generateOrderNumber(),
       items: verifiedItems,
-      // SECURITY: Total calculated server-side
-      totalAmount: serverTotal,
+      // SECURITY: Total calculated server-side (items + estimated shipping)
+      totalAmount: orderTotal,
       // SECURITY: Include hash for integrity verification
-      orderHash: generateOrderHash(verifiedItems, serverTotal),
+      orderHash: generateOrderHash(verifiedItems, orderTotal),
       status: 'pending',
       shippingAddress: address,
       paymentMethod,
@@ -582,7 +587,7 @@ export async function POST(request: NextRequest) {
         success: true,
         order: mapOrderRow(inserted.rows[0]),
         // SECURITY: Return server-calculated total for client display
-        serverTotal,
+        serverTotal: orderTotal,
         message: 'Order created with server-verified pricing. Awaiting payment confirmation.',
       });
 
