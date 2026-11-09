@@ -306,6 +306,15 @@ export async function POST(request: NextRequest) {
         if (product && product.price > 0) {
           const extra = round2(named - fee);
           let units = Math.floor(extra / product.price);
+          // "Add $1,200" is often typed as the extra amount instead of the new
+          // shipping total. When the typed amount is an exact multiple of the
+          // product price, treat it as the extra amount.
+          if (units === 0) {
+            const asExtra = Math.floor(named / product.price);
+            if (asExtra > 0 && named - asExtra * product.price <= product.price * 0.02) {
+              units = asExtra;
+            }
+          }
           // Never let a chat message push the cart past what can actually ship.
           const stockResult = await db.query(
             'SELECT stock FROM product_stock WHERE product_id = $1',
