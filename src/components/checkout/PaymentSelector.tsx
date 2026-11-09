@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { QrCode, CreditCard, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { PaymentMethod } from '@/types';
 
 interface PaymentSelectorProps {
@@ -22,22 +22,6 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
         </svg>
       ),
       color: 'text-green-600',
-    },
-    {
-      id: 'alipay' as const,
-      name: 'Alipay',
-      icon: (
-        <svg viewBox="0 0 24 24" className="w-6 h-6" fill="currentColor">
-          <path d="M12.39 1.199c-3.223-.05-6.063 1.532-7.323 4.084C3.818 6.912 3 9.13 3 11.538c0 3.237 1.86 6.09 4.638 7.41.33.158.738-.024.738-.329V17.16c0-.13.096-.225.225-.225h.825c.117 0 .217.085.232.2l.054.468c.009.086-.016.172-.07.235l-2.52 2.9c-.18.208-.014.525.28.525h3.81c.14 0 .256-.112.256-.249v-.393c0-.137.116-.25.256-.25h3.256c.205 0 .377-.164.377-.364 0-.105-.047-.203-.123-.268l-3.982-3.35a.522.522 0 0 1-.103-.205c0-.057.023-.11.063-.147l.14-.127c.158-.147.394-.235.631-.235h.805c.393 0 .726-.305.764-.697.003-.04.001-.08-.005-.12l-.36-3.58c-.043-.429.284-.805.713-.805h.33c.393 0 .718.313.718.703v2.927c0 .14.113.253.253.253h.253c.139 0 .253-.113.253-.253v-1.253a.258.258 0 0 0-.016-.092l-.37-2.28c-.06-.37-.374-.63-.744-.63h-3.256a.753.753 0 0 0-.744.608l-.54 2.58c-.058.278-.305.48-.59.48h-.81c-.393 0-.726-.305-.764-.697l-.21-2.1c-.018-.18-.14-.335-.31-.4l-3.24-1.23c-.15-.058-.25-.2-.25-.355 0-.18.13-.33.31-.368l.37-.08z"/>
-        </svg>
-      ),
-      color: 'text-blue-600',
-    },
-    {
-      id: 'card' as const,
-      name: 'Bank Card',
-      icon: <CreditCard className="w-6 h-6" />,
-      color: 'text-steel',
     },
     {
       id: 'bank_transfer' as const,
@@ -83,19 +67,13 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
           {selected === method.id && showQrCode && (
             <div className="mt-4 p-6 bg-white rounded-lg animate-fade-in">
               <div className="flex flex-col items-center">
-                {method.id === 'wechat' ? (
-                  <img
-                    src="/images/wechat-payment.jpeg"
-                    alt="WeChat payment code"
-                    className="mb-4 h-auto w-56 max-w-full rounded-lg border border-gray-200 object-contain"
-                  />
-                ) : (
-                  <div className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-                    <QrCode className="w-32 h-32 text-gray-800" />
-                  </div>
-                )}
+                <img
+                  src="/images/wechat-payment.jpeg"
+                  alt="WeChat payment code"
+                  className="mb-4 h-auto w-56 max-w-full rounded-lg border border-gray-200 object-contain"
+                />
                 <p className="text-sm text-gray-600 text-center">
-                  Please use {method.id === 'wechat' ? 'WeChat' : 'Alipay'} to scan and complete payment
+                  Please use WeChat to scan and complete payment, then email us the receipt.
                 </p>
               </div>
             </div>

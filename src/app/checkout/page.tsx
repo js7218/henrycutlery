@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard, AlertCircle, ShieldCheck, Globe, Package } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { formatPrice, calculateShippingFee } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
 import { securityLogger } from '@/lib/securityLogger';
 import { Address, PaymentMethod } from '@/types';
 import { products as currentProducts } from '@/data/products';
@@ -135,8 +135,8 @@ export default function CheckoutPage() {
     isDefault: false,
   });
 
-  const shippingFee = calculateShippingFee(state.cart);
-  const totalAmount = cartTotal + shippingFee;
+  // Shipping is quoted per order, so it never adds to the displayed total.
+  const totalAmount = cartTotal;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -688,10 +688,10 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>Shipping</span>
-                  <span>{shippingFee === 0 ? <span className="text-green-400">Free Shipping</span> : formatPrice(shippingFee)}</span>
+                  <span className="text-gold">To Be Negotiated</span>
                 </div>
                 <p className="text-xs text-gray-500">
-                  International shipping is available. Final delivery details will be confirmed by email.
+                  International shipping will be quoted by email based on destination and order volume.
                 </p>
               </div>
               <div className="pt-4 border-t border-border">
@@ -726,7 +726,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <Package className="w-4 h-4 text-gold" />
-                  <span>Free Shipping on Orders Over $500</span>
+                  <span>Shipping quoted after order review</span>
                 </div>
               </div>
             </div>
@@ -766,7 +766,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>Shipping</span>
-                  <span>{shippingFee === 0 ? <span className="text-green-400">Free Shipping</span> : formatPrice(shippingFee)}</span>
+                  <span className="text-gold">To Be Negotiated</span>
                 </div>
                 <p className="text-xs text-gray-500 pt-2">
                   Order confirmation and secure payment arrangement will be handled by email.
@@ -788,14 +788,6 @@ export default function CheckoutPage() {
                   <svg viewBox="0 0 24 24" className="w-5 h-5 text-green-500" fill="currentColor">
                     <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088V8.89c-.135-.01-.269-.03-.406-.03zm-1.834 2.994c.536 0 .969.44.969.983a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.433-.983.97-.983zm4.857 0c.536 0 .969.44.969.983a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.433-.983.969-.983z"/>
                   </svg>
-                </div>
-                <div className="w-8 h-5 bg-gray-700 rounded flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-blue-500" fill="currentColor">
-                    <path d="M12.39 1.199c-3.223-.05-6.063 1.532-7.323 4.084C3.818 6.912 3 9.13 3 11.538c0 3.237 1.86 6.09 4.638 7.41.33.158.738-.024.738-.329V17.16c0-.13.096-.225.225-.225h.825c.117 0 .217.085.232.2l.054.468c.009.086-.016.172-.07.235l-2.52 2.9c-.18.208-.014.525.28.525h3.81c.14 0 .256-.112.256-.249v-.393c0-.137.116-.25.256-.25h3.256c.205 0 .377-.164.377-.364 0-.105-.047-.203-.123-.268l-3.982-3.35a.522.522 0 0 1-.103-.205c0-.057.023-.11.063-.147l.14-.127c.158-.147.394-.235.631-.235h.805c.393 0 .726-.305.764-.697.003-.04.001-.08-.005-.12l-.36-3.58c-.043-.429.284-.805.713-.805h.33c.393 0 .718.313.718.703v2.927c0 .14.113.253.253.253h.253c.139 0 .253-.113.253-.253v-1.253a.258.258 0 0 0-.016-.092l-.37-2.28c-.06-.37-.374-.63-.744-.63h-3.256a.753.753 0 0 0-.744.608l-.54 2.58c-.058.278-.305.48-.59.48h-.81c-.393 0-.726-.305-.764-.697l-.21-2.1c-.018-.18-.14-.335-.31-.4l-3.24-1.23c-.15-.058-.25-.2-.25-.355 0-.18.13-.33.31-.368l.37-.08z"/>
-                  </svg>
-                </div>
-                <div className="w-8 h-5 bg-gray-700 rounded flex items-center justify-center">
-                  <CreditCard className="w-4 h-4 text-gray-300" />
                 </div>
                 <div className="w-8 h-5 bg-red-700 rounded flex items-center justify-center">
                   <span className="text-[8px] font-bold text-white">HSBC</span>

@@ -9,7 +9,8 @@ import { createHmac, timingSafeEqual } from 'crypto';
 // SECURITY: Access token lives 15 minutes. After 15 minutes of inactivity
 // the cookie expires and the user is forced to sign in again.
 const ACCESS_TOKEN_EXPIRY = 15 * 60;
-const REFRESH_TOKEN_EXPIRY = 15 * 60;
+// "Remember me" keeps the session for 30 days.
+export const REMEMBER_ME_EXPIRY = 30 * 24 * 60 * 60;
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET || '';
@@ -39,10 +40,13 @@ function safeEqual(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-export function createJWT(payload: { userId: string; email: string; role: 'user' | 'admin' }): string {
+export function createJWT(
+  payload: { userId: string; email: string; role: 'user' | 'admin' },
+  expiresInSeconds: number = ACCESS_TOKEN_EXPIRY
+): string {
   const header = base64URLEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const now = Math.floor(Date.now() / 1000);
-  const fullPayload = base64URLEncode(JSON.stringify({ ...payload, iat: now, exp: now + ACCESS_TOKEN_EXPIRY }));
+  const fullPayload = base64URLEncode(JSON.stringify({ ...payload, iat: now, exp: now + expiresInSeconds }));
   const signature = signJwtPart(`${header}.${fullPayload}`);
   return `${header}.${fullPayload}.${signature}`;
 }
@@ -62,13 +66,17 @@ export function verifyJWT(token: string): { userId: string; email: string; role:
   } catch { return null; }
 }
 
-export async function setAuthCookies(accessToken: string, refreshToken: string): Promise<void> {
+export async function setAuthCookies(
+  accessToken: string,
+  refreshToken: string,
+  maxAgeSeconds: number = ACCESS_TOKEN_EXPIRY
+): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set('access_token', accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: ACCESS_TOKEN_EXPIRY,
+    maxAge: maxAgeSeconds,
     path: '/',
     priority: 'high',
   });
@@ -76,7 +84,7 @@ export async function setAuthCookies(accessToken: string, refreshToken: string):
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: REFRESH_TOKEN_EXPIRY,
+    maxAge: maxAgeSeconds,
     path: '/',
     priority: 'high',
   });

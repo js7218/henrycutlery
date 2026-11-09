@@ -17,6 +17,7 @@ import { products as currentProducts } from '@/data/products';
 const SESSION_CONFIG = {
   inactiveTimeoutMs: 15 * 60 * 1000,       // 15 minutes
   absoluteTimeoutMs: 24 * 60 * 60 * 1000,  // 24 hours
+  rememberTimeoutMs: 30 * 24 * 60 * 60 * 1000, // 30 days when "Remember me" is checked
   maxConcurrentSessions: 3,
 };
 
@@ -186,7 +187,7 @@ interface AppContextType {
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string, remember?: boolean) => Promise<boolean>;
   loginWithCode: (type: 'email' | 'phone', identifier: string, code: string) => Promise<boolean>;
   sendVerificationCode: (type: 'email' | 'phone', identifier: string, purpose?: 'login' | 'register' | 'reset') => Promise<{ success: boolean; error?: string; code?: string }>;
   register: (name: string, email: string, password: string, phone: string, code: string) => Promise<{ success: boolean; error?: string }>;
@@ -220,9 +221,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const now = Date.now();
       const inactiveMs = now - state.lastActivity;
       const absoluteMs = now - state.sessionCreatedAt;
+      // "Remember me" extends both limits to 30 days.
+      const remembered = typeof window !== 'undefined' && localStorage.getItem('knife-remember') === '1';
+      const inactiveLimit = remembered ? SESSION_CONFIG.rememberTimeoutMs : SESSION_CONFIG.inactiveTimeoutMs;
+      const absoluteLimit = remembered ? SESSION_CONFIG.rememberTimeoutMs : SESSION_CONFIG.absoluteTimeoutMs;
 
       // Inactive timeout (15 minutes of no interaction)
-      if (state.user && inactiveMs > SESSION_CONFIG.inactiveTimeoutMs) {
+      if (state.user && inactiveMs > inactiveLimit) {
         securityLogger.log('SESSION_EXPIRED', `Session expired due to inactivity (${Math.round(inactiveMs / 60000)} min)`, { userId: state.user.id });
         // Also revoke the server-side cookie so the next request is anonymous
         fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
@@ -231,7 +236,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       // Absolute timeout
-      if (state.user && absoluteMs > SESSION_CONFIG.absoluteTimeoutMs) {
+      if (state.user && absoluteMs > absoluteLimit) {
         securityLogger.log('SESSION_EXPIRED', `Session expired (absolute timeout ${Math.round(absoluteMs / 3600000)} hr)`, { userId: state.user.id });
         fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
         dispatch({ type: 'SET_USER', user: null });
@@ -367,14 +372,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ============================================================================
   // SECURITY: Login with Full Protection
   // ============================================================================
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string, remember = false): Promise<boolean> => {
     await new Promise((resolve) => setTimeout(resolve, 80));
 
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, remember }),
       });
 
       if (!response.ok) {
@@ -385,6 +390,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       if (!data?.success || !data.user) return false;
 
+      if (remember) {
+        localStorage.setItem('knife-remember', '1');
+      } else {
+        localStorage.removeItem('knife-remember');
+      }
       dispatch({ type: 'SET_USER', user: data.user });
       dispatch({ type: 'SET_ORDERS', orders: data.user.orders || [] });
       securityLogger.log('LOGIN_SUCCESS', `User logged in: ${data.user.email}`, { userId: data.user.id, isAdmin: data.user.role === 'admin' });
@@ -504,6 +514,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
     localStorage.removeItem('knife-user');
     localStorage.removeItem('knife-orders');
+    localStorage.removeItem('knife-remember');
     dispatch({ type: 'SET_USER', user: null });
   };
 

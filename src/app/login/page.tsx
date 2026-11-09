@@ -389,6 +389,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Code login state
   const [identifier, setIdentifier] = useState('');
@@ -508,7 +509,7 @@ export default function LoginPage() {
     submittingRef.current = true;
 
     try {
-      const success = await login(cleanEmail, cleanPassword);
+      const success = await login(cleanEmail, cleanPassword, rememberMe);
 
       if (success) {
         // SECURITY: Reset attempts on successful login
@@ -525,7 +526,7 @@ export default function LoginPage() {
       setIsLoading(false);
       submittingRef.current = false;
     }
-  }, [email, password, login, isLoading]);
+  }, [email, password, login, rememberMe, isLoading]);
 
   // ============================================================================
   // Send Verification Code Handler
@@ -787,6 +788,8 @@ export default function LoginPage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
                     disabled={isLocked || isLoading}
                     className="w-4 h-4 rounded border-gray-600 bg-surfaceLight text-gold focus:ring-gold focus:ring-offset-0 disabled:opacity-50"
                   />
