@@ -305,7 +305,17 @@ export async function POST(request: NextRequest) {
         const product = primary ? getProductById(primary.productId) : undefined;
         if (product && product.price > 0) {
           const extra = round2(named - fee);
-          const units = Math.floor(extra / product.price);
+          let units = Math.floor(extra / product.price);
+          // Never let a chat message push the cart past what can actually ship.
+          const stockResult = await db.query(
+            'SELECT stock FROM product_stock WHERE product_id = $1',
+            [product.id]
+          );
+          const inCart = items
+            .filter((item) => item.productId === product.id)
+            .reduce((sum, item) => sum + item.quantity, 0);
+          const available = Math.max(0, Number(stockResult.rows[0]?.stock ?? 0) - inCart);
+          units = Math.min(units, available, Math.max(0, 1200 - inCart));
           if (units > 0) {
             addUnits = { productId: product.id, quantity: units, unitPrice: product.price };
             reply = `That covers ${units} more ${units === 1 ? 'unit' : 'units'} of ${product.name}. I have added ${units === 1 ? 'it' : 'them'} to your cart — shipping is recalculated for the new weight.`;
