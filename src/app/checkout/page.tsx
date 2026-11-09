@@ -219,7 +219,14 @@ export default function CheckoutPage() {
 
     const unitPrice = line.product.price;
     const fixedTotal = cartTotal - unitPrice * line.quantity;
-    const moq = Math.max(1, line.product.moq || 1);
+    const currentTotal = cartTotal + effectiveShippingFee;
+    // The order can only grow: the current total is the hard minimum, so a
+    // cart worth $9,000 can never be turned into $8,999.
+    if (target < currentTotal - 0.005) {
+      setTargetMessage(`The total cannot be lower than ${formatPrice(currentTotal)}.`);
+      return;
+    }
+    const startQty = line.quantity;
     const stock = liveStock[line.product.id];
     // 1200 keeps the order below the bulk-inquiry threshold.
     const maxQty = Math.min(1200, typeof stock === 'number' ? stock : 1200);
@@ -241,18 +248,18 @@ export default function CheckoutPage() {
       return fixedTotal + unitPrice * quantity + (quote.complete ? quote.fee : 0);
     };
 
-    if (totalFor(moq) > target + 0.005) {
-      setTargetMessage(`The lowest total for this order is ${formatPrice(totalFor(moq))}.`);
-      return;
-    }
     if (totalFor(maxQty) < target - 0.005) {
       setTargetMessage(
         `Only ${maxQty} units are available, which reaches ${formatPrice(totalFor(maxQty))}.`
       );
       return;
     }
+    if (totalFor(startQty) >= target - 0.005) {
+      setTargetMessage(`The order already totals ${formatPrice(totalFor(startQty))}.`);
+      return;
+    }
 
-    let low = moq;
+    let low = startQty;
     let high = maxQty;
     while (low < high) {
       const mid = Math.floor((low + high) / 2);
@@ -939,7 +946,7 @@ export default function CheckoutPage() {
                 )}
                 <div className="pt-3 border-t border-border">
                   <label htmlFor="target-total" className="text-xs text-gray-400">
-                    Set a target total — we adjust the quantity to match
+                    Set a target total — it can only go up from {formatPrice(totalAmount)}
                   </label>
                   <div className="mt-1 flex gap-2">
                     <input
