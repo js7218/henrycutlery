@@ -881,6 +881,15 @@ export default function CheckoutPage() {
                         quantity: current.quantity + quantity,
                       });
                     }}
+                    onRemoveUnits={(productId, quantity) => {
+                      const current = state.cart.find((item) => item.product.id === productId);
+                      if (!current) return;
+                      dispatch({
+                        type: 'UPDATE_QUANTITY',
+                        productId,
+                        quantity: Math.max(1, current.quantity - quantity),
+                      });
+                    }}
                   />
                 )}
               </div>

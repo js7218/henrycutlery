@@ -154,11 +154,30 @@ function parseAmounts(text: string): number[] {
  */
 function parseUnitIntent(text: string): number | null {
   if (!text) return null;
-  if (/(remove|delete|reduce|fewer|less|take away|减|少买|去掉|删除)/i.test(text)) return null;
 
   const words: Record<string, number> = {
     one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
   };
+  const cn: Record<string, number> = {
+    一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10,
+  };
+  const toNumber = (raw: string) =>
+    /^\d+$/.test(raw) ? Number(raw) : [...raw].reduce((sum, char) => sum + (cn[char] ?? words[char] ?? 0), 0);
+
+  // Removing units is expressed as a negative intent.
+  const removeEnglish =
+    /\b(?:remove|delete|drop|take away)\s+(\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten)\b/i.exec(text) ||
+    /\b(\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:less|fewer)\b/i.exec(text);
+  if (removeEnglish) {
+    const amount = toNumber(removeEnglish[1].toLowerCase());
+    if (amount > 0 && amount <= 500) return -amount;
+  }
+  const removeChinese = /(?:减少|减掉|减去|去掉|删掉|删去|少买|减)\s*([一二三四五六七八九十两\d]{1,3})\s*(?:把|件|个|支)/.exec(text);
+  if (removeChinese) {
+    const amount = toNumber(removeChinese[1]);
+    if (amount > 0 && amount <= 500) return -amount;
+  }
+
   const spelled = /\b(?:add|another|more)\s+(one|two|three|four|five|six|seven|eight|nine|ten)\b/i.exec(text);
   const wordBeforeMore = /\b(one|two|three|four|five|six|seven|eight|nine|ten)\s+more\b/i.exec(text);
   const digitsWithNoun =
@@ -174,13 +193,7 @@ function parseUnitIntent(text: string): number | null {
 
   const chinese = /(?:再加|再买|多加|多买|加买|加)\s*([一二三四五六七八九十两\d]{1,3})\s*(?:把|件|个|支)/.exec(text);
   if (chinese) {
-    const raw = chinese[1];
-    const cn: Record<string, number> = {
-      一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10,
-    };
-    const amount = /^\d+$/.test(raw)
-      ? Number(raw)
-      : [...raw].reduce((sum, char) => sum + (cn[char] || 0), 0);
+    const amount = toNumber(chinese[1]);
     if (amount > 0 && amount <= 500) return amount;
   }
 
@@ -352,16 +365,33 @@ export async function POST(request: NextRequest) {
     };
 
     const unitIntent = parseUnitIntent(lastUserText);
+    let removeUnits: { productId: string; quantity: number } | null = null;
     if (primaryProduct && primaryProduct.price > 0 && unitIntent !== null) {
-      // "Add one more knife" / "再加两把": buy whole units of the item directly.
-      const units = await addUnitsToCart(unitIntent);
-      if (units > 0) {
-        addUnits = { productId: primaryProduct.id, quantity: units, unitPrice: primaryProduct.price };
-        reply = `Added ${units} more ${units === 1 ? 'unit' : 'units'} of ${primaryProduct.name} to your cart. Shipping is recalculated for the new weight.`;
-      } else {
-        reply = `Sorry, there are no more units of ${primaryProduct.name} available to add right now.`;
-      }
       modelOffer = null;
+      if (unitIntent > 0) {
+        // "Add one more knife" / "再加两把": buy whole units of the item directly.
+        const units = await addUnitsToCart(unitIntent);
+        if (units > 0) {
+          addUnits = { productId: primaryProduct.id, quantity: units, unitPrice: primaryProduct.price };
+          reply = `Added ${units} more ${units === 1 ? 'unit' : 'units'} of ${primaryProduct.name} to your cart. Shipping is recalculated for the new weight.`;
+        } else {
+          reply = `Sorry, there are no more units of ${primaryProduct.name} available to add right now.`;
+        }
+      } else {
+        // "Remove one knife" / "减一把": never drop below the minimum order quantity.
+        const inCart = items
+          .filter((item) => item.productId === primaryProduct.id)
+          .reduce((sum, item) => sum + item.quantity, 0);
+        const moq = Math.max(1, Number(primaryProduct.moq) || 1);
+        const target = Math.max(moq, inCart + unitIntent);
+        const removed = inCart - target;
+        if (removed > 0) {
+          removeUnits = { productId: primaryProduct.id, quantity: removed };
+          reply = `Removed ${removed} ${removed === 1 ? 'unit' : 'units'} of ${primaryProduct.name}. Your cart now has ${target}. Shipping is recalculated for the new weight.`;
+        } else {
+          reply = `${primaryProduct.name} is already at its minimum order quantity (${moq}).`;
+        }
+      }
     } else if (looksLikeOffer) {
       const named = namedAmounts[namedAmounts.length - 1];
       if (named > fee + 0.005) {
@@ -450,6 +480,7 @@ export async function POST(request: NextRequest) {
       offerUsd,
       ...(token ? { token } : {}),
       ...(addUnits ? { addUnits } : {}),
+      ...(removeUnits ? { removeUnits } : {}),
     });
   } catch (error) {
     console.error(

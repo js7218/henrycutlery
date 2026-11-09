@@ -8,6 +8,7 @@ interface NegotiationChatProps {
   quoteUsd: number;
   onQuote: (result: { amountUsd: number; token: string } | null) => void;
   onAddUnits?: (productId: string, quantity: number) => void;
+  onRemoveUnits?: (productId: string, quantity: number) => void;
 }
 
 interface ChatMessage {
@@ -26,6 +27,7 @@ export default function NegotiationChat({
   quoteUsd,
   onQuote,
   onAddUnits,
+  onRemoveUnits,
 }: NegotiationChatProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -90,6 +92,11 @@ export default function NegotiationChat({
       const added = data.addUnits;
       if (added && typeof added.quantity === 'number' && added.quantity > 0 && onAddUnits) {
         onAddUnits(added.productId, added.quantity);
+      }
+
+      const removed = data.removeUnits;
+      if (removed && typeof removed.quantity === 'number' && removed.quantity > 0 && onRemoveUnits) {
+        onRemoveUnits(removed.productId, removed.quantity);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
