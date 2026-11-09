@@ -151,21 +151,6 @@ async function runSchemaMigration(): Promise<void> {
       `);
 
       await db.query(`
-        CREATE TABLE IF NOT EXISTS shipping_settings (
-          id SMALLINT PRIMARY KEY DEFAULT 1,
-          default_item_weight_kg NUMERIC(10,3) NOT NULL DEFAULT 0.4,
-          packaging_kg NUMERIC(10,3) NOT NULL DEFAULT 0.3,
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-      `);
-
-      await db.query(`
-        INSERT INTO shipping_settings (id, default_item_weight_kg, packaging_kg)
-        VALUES (1, 0.4, 0.3)
-        ON CONFLICT (id) DO NOTHING;
-      `);
-
-      await db.query(`
         INSERT INTO shipping_rates (country_code, country_name, per_kg_usd) VALUES
           ('US','United States',20), ('CA','Canada',20), ('GB','United Kingdom',18),
           ('DE','Germany',18), ('FR','France',18), ('IT','Italy',18), ('ES','Spain',18),

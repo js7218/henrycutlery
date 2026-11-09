@@ -451,6 +451,7 @@ export async function POST(request: NextRequest) {
     let shippingFee = 0;
     let shippingWeightKg = 0;
     let shippingPerKg = 0;
+    let shippingQuoted = false;
     if (!shippingSelfArranged) {
       await ensureDatabaseSchema();
       const shippingDb = getPool();
@@ -464,21 +465,18 @@ export async function POST(request: NextRequest) {
         'SELECT product_id, weight_kg FROM product_weights WHERE product_id = ANY($1)',
         [verifiedItems.map((item) => item.productId)]
       );
-      const settingsResult = await shippingDb.query(
-        'SELECT default_item_weight_kg, packaging_kg FROM shipping_settings WHERE id = 1'
-      );
       const weightMap: Record<string, number> = {};
       for (const row of weightResult.rows) {
         weightMap[row.product_id] = Number(row.weight_kg);
       }
-      const shippingSettings = settingsResult.rowCount
-        ? {
-            defaultItemWeightKg: Number(settingsResult.rows[0].default_item_weight_kg),
-            packagingKg: Number(settingsResult.rows[0].packaging_kg),
-          }
-        : undefined;
-      shippingWeightKg = totalWeightKg(verifiedItems, weightMap, shippingSettings);
-      shippingFee = Math.round(shippingWeightKg * shippingPerKg * 100) / 100;
+      const weight = totalWeightKg(verifiedItems, weightMap);
+      shippingWeightKg = weight.kg;
+      if (weight.complete) {
+        shippingFee = Math.round(shippingWeightKg * shippingPerKg * 100) / 100;
+      } else {
+        // Some SKUs have no weight configured yet; quote shipping manually.
+        shippingQuoted = true;
+      }
     }
 
     const orderTotal = Math.round((serverTotal + shippingFee) * 100) / 100;
@@ -498,6 +496,7 @@ export async function POST(request: NextRequest) {
         shippingFee,
         shippingWeightKg,
         shippingPerKg,
+        shippingQuoted,
       },
       paymentMethod,
       createdAt: new Date().toISOString(),

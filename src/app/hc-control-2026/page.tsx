@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BarChart3, Database, Inbox, Loader2, MessageSquare, Search, ShieldX, Sparkles, Users } from 'lucide-react';
+import { BarChart3, Database, Inbox, Loader2, MessageSquare, Search, ShieldX, Sparkles, Truck, Users } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatDate, formatPrice, cn } from '@/lib/utils';
 import SeoReviewPanel from '@/components/admin/SeoReviewPanel';
@@ -409,6 +409,13 @@ export default function AdminPage() {
               {tab.label}
             </button>
           ))}
+          <Link
+            href="/hc-control-2026/shipping"
+            className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors whitespace-nowrap bg-surface border border-border text-gray-400 hover:text-foreground"
+          >
+            <Truck className="w-5 h-5" />
+            Shipping
+          </Link>
         </div>
 
         {error && (

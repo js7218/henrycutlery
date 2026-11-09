@@ -7,19 +7,7 @@
  * before the tables load or when a country/SKU has no configured value.
  */
 
-export const DEFAULT_ITEM_WEIGHT_KG = 0.4;
 export const DEFAULT_PER_KG_USD = 20;
-export const DEFAULT_PACKAGING_KG = 0.3;
-
-export interface ShippingSettings {
-  defaultItemWeightKg: number;
-  packagingKg: number;
-}
-
-export const DEFAULT_SHIPPING_SETTINGS: ShippingSettings = {
-  defaultItemWeightKg: DEFAULT_ITEM_WEIGHT_KG,
-  packagingKg: DEFAULT_PACKAGING_KG,
-};
 
 export interface ShippingRate {
   countryCode: string;
@@ -106,32 +94,32 @@ export interface ShippingLine {
 
 export function totalWeightKg(
   items: ShippingLine[],
-  weights: Record<string, number>,
-  settings: ShippingSettings = DEFAULT_SHIPPING_SETTINGS
-): number {
-  const units = items.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0);
-  if (units <= 0) return 0;
-  const defaultKg = Number(settings.defaultItemWeightKg) > 0 ? Number(settings.defaultItemWeightKg) : DEFAULT_ITEM_WEIGHT_KG;
-  const packagingKg = Number(settings.packagingKg) >= 0 ? Number(settings.packagingKg) : DEFAULT_PACKAGING_KG;
+  weights: Record<string, number>
+): { kg: number; complete: boolean } {
+  let complete = true;
   const goodsKg = items.reduce((sum, item) => {
-    const unitKg = weights[item.productId] ?? defaultKg;
-    return sum + Math.max(0, Number(item.quantity) || 0) * unitKg;
+    const quantity = Math.max(0, Number(item.quantity) || 0);
+    const unitKg = Number(weights[item.productId]);
+    if (!Number.isFinite(unitKg) || unitKg <= 0) {
+      complete = false;
+      return sum;
+    }
+    return sum + quantity * unitKg;
   }, 0);
-  return Math.round((goodsKg + packagingKg) * 100) / 100;
+  return { kg: Math.round(goodsKg * 100) / 100, complete };
 }
 
 export function shippingFeeFor(
   items: ShippingLine[],
   phone: string,
   rates: ShippingRate[],
-  weights: Record<string, number>,
-  settings: ShippingSettings = DEFAULT_SHIPPING_SETTINGS
-): { fee: number; kg: number; perKgUsd: number; countryCode: string; countryName: string; known: boolean } {
+  weights: Record<string, number>
+): { fee: number; kg: number; perKgUsd: number; countryCode: string; countryName: string; known: boolean; complete: boolean } {
   const country = countryOfPhone(phone);
   const rate = country ? rates.find((r) => r.countryCode === country.code) : undefined;
   const perKgUsd = rate?.perKgUsd ?? DEFAULT_PER_KG_USD;
-  const kg = totalWeightKg(items, weights, settings);
-  const fee = Math.round(kg * perKgUsd * 100) / 100;
+  const { kg, complete } = totalWeightKg(items, weights);
+  const fee = complete ? Math.round(kg * perKgUsd * 100) / 100 : 0;
   return {
     fee,
     kg,
@@ -139,5 +127,6 @@ export function shippingFeeFor(
     countryCode: country?.code ?? '',
     countryName: country?.name ?? 'Unknown destination',
     known: Boolean(rate),
+    complete,
   };
 }

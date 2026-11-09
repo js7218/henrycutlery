@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard, AlertCircle, ShieldCheck, Globe, Package } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice } from '@/lib/utils';
-import { shippingFeeFor, DEFAULT_SHIPPING_SETTINGS, type ShippingRate, type ShippingSettings } from '@/lib/shipping';
+import { shippingFeeFor, type ShippingRate } from '@/lib/shipping';
 import { securityLogger } from '@/lib/securityLogger';
 import { Address, PaymentMethod } from '@/types';
 import { products as currentProducts } from '@/data/products';
@@ -137,10 +137,9 @@ export default function CheckoutPage() {
   });
 
   // Shipping = total weight x per-kg rate of the destination country.
-  const [shippingConfig, setShippingConfig] = useState<{ rates: ShippingRate[]; weights: Record<string, number>; settings: ShippingSettings }>({
+  const [shippingConfig, setShippingConfig] = useState<{ rates: ShippingRate[]; weights: Record<string, number> }>({
     rates: [],
     weights: {},
-    settings: DEFAULT_SHIPPING_SETTINGS,
   });
   const [customerArrangesShipping, setCustomerArrangesShipping] = useState(false);
 
@@ -153,10 +152,6 @@ export default function CheckoutPage() {
         setShippingConfig({
           rates: data.rates || [],
           weights: data.weights || {},
-          settings: {
-            defaultItemWeightKg: Number(data.defaultItemWeightKg) || DEFAULT_SHIPPING_SETTINGS.defaultItemWeightKg,
-            packagingKg: Number.isFinite(Number(data.packagingKg)) ? Number(data.packagingKg) : DEFAULT_SHIPPING_SETTINGS.packagingKg,
-          },
         });
       })
       .catch(() => {});
@@ -167,10 +162,10 @@ export default function CheckoutPage() {
     state.cart.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
     selectedAddress?.phone || '',
     shippingConfig.rates,
-    shippingConfig.weights,
-    shippingConfig.settings
+    shippingConfig.weights
   );
-  const shippingFee = customerArrangesShipping ? 0 : shipping.fee;
+  const shippingQuoted = !shipping.complete && !customerArrangesShipping;
+  const shippingFee = customerArrangesShipping || !shipping.complete ? 0 : shipping.fee;
   const totalAmount = cartTotal + shippingFee;
 
   useEffect(() => {
@@ -249,20 +244,8 @@ export default function CheckoutPage() {
     setFieldErrors({});
     setPaymentError('');
 
-    // Geocoding validation
-    if (selectedAddress) {
-      setIsValidatingAddress(true);
-      const geo = await validateAddressGeocoding(selectedAddress);
-      setIsValidatingAddress(false);
-      setGeocodingValid(geo.valid);
-      if (!geo.valid) {
-        setAddressError('Address could not be verified. Please check your address details.');
-        return;
-      }
-    }
-
-    // Show the bulk inquiry form as soon as the cart qualifies, instead of
-    // waiting for the server response after the payment step.
+    // Large orders become an inquiry and must not depend on address
+    // geocoding, so this check runs first.
     const bulkReasons: string[] = [];
     if (cartTotal >= 10000) bulkReasons.push('order_value');
     if (state.cart.some((item) => item.quantity >= 1300)) bulkReasons.push('bulk_quantity');
@@ -288,6 +271,18 @@ export default function CheckoutPage() {
         notes: '',
       });
       return;
+    }
+
+    // Geocoding validation
+    if (selectedAddress) {
+      setIsValidatingAddress(true);
+      const geo = await validateAddressGeocoding(selectedAddress);
+      setIsValidatingAddress(false);
+      setGeocodingValid(geo.valid);
+      if (!geo.valid) {
+        setAddressError('Address could not be verified. Please check your address details.');
+        return;
+      }
     }
 
     setCurrentStep('payment');
@@ -733,10 +728,12 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>Estimated Shipping</span>
-                  <span className="text-gold">{formatPrice(shippingFee)}</span>
+                  <span className="text-gold">{shippingQuoted ? 'To Be Quoted' : formatPrice(shippingFee)}</span>
                 </div>
                 <p className="text-xs text-gray-500">
-                  {shipping.kg} kg at {formatPrice(shipping.perKgUsd)}/kg to {shipping.countryName}.
+                  {shippingQuoted
+                    ? 'Per-unit weights are not configured for every item, so shipping will be quoted by email.'
+                    : `${shipping.kg} kg at ${formatPrice(shipping.perKgUsd)}/kg to ${shipping.countryName}.`}
                   {customerArrangesShipping ? ' Shipping excluded — you arrange your own carrier.' : ' Final shipping is confirmed by email.'}
                 </p>
               </div>
@@ -812,7 +809,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>Estimated Shipping</span>
-                  <span className="text-gold">{formatPrice(shippingFee)}</span>
+                  <span className="text-gold">{shippingQuoted ? 'To Be Quoted' : formatPrice(shippingFee)}</span>
                 </div>
                 <p className="text-xs text-gray-500 pt-2">
                   Order confirmation and secure payment arrangement will be handled by email.
