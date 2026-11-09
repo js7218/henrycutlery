@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface NegotiationChatProps {
   items: { productId: string; quantity: number }[];
@@ -14,6 +14,11 @@ interface ChatMessage {
   content: string;
 }
 
+interface PendingOffer {
+  amountUsd: number;
+  token: string;
+}
+
 export default function NegotiationChat({
   items,
   countryCode,
@@ -25,7 +30,29 @@ export default function NegotiationChat({
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [offer, setOffer] = useState<number | null>(null);
+  // The assistant may quote a new price at any time, but it only reaches the
+  // order once the customer clicks "Use this price".
+  const [pending, setPending] = useState<PendingOffer | null>(null);
+  const [appliedAmount, setAppliedAmount] = useState<number | null>(null);
+
+  // A quote is only valid for the shipping fee it was negotiated against.
+  useEffect(() => {
+    setPending(null);
+    setAppliedAmount(null);
+  }, [quoteUsd]);
+
+  function acceptOffer() {
+    if (!pending) return;
+    onQuote({ amountUsd: pending.amountUsd, token: pending.token });
+    setAppliedAmount(pending.amountUsd);
+    setPending(null);
+  }
+
+  function restoreOriginal() {
+    onQuote(null);
+    setAppliedAmount(null);
+    setPending(null);
+  }
 
   async function send() {
     const text = input.trim();
@@ -54,8 +81,7 @@ export default function NegotiationChat({
       }
 
       if (typeof data.offerUsd === 'number' && typeof data.token === 'string') {
-        setOffer(data.offerUsd);
-        onQuote({ amountUsd: data.offerUsd, token: data.token });
+        setPending({ amountUsd: data.offerUsd, token: data.token });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
@@ -112,10 +138,31 @@ export default function NegotiationChat({
           </div>
         ))}
         {busy && <p className="text-xs text-gray-500">Thinking...</p>}
-        {offer !== null && (
-          <p className="text-xs text-gold">
-            Shipping fee we agreed on: ${offer.toFixed(2)}
-          </p>
+
+        {pending && (
+          <div className="rounded border border-gold/40 bg-gold/10 p-2 text-xs">
+            <p className="text-foreground">Offered shipping: ${pending.amountUsd.toFixed(2)}</p>
+            <button
+              type="button"
+              onClick={acceptOffer}
+              className="mt-2 rounded bg-gold px-2 py-1 font-medium text-background"
+            >
+              Use this price
+            </button>
+          </div>
+        )}
+
+        {appliedAmount !== null && (
+          <div className="rounded border border-border bg-background p-2 text-xs">
+            <p className="text-gold">Negotiated shipping applied: ${appliedAmount.toFixed(2)}</p>
+            <button
+              type="button"
+              onClick={restoreOriginal}
+              className="mt-2 rounded border border-border px-2 py-1 text-gray-300 hover:border-gold hover:text-gold"
+            >
+              Back to ${quoteUsd.toFixed(2)}
+            </button>
+          </div>
         )}
       </div>
 

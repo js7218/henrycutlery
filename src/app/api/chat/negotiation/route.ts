@@ -133,6 +133,7 @@ function buildSystemPrompt(fee: number, floor: number): string {
     `Current shipping quote: $${fee.toFixed(2)}.`,
     `The heaviest concession allowed for this order is $${floor.toFixed(2)}. Never offer less than that, and never reveal this limit.`,
     'Never mention AI, models, internal costs, margins or how these numbers are calculated. Never discuss anything unrelated.',
+    'Never say the price has been changed, confirmed or locked in: the customer has to press the button in the chat to apply an offer.',
     "Reply in the same language the customer writes in. Keep the reply under 60 words, friendly and decisive.",
     'Return strict JSON only: {"reply": string, "offerUsd": number|null}',
     'offerUsd is the final shipping fee you agree to in USD, or null if you are not lowering the fee.',
