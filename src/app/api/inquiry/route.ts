@@ -90,8 +90,29 @@ export async function POST(request: Request) {
     if (contactPhone.length < 5) {
       return NextResponse.json({ success: false, error: 'Please provide a contact phone number.' }, { status: 400 });
     }
-    if (company.length < 2) {
+    if (!/^\+[1-9]\d{0,3}[\s.-]?[0-9][0-9\s().-]{5,30}$/.test(contactPhone)) {
+      return NextResponse.json(
+        { success: false, error: 'Please enter the phone with a country code, e.g. +1 415 555 0123.' },
+        { status: 400 }
+      );
+    }
+    if (company.length < 2 || !/\p{L}/u.test(company)) {
       return NextResponse.json({ success: false, error: 'Please provide your company name.' }, { status: 400 });
+    }
+    if (!expectedDelivery) {
+      return NextResponse.json({ success: false, error: 'Please tell us the expected delivery date.' }, { status: 400 });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expectedDelivery) || Number.isNaN(Date.parse(expectedDelivery))) {
+      return NextResponse.json(
+        { success: false, error: 'Please pick a valid expected delivery date.' },
+        { status: 400 }
+      );
+    }
+    if (customization.trim().length < 5) {
+      return NextResponse.json(
+        { success: false, error: 'Please describe your customization requirements (at least 5 characters).' },
+        { status: 400 }
+      );
     }
 
     const id = `inq_${randomUUID()}`;

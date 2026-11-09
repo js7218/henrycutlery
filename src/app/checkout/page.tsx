@@ -486,6 +486,19 @@ export default function CheckoutPage() {
 
   const handleSubmitInquiry = async () => {
     if (!inquiryPrompt || submittingInquiry) return;
+    const formError = !inquiryForm.company.trim()
+      ? 'Please enter your company name.'
+      : !/^\+[1-9]\d{0,3}[\s.-]?[0-9][0-9\s().-]{5,30}$/.test(inquiryForm.phone.trim())
+        ? 'Please enter your phone with a country code, e.g. +1 415 555 0123.'
+        : !inquiryForm.expectedDelivery
+          ? 'Please pick the expected delivery date.'
+          : inquiryForm.customization.trim().length < 5
+            ? 'Please describe your customization requirements.'
+            : '';
+    if (formError) {
+      setPaymentError(formError);
+      return;
+    }
     setSubmittingInquiry(true);
     setPaymentError('');
     try {
@@ -771,11 +784,13 @@ export default function CheckoutPage() {
                 <div className="mt-4">
                   <label className="block text-sm text-gray-400 mb-2">Ship to country</label>
                   <select
-                    value={shipToCountry}
+                    value={shipToCountry || shipping.countryCode}
                     onChange={(e) => setShipToCountry(e.target.value)}
                     className="input-field w-full"
                   >
-                    <option value="">Detect from phone number</option>
+                    {!(shipToCountry || shipping.countryCode) && (
+                      <option value="" disabled>Select country</option>
+                    )}
                     {shippingConfig.rates.map((rate) => (
                       <option key={rate.countryCode} value={rate.countryCode}>
                         {rate.countryName} — ${rate.perKgUsd}/kg
@@ -783,7 +798,7 @@ export default function CheckoutPage() {
                     ))}
                   </select>
                   <p className="mt-1 text-xs text-gray-500">
-                    Only used to estimate shipping. Change it if the delivery country differs from the phone number.
+                    Preselected from your phone number. Change it if the delivery country is different.
                   </p>
                 </div>
               )}
@@ -1183,15 +1198,17 @@ export default function CheckoutPage() {
                     className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
                   />
                   <input
+                    type="date"
                     value={inquiryForm.expectedDelivery}
+                    min={new Date().toISOString().slice(0, 10)}
                     onChange={(event) => setInquiryForm((prev) => ({ ...prev, expectedDelivery: event.target.value }))}
-                    placeholder="Expected delivery date (optional)"
+                    placeholder="Expected delivery date (required)"
                     className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
                   />
                   <textarea
                     value={inquiryForm.customization}
                     onChange={(event) => setInquiryForm((prev) => ({ ...prev, customization: event.target.value }))}
-                    placeholder="Customization requirements, e.g. logo, blade steel, packaging"
+                    placeholder="Customization requirements, e.g. logo, blade steel, packaging (required)"
                     rows={2}
                     className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold resize-none"
                   />
