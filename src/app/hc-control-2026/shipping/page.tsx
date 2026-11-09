@@ -150,7 +150,7 @@ export default function ShippingAdminPage() {
                       <input
                         type="number"
                         min="0.01"
-                        step="0.01"
+                        step="any"
                         value={rate.perKgUsd}
                         onChange={(e) => {
                           const value = Number(e.target.value);
@@ -204,7 +204,7 @@ export default function ShippingAdminPage() {
                       <input
                         type="number"
                         min="0.001"
-                        step="0.001"
+                        step="any"
                         value={weights[product.id] ?? ''}
                         placeholder="default 0.4"
                         onChange={(e) => setWeights((prev) => ({ ...prev, [product.id]: e.target.value }))}
