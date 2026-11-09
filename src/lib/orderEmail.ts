@@ -275,7 +275,7 @@ export async function sendCustomerOrderReceivedEmail(
     '',
     ...paymentLines,
     '',
-    `Order number ${order.orderNumber} will be confirmed once we receive your payment.`,
+    'Your order number will be confirmed once we receive your payment.',
     '',
     'Shipping Address:',
     `Name: ${order.shippingAddress.name}`,
