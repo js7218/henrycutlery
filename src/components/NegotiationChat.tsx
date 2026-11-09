@@ -81,7 +81,7 @@ export default function NegotiationChat({
     <div
       role="dialog"
       aria-label="Shipping negotiation"
-      className="fixed bottom-4 right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col rounded-lg border border-border bg-surface shadow-xl"
+      className="fixed bottom-4 left-4 z-[60] flex w-80 max-w-[calc(100vw-2rem)] flex-col rounded-lg border border-border bg-surface shadow-xl"
     >
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <p className="text-sm font-medium text-gold">Shipping negotiation</p>
