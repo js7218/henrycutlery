@@ -7,7 +7,9 @@ import { products } from '@/data/products';
 interface Rate {
   countryCode: string;
   countryName: string;
-  perKgUsd: number;
+  // Kept as a string while editing so typing "0.3" does not lose the dot or
+  // jump to -1 via the number input's spinner.
+  perKgUsd: string;
   updatedAt?: string;
 }
 
@@ -30,7 +32,11 @@ export default function ShippingAdminPage() {
       .then((res) => res.json())
       .then((data) => {
         if (!data?.success) throw new Error(data?.error || 'Failed to load');
-        setRates(data.rates || []);
+        const loaded: Rate[] = (data.rates || []).map((rate: Rate) => ({
+          ...rate,
+          perKgUsd: String(rate.perKgUsd),
+        }));
+        setRates(loaded);
         const map: Record<string, string> = {};
         for (const [id, kg] of Object.entries(data.weights || {})) {
           map[id] = String(kg);
@@ -53,10 +59,20 @@ export default function ShippingAdminPage() {
     setError('');
     setStatus('');
     try {
+      const invalid = rates.find((rate) => {
+        const value = Number(rate.perKgUsd);
+        return !Number.isFinite(value) || value <= 0;
+      });
+      if (invalid) {
+        setError(`Enter a valid USD/kg rate for ${invalid.countryName || invalid.countryCode}.`);
+        return;
+      }
       const res = await fetch('/api/admin/shipping/rates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rates }),
+        body: JSON.stringify({
+          rates: rates.map((rate) => ({ ...rate, perKgUsd: Number(rate.perKgUsd) })),
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Save failed');
@@ -73,6 +89,15 @@ export default function ShippingAdminPage() {
     setError('');
     setStatus('');
     try {
+      const invalid = Object.entries(weights).find(([, value]) => {
+        if (String(value).trim() === '') return false;
+        const kg = Number(value);
+        return !Number.isFinite(kg) || kg <= 0;
+      });
+      if (invalid) {
+        setError(`Enter a valid weight in kg for ${invalid[0]}.`);
+        return;
+      }
       const payload = Object.entries(weights)
         .map(([productId, value]) => ({ productId, weightKg: Number(value) }))
         .filter((item) => Number.isFinite(item.weightKg) && item.weightKg > 0);
@@ -108,9 +133,8 @@ export default function ShippingAdminPage() {
 
         {missingWeightCount > 0 && (
           <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-300">
-            {missingWeightCount} product{missingWeightCount === 1 ? '' : 's'} still have no weight.
-            Orders containing them show <strong>To Be Quoted</strong> instead of a shipping fee until you
-            enter a weight in the list below.
+            {missingWeightCount} product{missingWeightCount === 1 ? '' : 's'} still use the default 0.4 kg.
+            Shipping is calculated anyway; enter the real weight below for accurate freight.
           </div>
         )}
 
@@ -119,8 +143,8 @@ export default function ShippingAdminPage() {
             <div>
               <h2 className="text-lg font-medium mb-1">Per-kg rates (USD)</h2>
               <p className="text-xs text-gray-500">
-                Shipping is calculated from each item&apos;s own weight. Items without a weight show as
-                &quot;To Be Quoted&quot; at checkout until you fill them in below.
+                Shipping is calculated from each item&apos;s own weight (default 0.4 kg when blank).
+                Type any decimal, e.g. 0.3, 1 or 0.25.
               </p>
             </div>
             <button
@@ -148,12 +172,11 @@ export default function ShippingAdminPage() {
                     <td className="py-1.5 pr-3 text-gray-400">{rate.countryCode}</td>
                     <td className="py-1.5 pr-3">
                       <input
-                        type="number"
-                        min="0.01"
-                        step="any"
+                        type="text"
+                        inputMode="decimal"
                         value={rate.perKgUsd}
                         onChange={(e) => {
-                          const value = Number(e.target.value);
+                          const value = e.target.value;
                           setRates((prev) => prev.map((item, i) => i === index ? { ...item, perKgUsd: value } : item));
                         }}
                         className="w-24 bg-background border border-border rounded px-2 py-1"
@@ -202,9 +225,8 @@ export default function ShippingAdminPage() {
                     <td className="py-1.5 pr-3 text-gray-400">{product.id}</td>
                     <td className="py-1.5">
                       <input
-                        type="number"
-                        min="0.001"
-                        step="any"
+                        type="text"
+                        inputMode="decimal"
                         value={weights[product.id] ?? ''}
                         placeholder="default 0.4"
                         onChange={(e) => setWeights((prev) => ({ ...prev, [product.id]: e.target.value }))}
