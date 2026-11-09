@@ -136,6 +136,8 @@ function buildSystemPrompt(fee: number, floor: number, acceptedUsd?: number): st
     acceptedUsd !== undefined && acceptedUsd > floor + 0.005
       ? `The customer already accepted $${acceptedUsd.toFixed(2)} earlier. If they now want a smaller discount, offer a value between $${acceptedUsd.toFixed(2)} and $${fee.toFixed(2)}.`
       : '',
+    'If the customer names a specific amount (including MORE than the current quote and including paying more than a previously accepted price), offerUsd MUST be exactly that amount. Never reply with words alone while returning null.',
+    'Only use null when the customer is not asking for a specific price.',
     'Never mention AI, models, internal costs, margins or how these numbers are calculated. Never discuss anything unrelated.',
     'The customer may also volunteer to pay MORE than the quote, for example to round the total up. Accept any amount they suggest above the current quote.',
     'Never say the price has been changed, confirmed or locked in: the customer has to press the button in the chat to apply an offer.',
@@ -255,6 +257,17 @@ export async function POST(request: NextRequest) {
 
     let offerUsd: number | null = null;
     let token: string | undefined;
+    // Safety net: if the customer explicitly named an acceptable amount and the
+    // model answered with words only, honour the amount the customer asked for.
+    if (modelOffer === null) {
+      const lastUser = [...messages].reverse().find((message) => message.role === 'user');
+      const amounts = (lastUser?.content.match(/\d+(?:[.,]\d{1,2})?/g) || [])
+        .map((value) => Number(value.replace(',', '.')))
+        .filter((value) => Number.isFinite(value) && value >= floor && value <= 1_000_000);
+      if (amounts.length > 0) {
+        modelOffer = amounts[amounts.length - 1];
+      }
+    }
     if (typeof modelOffer === 'number' && Number.isFinite(modelOffer)) {
       // Paying more is never a loss, so there is no upper cap: any amount at
       // or above the floor is accepted, including above the original quote.

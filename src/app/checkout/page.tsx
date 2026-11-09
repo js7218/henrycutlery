@@ -151,10 +151,6 @@ export default function CheckoutPage() {
   // Signed shipping quote returned by the negotiation assistant. The original
   // computed fee stays intact; only the displayed/charged fee is replaced.
   const [negotiatedShipping, setNegotiatedShipping] = useState<{ amountUsd: number; token: string } | null>(null);
-  // "Set a target total": the customer names the amount they want to pay and
-  // the largest line is adjusted so goods + shipping land on that amount.
-  const [targetTotal, setTargetTotal] = useState('');
-  const [targetMessage, setTargetMessage] = useState('');
   // Live stock from the database, used for the pre-flight quantity check.
   const [liveStock, setLiveStock] = useState<Record<string, number>>({});
 
@@ -204,72 +200,6 @@ export default function CheckoutPage() {
   useEffect(() => {
     setNegotiatedShipping(null);
   }, [shippingFee, customerArrangesShipping]);
-
-  const applyTargetTotal = () => {
-    const target = Number(targetTotal);
-    if (!Number.isFinite(target) || target <= 0) {
-      setTargetMessage('Enter the total you would like to pay.');
-      return;
-    }
-
-    const line = [...state.cart].sort(
-      (a, b) => b.product.price * b.quantity - a.product.price * a.quantity
-    )[0];
-    if (!line) return;
-
-    const unitPrice = line.product.price;
-    const fixedTotal = cartTotal - unitPrice * line.quantity;
-    const currentTotal = cartTotal + effectiveShippingFee;
-    // The order can only grow: the current total is the hard minimum, so a
-    // cart worth $9,000 can never be turned into $8,999.
-    if (target < currentTotal - 0.005) {
-      setTargetMessage(`The total cannot be lower than ${formatPrice(currentTotal)}.`);
-      return;
-    }
-    const startQty = line.quantity;
-    const stock = liveStock[line.product.id];
-    // 1200 keeps the order below the bulk-inquiry threshold.
-    const maxQty = Math.min(1200, typeof stock === 'number' ? stock : 1200);
-
-    const totalFor = (quantity: number) => {
-      const items = state.cart.map((item) => ({
-        productId: item.product.id,
-        quantity: item.product.id === line.product.id ? quantity : item.quantity,
-      }));
-      const quote = customerArrangesShipping
-        ? { fee: 0, complete: true }
-        : shippingFeeFor(
-            items,
-            selectedAddress?.phone || '',
-            shippingConfig.rates,
-            shippingConfig.weights,
-            shipToCountry || undefined
-          );
-      return fixedTotal + unitPrice * quantity + (quote.complete ? quote.fee : 0);
-    };
-
-    if (totalFor(maxQty) < target - 0.005) {
-      setTargetMessage(
-        `Only ${maxQty} units are available, which reaches ${formatPrice(totalFor(maxQty))}.`
-      );
-      return;
-    }
-    if (totalFor(startQty) >= target - 0.005) {
-      setTargetMessage(`The order already totals ${formatPrice(totalFor(startQty))}.`);
-      return;
-    }
-
-    let low = startQty;
-    let high = maxQty;
-    while (low < high) {
-      const mid = Math.floor((low + high) / 2);
-      if (totalFor(mid) >= target - 0.005) high = mid;
-      else low = mid + 1;
-    }
-
-    dispatch({ type: 'UPDATE_QUANTITY', productId: line.product.id, quantity: low });
-    setTargetMessage(`${low} × ${line.product.name} — new total ${formatPrice(totalFor(low))}.`);
-  };
 
   useEffect(() => {
     if (selectedAddress || !state.user?.addresses?.length) return;
@@ -944,37 +874,8 @@ export default function CheckoutPage() {
                     onQuote={setNegotiatedShipping}
                   />
                 )}
-                <div className="pt-3 border-t border-border">
-                  <label htmlFor="target-total" className="text-xs text-gray-400">
-                    Set a target total — it can only go up from {formatPrice(totalAmount)}
-                  </label>
-                  <div className="mt-1 flex gap-2">
-                    <input
-                      id="target-total"
-                      value={targetTotal}
-                      onChange={(event) => {
-                        setTargetTotal(event.target.value);
-                        setTargetMessage('');
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          applyTargetTotal();
-                        }
-                      }}
-                      inputMode="decimal"
-                      placeholder="e.g. 10000"
-                      className="min-w-0 flex-1 px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
-                    />
-                    <button
-                      type="button"
-                      onClick={applyTargetTotal}
-                      className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-gold hover:border-gold"
-                    >
-                      Apply
-                    </button>
-                  </div>
-                  {targetMessage && <p className="mt-1 text-xs text-gold">{targetMessage}</p>}
+                <div className="pt-3 border-t border-border text-xs text-gray-500">
+                  Need a different quantity or a rounder total? Adjust the quantity in your cart, or contact us.
                 </div>
               </div>
               <div className="pt-4 border-t border-border">
