@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, Eye, EyeOff, LogIn, Phone, ShieldCheck, KeyRound } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
@@ -381,7 +380,6 @@ function resetLoginAttempts(): void {
 // Main Login Page Component
 // ============================================================================
 export default function LoginPage() {
-  const router = useRouter();
   const { login, sendVerificationCode, loginWithCode } = useApp();
 
   // Tab state
@@ -515,7 +513,9 @@ export default function LoginPage() {
       if (success) {
         // SECURITY: Reset attempts on successful login
         resetLoginAttempts();
-        router.push(getSafeReturnPathFromBrowser() || '/profile');
+        // Full navigation so the new session cookie is picked up by the
+        // server-rendered protected page without a client-state race.
+        window.location.assign(getSafeReturnPathFromBrowser() || '/profile');
       } else {
         setError('Incorrect email or password');
       }
@@ -525,7 +525,7 @@ export default function LoginPage() {
       setIsLoading(false);
       submittingRef.current = false;
     }
-  }, [email, password, login, router, isLoading]);
+  }, [email, password, login, isLoading]);
 
   // ============================================================================
   // Send Verification Code Handler
@@ -636,7 +636,7 @@ export default function LoginPage() {
       if (success) {
         // SECURITY: Reset attempts on successful login
         resetLoginAttempts();
-        router.push(getSafeReturnPathFromBrowser() || '/profile');
+        window.location.assign(getSafeReturnPathFromBrowser() || '/profile');
       } else {
         setError('Incorrect verification code');
       }
@@ -646,7 +646,7 @@ export default function LoginPage() {
       setIsLoading(false);
       submittingRef.current = false;
     }
-  }, [identifier, code, countryCode, loginWithCode, router, isLoading]);
+  }, [identifier, code, countryCode, loginWithCode, isLoading]);
 
   // ============================================================================
   // Render

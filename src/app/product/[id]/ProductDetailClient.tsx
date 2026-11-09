@@ -384,7 +384,17 @@ export default function ProductDetailPage() {
                 <input
                   type="number"
                   value={quantity}
-                  onChange={(e) => setQuantity(Math.max(product.moq || 1, Math.min(product.stock, parseInt(e.target.value) || 1)))}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setQuantity(0);
+                      return;
+                    }
+                    setQuantity(Math.min(parseInt(raw, 10) || 0, product.stock));
+                  }}
+                  onBlur={() => {
+                    setQuantity((q) => Math.max(product.moq || 1, Math.min(product.stock, q || 0)));
+                  }}
                   className="w-16 text-center bg-transparent text-foreground border-none focus:outline-none"
                 />
                 <button

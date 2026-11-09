@@ -63,7 +63,7 @@ export default function ProfilePage() {
 function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { state, logout, dispatch, refreshUser, confirmOrderReceived } = useApp();
+  const { state, isSessionReady, logout, dispatch, refreshUser, confirmOrderReceived } = useApp();
 
   const [activeTab, setActiveTab] = useState<Tab>('orders');
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -107,10 +107,12 @@ function ProfileContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!state.user) {
+    // Wait for the server session to finish loading before deciding the user
+    // is signed out; otherwise a valid session gets bounced back to /login.
+    if (isSessionReady && !state.user) {
       router.push('/login');
     }
-  }, [state.user, router]);
+  }, [isSessionReady, state.user, router]);
 
   useEffect(() => {
     if (state.user) {
@@ -119,7 +121,7 @@ function ProfileContent() {
     }
   }, [state.user]);
 
-  if (!state.user) {
+  if (!isSessionReady || !state.user) {
     return null;
   }
 
