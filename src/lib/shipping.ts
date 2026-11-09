@@ -9,6 +9,10 @@
 
 export const DEFAULT_PER_KG_USD = 20;
 
+// Used when a SKU has no weight configured yet, so freight is always
+// calculated from the destination instead of falling back to "to be quoted".
+export const DEFAULT_UNIT_WEIGHT_KG = 0.4;
+
 export interface ShippingRate {
   countryCode: string;
   countryName: string;
@@ -96,17 +100,16 @@ export function totalWeightKg(
   items: ShippingLine[],
   weights: Record<string, number>
 ): { kg: number; complete: boolean } {
-  let complete = true;
   const goodsKg = items.reduce((sum, item) => {
     const quantity = Math.max(0, Number(item.quantity) || 0);
-    const unitKg = Number(weights[item.productId]);
-    if (!Number.isFinite(unitKg) || unitKg <= 0) {
-      complete = false;
-      return sum;
-    }
+    const configuredKg = Number(weights[item.productId]);
+    const unitKg = Number.isFinite(configuredKg) && configuredKg > 0
+      ? configuredKg
+      : DEFAULT_UNIT_WEIGHT_KG;
     return sum + quantity * unitKg;
   }, 0);
-  return { kg: Math.round(goodsKg * 100) / 100, complete };
+  // Every line always resolves to a weight, so freight is never "to be quoted".
+  return { kg: Math.round(goodsKg * 100) / 100, complete: true };
 }
 
 export function shippingFeeFor(

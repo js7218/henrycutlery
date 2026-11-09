@@ -152,6 +152,35 @@ async function runSchemaMigration(): Promise<void> {
         );
       `);
 
+      // Freight can only be calculated automatically once every SKU has a
+      // weight. Most catalogue entries say "TBD", so seed a realistic default
+      // (parsed from the spec when grams/ounces are given) and let the owner
+      // refine it on /hc-control-2026/shipping.
+      if (catalogProducts.length > 0) {
+        const defaultWeightByCategory: Record<string, number> = {
+          kitchen: 0.5,
+          folding: 0.25,
+          hunting: 0.45,
+          collection: 0.4,
+        };
+        const weightOf = (product: (typeof catalogProducts)[number]) => {
+          const spec = String(product.specs?.weight || '');
+          const grams = spec.match(/(\d+(?:\.\d+)?)\s*g\b/i);
+          if (grams) return Math.max(0.01, Math.round((Number(grams[1]) / 1000) * 1000) / 1000);
+          const ounces = spec.match(/(\d+(?:\.\d+)?)\s*oz/i);
+          if (ounces) return Math.max(0.01, Math.round(((Number(ounces[1]) * 28.3495) / 1000) * 1000) / 1000);
+          return defaultWeightByCategory[product.category] ?? 0.4;
+        };
+        await db.query(
+          `
+            INSERT INTO product_weights (product_id, weight_kg)
+            SELECT * FROM UNNEST($1::text[], $2::float8[])
+            ON CONFLICT (product_id) DO NOTHING
+          `,
+          [catalogProducts.map((product) => product.id), catalogProducts.map(weightOf)]
+        );
+      }
+
       // Live inventory. The static product catalogue only provides the opening
       // stock; every order decrements this table atomically so two customers
       // can never buy the same units.
