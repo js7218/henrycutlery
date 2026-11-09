@@ -381,7 +381,7 @@ function ProfileContent() {
                           <p className="text-sm text-gray-400">{order.status === 'pending' ? 'Payment Reference' : 'Order Number'}</p>
                           <p className="font-mono text-foreground">
                             {order.status === 'pending'
-                              ? order.orderNumber.slice(-8).toUpperCase()
+                              ? order.paymentReference || order.orderNumber.slice(-8).toUpperCase()
                               : order.orderNumber}
                           </p>
                           {order.status === 'pending' && (
@@ -421,6 +421,42 @@ function ProfileContent() {
                           </div>
                         ))}
                       </div>
+
+                      {order.status === 'pending' && (
+                        <div className="mt-4 pt-4 border-t border-border">
+                          <p className="text-sm font-medium text-foreground mb-3">Complete payment to confirm your order</p>
+                          {order.paymentMethod === 'wechat' ? (
+                            <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+                              <img
+                                src="/images/wechat-payment.jpeg"
+                                alt="WeChat payment code"
+                                className="h-40 w-40 rounded-lg border border-border bg-white object-contain p-2"
+                              />
+                              <div className="text-sm text-gray-400 space-y-1">
+                                <p>Scan the code with WeChat Pay.</p>
+                                <p>
+                                  Payment reference:{' '}
+                                  <span className="font-mono text-gold">{order.paymentReference || order.orderNumber.slice(-8).toUpperCase()}</span>
+                                </p>
+                                <p>We confirm the payment and issue your order number once it arrives.</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-400 space-y-1">
+                              <p><span className="text-gray-500">Account Name:</span> {process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'Adam Cutlery'}</p>
+                              <p>
+                                <span className="text-gray-500">Account Number:</span>{' '}
+                                <span className="font-mono text-gold">{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || 'Contact us for details'}</span>
+                              </p>
+                              <p><span className="text-gray-500">Bank:</span> {process.env.NEXT_PUBLIC_BANK_NAME || 'HSBC'}</p>
+                              <p>
+                                Use payment reference{' '}
+                                <span className="font-mono text-gold">{order.paymentReference || order.orderNumber.slice(-8).toUpperCase()}</span>, then send us the transfer receipt.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {(order.trackingNumber || order.status === 'shipped') && (
                         <div className="mt-4 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">

@@ -282,8 +282,11 @@ const progressiveWafHits: Record<string, ProgressiveWafEntry> = {};
 const RATE_LIMITS = {
   global: { windowMs: 60000, maxRequests: 300 },
   api: { windowMs: 60000, maxRequests: 100 },
-  login: { windowMs: 60000, maxRequests: 5 },
-  register: { windowMs: 60000, maxRequests: 3 },
+  // Login/register limits are intentionally generous: B2B buyers often share
+  // one office IP (or sit behind carrier NAT), so a tight per-IP cap locked
+  // whole teams out of the site.
+  login: { windowMs: 60000, maxRequests: 20 },
+  register: { windowMs: 60000, maxRequests: 10 },
   admin: { windowMs: 60000, maxRequests: 30 },
   checkout: { windowMs: 60000, maxRequests: 60 },
   upload: { windowMs: 60000, maxRequests: 5 },
@@ -1808,9 +1811,8 @@ export function middleware(request: NextRequest) {
     if (isSafeCheckoutPath) {
       console.warn(`[RateLimit] Safe path ${path} hit rate limit for IP ${ip}`);
     } else {
-      if (limitType !== 'checkout' && limitType !== 'api') {
-        blockIP(ip, `Rate limit exceeded (${limitType})`, 300000);
-      }
+      // Return 429 only. A single burst used to ban the whole IP for five
+      // minutes, which took down every colleague sharing that office IP.
       return NextResponse.json({
         error: 'Too Many Requests', code: 'RATE_LIMITED', retryAfter: 60,
       }, { status: 429, headers: { 'Retry-After': '60', 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': String(Math.floor(rl.resetAt / 1000)) } });

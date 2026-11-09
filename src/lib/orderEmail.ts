@@ -191,6 +191,137 @@ export async function sendOrderNotificationEmail(order: OrderEmailPayload) {
 }
 
 /**
+ * Send the customer an immediate "order received, awaiting payment" email.
+ * Without this the customer only sees the payment instructions once on the
+ * checkout screen and never hears from us again until payment is confirmed.
+ */
+export async function sendCustomerOrderReceivedEmail(
+  customerEmail: string,
+  order: OrderEmailPayload
+): Promise<{ sent: boolean; skipped: boolean; reason?: string }> {
+  if (!smtpReady()) {
+    return { sent: false, skipped: true, reason: 'SMTP_NOT_CONFIGURED' };
+  }
+
+  const port = Number(process.env.SMTP_PORT || '587');
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port,
+    secure: port === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  const reference = order.orderNumber.slice(-8).toUpperCase();
+  const bank = getPrivateBankDetails();
+  const isWechat = order.paymentMethod === 'wechat';
+
+  const paymentLines = isWechat
+    ? [
+        'Payment method: WeChat Pay',
+        'Open the order in your account, scan the WeChat payment code and send us the receipt.',
+      ]
+    : [
+        'Payment method: HSBC bank transfer',
+        bank.accountName ? `Account name: ${bank.accountName}` : '',
+        bank.accountNumber ? `Account number: ${bank.accountNumber}` : '',
+        bank.bankName ? `Bank: ${bank.bankName}` : '',
+        bank.bankAddress ? `Bank address: ${bank.bankAddress}` : '',
+        `Please use "${reference}" as the payment reference.`,
+      ].filter(Boolean);
+
+  const text = [
+    'Thank you for your order from Adam Cutlery.',
+    '',
+    'Your order has been received and is awaiting payment.',
+    `Payment Reference: ${reference}`,
+    `Order Total: ${formatPrice(order.totalAmount)}`,
+    `Created At: ${order.createdAt}`,
+    '',
+    ...paymentLines,
+    '',
+    `Order number ${order.orderNumber} will be confirmed once we receive your payment.`,
+    '',
+    'Shipping Address:',
+    `Name: ${order.shippingAddress.name}`,
+    `Phone: ${order.shippingAddress.phone}`,
+    `Address: ${order.shippingAddress.province || ''} ${order.shippingAddress.city || ''} ${order.shippingAddress.district || ''} ${order.shippingAddress.detail}`,
+    '',
+    'Items:',
+    ...order.items.map((item, index) => `${index + 1}. ${item.productName.toUpperCase()} | Qty: ${item.quantity} | Unit: ${formatPrice(item.price)} | Total: ${formatPrice(item.price * item.quantity)}`),
+    '',
+    'Best regards,',
+    'Adam Cutlery',
+  ].join('\n');
+
+  const paymentHtml = isWechat
+    ? `<p><strong>Payment method:</strong> WeChat Pay</p>
+       <p>Open the order in your account, scan the WeChat payment code and send us the receipt.</p>`
+    : `<p><strong>Payment method:</strong> HSBC bank transfer</p>
+       <p>${bank.accountName ? `<strong>Account name:</strong> ${escapeHtml(bank.accountName)}<br/>` : ''}
+       ${bank.accountNumber ? `<strong>Account number:</strong> ${escapeHtml(bank.accountNumber)}<br/>` : ''}
+       ${bank.bankName ? `<strong>Bank:</strong> ${escapeHtml(bank.bankName)}<br/>` : ''}
+       ${bank.bankAddress ? `<strong>Bank address:</strong> ${escapeHtml(bank.bankAddress)}<br/>` : ''}
+       <strong>Payment reference:</strong> ${escapeHtml(reference)}</p>`;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;color:#222;line-height:1.5;">
+      <h2 style="margin:0 0 12px;">We received your order</h2>
+      <p>Dear ${escapeHtml(order.shippingAddress.name)},</p>
+      <p>Your order is awaiting payment. Please complete the payment using the details below.</p>
+
+      <p><strong>Payment Reference:</strong> ${escapeHtml(reference)}</p>
+      <p><strong>Order Total:</strong> ${formatPrice(order.totalAmount)}</p>
+      ${paymentHtml}
+      <p>Your order number will be confirmed once we receive your payment.</p>
+
+      <h3 style="margin-top:24px;">Shipping Address</h3>
+      <p><strong>Name:</strong> ${escapeHtml(order.shippingAddress.name)}</p>
+      <p><strong>Phone:</strong> ${escapeHtml(order.shippingAddress.phone)}</p>
+      <p><strong>Address:</strong> ${escapeHtml(`${order.shippingAddress.province || ''} ${order.shippingAddress.city || ''} ${order.shippingAddress.district || ''} ${order.shippingAddress.detail}`)}</p>
+
+      <h3 style="margin-top:24px;">Items</h3>
+      <table style="border-collapse:collapse;width:100%;font-size:14px;">
+        <thead>
+          <tr>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">#</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Product</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Qty</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Unit</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${order.items.map((item, index) => `
+            <tr>
+              <td style="padding:8px;border-bottom:1px solid #eee;">${index + 1}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;">${escapeHtml(item.productName.toUpperCase())}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;">${item.quantity}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;">${formatPrice(item.price)}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;">${formatPrice(item.price * item.quantity)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <p style="margin-top:24px;">Best regards,<br/>Adam Cutlery</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: customerEmail,
+    subject: `Order Received - ${reference} | Adam Cutlery`,
+    text,
+    html,
+  });
+
+  return { sent: true, skipped: false };
+}
+
+/**
  * Send a customer order confirmation email.
  * Called after payment is confirmed so the customer receives a receipt.
  */
@@ -287,6 +418,77 @@ export async function sendCustomerOrderConfirmation(
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: customerEmail,
     subject: `Order Confirmed - ${order.orderNumber} | Adam Cutlery`,
+    text,
+    html,
+  });
+
+  return { sent: true, skipped: false };
+}
+
+/**
+ * Tell the customer their order has shipped, including the tracking number.
+ * Without this they have to keep refreshing the account page to find out.
+ */
+export async function sendCustomerShippedEmail(
+  customerEmail: string,
+  order: OrderEmailPayload,
+  trackingNumber: string
+): Promise<{ sent: boolean; skipped: boolean; reason?: string }> {
+  if (!smtpReady()) {
+    return { sent: false, skipped: true, reason: 'SMTP_NOT_CONFIGURED' };
+  }
+
+  const port = Number(process.env.SMTP_PORT || '587');
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port,
+    secure: port === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  const trackingLine = trackingNumber
+    ? `Tracking number: ${trackingNumber}`
+    : 'A tracking number will follow shortly.';
+
+  const text = [
+    'Your order has shipped.',
+    '',
+    `Order Number: ${order.orderNumber}`,
+    trackingLine,
+    '',
+    'Shipping Address:',
+    `Name: ${order.shippingAddress.name}`,
+    `Phone: ${order.shippingAddress.phone}`,
+    `Address: ${order.shippingAddress.province || ''} ${order.shippingAddress.city || ''} ${order.shippingAddress.district || ''} ${order.shippingAddress.detail}`,
+    '',
+    'Best regards,',
+    'Adam Cutlery',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;color:#222;line-height:1.5;">
+      <h2 style="margin:0 0 12px;">Your order has shipped</h2>
+      <p>Dear ${escapeHtml(order.shippingAddress.name)},</p>
+      <p>Good news — your order has left our workshop.</p>
+      <p><strong>Order Number:</strong> ${escapeHtml(order.orderNumber)}</p>
+      <p><strong>${trackingNumber ? 'Tracking Number' : 'Tracking'}:</strong> ${escapeHtml(trackingLine)}</p>
+
+      <h3 style="margin-top:24px;">Shipping Address</h3>
+      <p><strong>Name:</strong> ${escapeHtml(order.shippingAddress.name)}</p>
+      <p><strong>Phone:</strong> ${escapeHtml(order.shippingAddress.phone)}</p>
+      <p><strong>Address:</strong> ${escapeHtml(`${order.shippingAddress.province || ''} ${order.shippingAddress.city || ''} ${order.shippingAddress.district || ''} ${order.shippingAddress.detail}`)}</p>
+
+      <p style="margin-top:24px;">Best regards,<br/>Adam Cutlery</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: customerEmail,
+    subject: `Order Shipped - ${order.orderNumber} | Adam Cutlery`,
     text,
     html,
   });

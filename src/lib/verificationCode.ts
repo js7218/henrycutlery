@@ -1,7 +1,7 @@
 /**
  * Verification Code System
  * - 6-digit numeric codes for phone/email login
- * - 1-minute expiry
+ * - 10-minute expiry (email delivery abroad can take a while)
  * - Max 3 attempts per code
  * - Rate limit: 1 request per 60 seconds per identifier
  */
@@ -10,7 +10,7 @@ import crypto from 'crypto';
 import { randomInt } from 'crypto';
 import { getPool } from './db';
 
-const CODE_TTL_MS = 60 * 1000; // 1 minute
+const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_ATTEMPTS = 3;
 const RATE_LIMIT_MS = 60 * 1000; // 1 request per minute
 

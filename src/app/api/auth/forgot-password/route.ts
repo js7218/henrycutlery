@@ -76,9 +76,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     const email = String(body?.email || '').trim().toLowerCase();
     const phone = String(body?.phone || '').trim();
-    if (!email || !phone) {
+    if (!email) {
       return NextResponse.json(
-        { success: false, error: 'Please enter both email and phone number.' },
+        { success: false, error: 'Please enter your email address.' },
         { status: 400 }
       );
     }
@@ -96,9 +96,11 @@ export async function POST(request: NextRequest) {
     );
     const user = userResult.rows[0];
 
-    // Phone is mandatory and must exactly match the registered phone for the
-    // account; otherwise we silently respond success to avoid leaking info.
-    const phoneOk = !!(user && user.phone && phoneMatches(user.phone, phone));
+    // The reset link always goes to the registered email address, which is the
+    // standard proof of ownership. The phone is an optional extra check: if the
+    // customer supplies one it must match, but requiring it locked out buyers
+    // who could not remember which number they registered with.
+    const phoneOk = !phone || !!(user && user.phone && phoneMatches(user.phone, phone));
 
     if (user && phoneOk) {
       // Invalidate any previous active reset tokens for this user.

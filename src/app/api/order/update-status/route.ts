@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
-import { sendOrderNotificationEmail, sendCustomerOrderConfirmation } from '@/lib/orderEmail';
+import { sendOrderNotificationEmail, sendCustomerOrderConfirmation, sendCustomerShippedEmail } from '@/lib/orderEmail';
 import { requireAdmin } from '@/lib/adminGuard';
 import { getAuthUser } from '@/lib/auth';
 
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     // Get current order (email lives on the user, not on the order row).
     const orderResult = await pool.query(
       `SELECT o.id, o.order_number, o.total_amount, o.status, o.shipping_address, o.items,
-              o.user_id, o.created_at, u.email
+              o.user_id, o.created_at, o.payment_method, o.tracking_number, u.email
        FROM orders o
        LEFT JOIN users u ON u.id = o.user_id
        WHERE o.id = $1`,
@@ -102,11 +102,12 @@ export async function POST(request: Request) {
 
     // Send email notification when status changes to 'paid'
     if (status === 'paid' && previousStatus === 'pending') {
+      const paymentMethod = order.payment_method || 'bank_transfer';
       try {
         await sendOrderNotificationEmail({
           orderNumber: order.order_number,
           totalAmount: order.total_amount,
-          paymentMethod: 'bank_transfer',
+          paymentMethod,
           items: order.items,
           shippingAddress: order.shipping_address,
           createdAt: order.created_at?.toISOString?.() || new Date().toISOString(),
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
           await sendCustomerOrderConfirmation(order.email, {
             orderNumber: order.order_number,
             totalAmount: order.total_amount,
-            paymentMethod: 'bank_transfer',
+            paymentMethod,
             items: order.items,
             shippingAddress: order.shipping_address,
             createdAt: order.created_at?.toISOString?.() || new Date().toISOString(),
@@ -129,6 +130,23 @@ export async function POST(request: Request) {
         } catch (err) {
           console.error('[update-status] Failed to send customer confirmation email:', err instanceof Error ? err.message : 'Unknown error');
         }
+      }
+    }
+
+    // Let the customer know when their order ships, including the tracking number.
+    const shippingNow = status === 'shipped' && previousStatus !== 'shipped';
+    if (shippingNow && order.email) {
+      try {
+        await sendCustomerShippedEmail(order.email, {
+          orderNumber: order.order_number,
+          totalAmount: order.total_amount,
+          paymentMethod: order.payment_method || 'bank_transfer',
+          items: order.items,
+          shippingAddress: order.shipping_address,
+          createdAt: order.created_at?.toISOString?.() || new Date().toISOString(),
+        }, tracking || order.tracking_number || '');
+      } catch (err) {
+        console.error('[update-status] Failed to send shipping email:', err instanceof Error ? err.message : 'Unknown error');
       }
     }
 

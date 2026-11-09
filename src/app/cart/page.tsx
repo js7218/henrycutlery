@@ -3,21 +3,17 @@
 import Link from 'next/link';
 import { ShoppingBag, Truck, ArrowRight } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { formatPrice, calculateShippingFee, FREE_SHIPPING_THRESHOLD } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
 import CartItem from '@/components/cart/CartItem';
 import CheckoutSteps from '@/components/checkout/CheckoutSteps';
 import ThreeDButton from '@/components/animation/ThreeDButton';
 
 export default function CartPage() {
   const { state, cartTotal, clearCart } = useApp();
-  const shippingFee = calculateShippingFee(state.cart);
-  const totalAmount = cartTotal + shippingFee;
-  const chargeableSubtotal = state.cart.reduce(
-    (sum, item) => (item.product.freeShipping ? sum : sum + item.product.price * item.quantity),
-    0
-  );
-  const showFreeShippingProgress =
-    chargeableSubtotal > 0 && chargeableSubtotal < FREE_SHIPPING_THRESHOLD;
+  // Shipping is weight x destination-country rate and is only known once the
+  // customer's address is selected at checkout. Never show a flat/free amount
+  // here, otherwise the cart total disagrees with the checkout total.
+  const totalAmount = cartTotal;
 
   if (state.cart.length === 0) {
     return (
@@ -74,32 +70,17 @@ export default function CartPage() {
               </div>
               <div className="flex justify-between text-gray-400">
                 <span>Shipping</span>
-                <span>
-                  {shippingFee === 0 ? (
-                    <span className="text-green-400">Free Shipping</span>
-                  ) : (
-                    formatPrice(shippingFee)
-                  )}
+                <span className="text-right text-xs leading-5 text-gray-500">
+                  Calculated at checkout
+                  <br />
+                  by destination &amp; weight
                 </span>
               </div>
-              {showFreeShippingProgress && (
-                <div className="p-3 bg-surfaceLight rounded-lg">
-                  <p className="text-xs text-gray-400">
-                    Add <span className="text-gold font-medium">{formatPrice(FREE_SHIPPING_THRESHOLD - chargeableSubtotal)}</span> more for free shipping
-                  </p>
-                  <div className="mt-2 h-2 bg-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gold rounded-full transition-all"
-                      style={{ width: `${Math.min(100, (chargeableSubtotal / FREE_SHIPPING_THRESHOLD) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="pt-4 border-t border-border">
               <div className="flex justify-between items-center mb-6">
-                <span className="text-lg font-medium text-foreground">Total</span>
+                <span className="text-lg font-medium text-foreground">Total (excl. shipping)</span>
                 <span className="text-2xl font-bold text-gold">{formatPrice(totalAmount)}</span>
               </div>
 
@@ -123,7 +104,7 @@ export default function CartPage() {
             <div className="mt-6 pt-6 border-t border-border space-y-3">
               <div className="flex items-center gap-3 text-sm text-gray-400">
                 <Truck className="w-4 h-4 text-gold" />
-                <span>Free Shipping Nationwide</span>
+                <span>Shipping quoted by destination &amp; weight</span>
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-400">
                 <Truck className="w-4 h-4 text-gold" />

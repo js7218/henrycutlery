@@ -142,11 +142,11 @@ export async function POST(request: Request) {
               ? 'Your verification code to finish creating your Adam Cutlery account is:'
               : 'You are trying to log in to your Adam Cutlery account. Your verification code is:'}</p>
             <p style="font-size:28px;font-weight:bold;letter-spacing:4px;padding:16px;background:#f5f5f5;border-radius:8px;text-align:center;margin:16px 0;">${code}</p>
-            <p>This code will expire in <strong>1 minute</strong>. Do not share it with anyone.</p>
+            <p>This code will expire in <strong>10 minutes</strong>. Do not share it with anyone.</p>
             <p style="color:#999;font-size:12px;margin-top:24px;">If you did not request this, please ignore this email.</p>
           </div>
         `,
-        text: `Verification code: ${code}, expires in 1 minute. If you did not request this, please ignore.`,
+        text: `Verification code: ${code}, expires in 10 minutes. If you did not request this, please ignore.`,
       });
 
       if (!emailResult.sent && !emailResult.skipped) {
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
         );
       }
     } else {
-      const smsResult = await sendSMS(identifier, `Your Adam Cutlery verification code is: ${code}. Valid for 1 minute.`);
+      const smsResult = await sendSMS(identifier, `Your Adam Cutlery verification code is: ${code}. Valid for 10 minutes.`);
       if (!smsResult.success) {
         return NextResponse.json(
           { success: false, error: 'SMS service is not configured. Please contact support or use email login.' },

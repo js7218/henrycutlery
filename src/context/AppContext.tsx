@@ -276,7 +276,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (savedCart) {
         const cart = JSON.parse(savedCart);
         cart.forEach((item: CartItem) => {
-          dispatch({ type: 'ADD_TO_CART', product: item.product, quantity: item.quantity - 1 });
+          // Restore the saved quantity as-is. Using quantity - 1 here silently
+          // dropped the cart below the product MOQ after every page reload.
+          dispatch({ type: 'ADD_TO_CART', product: item.product, quantity: item.quantity });
         });
       }
     } catch {
@@ -515,6 +517,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('knife-user');
     localStorage.removeItem('knife-orders');
     localStorage.removeItem('knife-remember');
+    // Do not leave a previous customer's cart behind on a shared computer.
+    localStorage.removeItem('knife-cart');
+    dispatch({ type: 'CLEAR_CART' });
     dispatch({ type: 'SET_USER', user: null });
   };
 

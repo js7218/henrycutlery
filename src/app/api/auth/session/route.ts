@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server';
-import { clearAuthCookies, getAuthUser } from '@/lib/auth';
+import { randomBytes } from 'crypto';
+import {
+  ACCESS_TOKEN_EXPIRY,
+  REMEMBER_ME_EXPIRY,
+  clearAuthCookies,
+  createJWT,
+  getAccessToken,
+  getAuthUser,
+  setAuthCookies,
+  verifyJWT,
+} from '@/lib/auth';
 import { getUserById } from '@/lib/db';
 
 export async function POST(request: Request) {
@@ -33,6 +43,25 @@ export async function GET() {
     );
     response.headers.set('Cache-Control', 'no-store');
     return response;
+  }
+
+  // Sliding session: when the access token is close to expiry, re-issue it so
+  // an active customer is not signed out 15 minutes after logging in. A quiet
+  // browser still expires on its own because no session check is made.
+  const token = await getAccessToken();
+  const decoded = token ? verifyJWT(token) : null;
+  if (decoded && decoded.exp - Math.floor(Date.now() / 1000) < 5 * 60) {
+    const maxAge = decoded.remember ? REMEMBER_ME_EXPIRY : ACCESS_TOKEN_EXPIRY;
+    const renewed = createJWT(
+      {
+        userId: decoded.userId,
+        email: decoded.email,
+        role: decoded.role === 'admin' ? 'admin' : 'user',
+        remember: decoded.remember,
+      },
+      maxAge
+    );
+    await setAuthCookies(renewed, randomBytes(32).toString('hex'), maxAge);
   }
 
   const response = NextResponse.json({

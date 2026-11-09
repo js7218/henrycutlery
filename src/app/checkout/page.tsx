@@ -106,6 +106,7 @@ export default function CheckoutPage() {
   const idempotencyKeyRef = useRef('');
   const [pendingDuplicate, setPendingDuplicate] = useState<{
     orderNumber: string;
+    paymentReference?: string;
     totalAmount: number;
     createdAt: string;
   } | null>(null);
@@ -141,6 +142,10 @@ export default function CheckoutPage() {
     rates: [],
     weights: {},
   });
+  // Destination country used for the shipping estimate. Empty means "derive
+  // it from the phone number", which is the default. Customers can override it
+  // when the phone and the delivery country are not the same.
+  const [shipToCountry, setShipToCountry] = useState('');
   const [customerArrangesShipping, setCustomerArrangesShipping] = useState(false);
 
   useEffect(() => {
@@ -162,7 +167,8 @@ export default function CheckoutPage() {
     state.cart.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
     selectedAddress?.phone || '',
     shippingConfig.rates,
-    shippingConfig.weights
+    shippingConfig.weights,
+    shipToCountry || undefined
   );
   const shippingQuoted = !shipping.complete && !customerArrangesShipping;
   const shippingFee = customerArrangesShipping || !shipping.complete ? 0 : shipping.fee;
@@ -280,16 +286,13 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Geocoding validation
+    // Best-effort geocoding. A "no result" response is common for factory and
+    // rural addresses in OpenStreetMap, so it must never block the checkout.
     if (selectedAddress) {
       setIsValidatingAddress(true);
       const geo = await validateAddressGeocoding(selectedAddress);
       setIsValidatingAddress(false);
       setGeocodingValid(geo.valid);
-      if (!geo.valid) {
-        setAddressError('Address could not be verified. Please check your address details.');
-        return;
-      }
     }
 
     setCurrentStep('payment');
@@ -335,6 +338,7 @@ export default function CheckoutPage() {
           idempotencyKey: getOrCreateIdempotencyKey(),
           force,
           shippingSelfArranged: customerArrangesShipping,
+          shippingCountryCode: shipToCountry || undefined,
         }),
       });
 
@@ -394,9 +398,12 @@ export default function CheckoutPage() {
         return;
       }
 
-      // SECURITY: Use server-verified order data
+      // SECURITY: Use server-verified order data. While the order is pending
+      // the server withholds the official order number and sends only a
+      // payment reference.
       const serverOrder = result.order;
-      setOrderNumber(serverOrder.orderNumber);
+      const reference = serverOrder.paymentReference || String(serverOrder.orderNumber || '').slice(-8).toUpperCase();
+      setOrderNumber(reference);
 
       // Add order to local state using server-verified data
       dispatch({ type: 'ADD_ORDER', order: serverOrder });
@@ -405,7 +412,7 @@ export default function CheckoutPage() {
       // This checkout attempt is finished; the next one needs a fresh key.
       idempotencyKeyRef.current = '';
 
-      securityLogger.log('ORDER_CREATED', `Server-verified order ${serverOrder.orderNumber}, total: ${result.serverTotal}`);
+      securityLogger.log('ORDER_CREATED', `Server-verified order created, payment reference ${reference}, total: ${result.serverTotal}`);
       setCurrentStep('complete');
       setIsProcessing(false);
     } catch (error) {
@@ -659,33 +666,92 @@ export default function CheckoutPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {selectedAddress ? (
-                    <div 
-                      className="p-4 border-2 border-gold bg-gold/5 rounded-lg cursor-pointer"
-                      onClick={() => {}}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium text-foreground">{selectedAddress.name}</p>
-                          <p className="text-sm text-gray-400 mt-1">{selectedAddress.phone}</p>
-                          <p className="text-sm text-gray-400 mt-1">
-                            {selectedAddress.province} {selectedAddress.city} {selectedAddress.district} {selectedAddress.detail}
-                          </p>
-                        </div>
-                        {selectedAddress.isDefault && (
-                          <span className="px-2 py-1 bg-gold/20 text-gold text-xs rounded">Default</span>
-                        )}
-                      </div>
-                      {geocodingValid === true && (
-                        <div className="mt-2 flex items-center gap-1 text-xs text-green-400">
-                          <ShieldCheck className="w-3 h-3" />
-                          Address verified
-                        </div>
-                      )}
+                  {state.user?.addresses?.length ? (
+                    state.user.addresses.map((address) => {
+                      const active = selectedAddress?.id === address.id;
+                      return (
+                        <button
+                          key={address.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAddress(address);
+                            setAddressError('');
+                            setGeocodingValid(null);
+                          }}
+                          className={`w-full text-left p-4 border-2 rounded-lg transition-colors ${
+                            active ? 'border-gold bg-gold/5' : 'border-border hover:border-gray-600'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-3">
+                            <div>
+                              <p className="font-medium text-foreground">{address.name}</p>
+                              <p className="text-sm text-gray-400 mt-1">{address.phone}</p>
+                              <p className="text-sm text-gray-400 mt-1">
+                                {address.province} {address.city} {address.district} {address.detail}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              {address.isDefault && (
+                                <span className="px-2 py-1 bg-gold/20 text-gold text-xs rounded">Default</span>
+                              )}
+                              {active && <CheckCircle className="w-5 h-5 text-gold" />}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })
+                  ) : selectedAddress ? (
+                    <div className="p-4 border-2 border-gold bg-gold/5 rounded-lg">
+                      <p className="font-medium text-foreground">{selectedAddress.name}</p>
+                      <p className="text-sm text-gray-400 mt-1">{selectedAddress.phone}</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        {selectedAddress.province} {selectedAddress.city} {selectedAddress.district} {selectedAddress.detail}
+                      </p>
                     </div>
                   ) : (
                     <p className="text-gray-400 text-center py-8">No shipping address</p>
                   )}
+
+                  {/* A newly typed address is not saved to the account until
+                      the order is placed, so show it when it is the selection. */}
+                  {selectedAddress &&
+                    state.user?.addresses?.length &&
+                    !state.user.addresses.some((address) => address.id === selectedAddress.id) && (
+                      <div className="p-4 border-2 border-gold bg-gold/5 rounded-lg">
+                        <p className="font-medium text-foreground">{selectedAddress.name}</p>
+                        <p className="text-sm text-gray-400 mt-1">{selectedAddress.phone}</p>
+                        <p className="text-sm text-gray-400 mt-1">
+                          {selectedAddress.province} {selectedAddress.city} {selectedAddress.district} {selectedAddress.detail}
+                        </p>
+                      </div>
+                    )}
+
+                  {geocodingValid === true && selectedAddress && (
+                    <div className="flex items-center gap-1 text-xs text-green-400">
+                      <ShieldCheck className="w-3 h-3" />
+                      Address verified
+                    </div>
+                  )}
+                </div>
+              )}
+              {selectedAddress && (
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Ship to country</label>
+                  <select
+                    value={shipToCountry}
+                    onChange={(e) => setShipToCountry(e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="">Detect from phone number</option>
+                    {shippingConfig.rates.map((rate) => (
+                      <option key={rate.countryCode} value={rate.countryCode}>
+                        {rate.countryName} — ${rate.perKgUsd}/kg
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Only used to estimate shipping. Change it if the delivery country differs from the phone number.
+                  </p>
                 </div>
               )}
               {addressError && (
@@ -966,9 +1032,9 @@ export default function CheckoutPage() {
             <h2 className="text-lg font-semibold text-foreground mb-2">Place this order again?</h2>
             <p className="text-sm text-gray-400 mb-4">
               You placed an identical order less than a minute ago
-              {pendingDuplicate.orderNumber ? (
+              {pendingDuplicate.paymentReference || pendingDuplicate.orderNumber ? (
                 <>
-                  {' '}(<span className="font-mono text-gold">{pendingDuplicate.orderNumber.slice(-8).toUpperCase()}</span>)
+                  {' '}(<span className="font-mono text-gold">{pendingDuplicate.paymentReference || pendingDuplicate.orderNumber.slice(-8).toUpperCase()}</span>)
                 </>
               ) : null}
               . Place another one only if that was intentional.

@@ -6,9 +6,10 @@
 import { cookies } from 'next/headers';
 import { createHmac, timingSafeEqual } from 'crypto';
 
-// SECURITY: Access token lives 15 minutes. After 15 minutes of inactivity
-// the cookie expires and the user is forced to sign in again.
-const ACCESS_TOKEN_EXPIRY = 15 * 60;
+// SECURITY: Access token lives 15 minutes of inactivity. The session endpoint
+// slides it forward on every authenticated request so an active customer is
+// never signed out mid-checkout.
+export const ACCESS_TOKEN_EXPIRY = 15 * 60;
 // "Remember me" keeps the session for 30 days.
 export const REMEMBER_ME_EXPIRY = 30 * 24 * 60 * 60;
 
@@ -41,7 +42,7 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export function createJWT(
-  payload: { userId: string; email: string; role: 'user' | 'admin' },
+  payload: { userId: string; email: string; role: 'user' | 'admin'; remember?: boolean },
   expiresInSeconds: number = ACCESS_TOKEN_EXPIRY
 ): string {
   const header = base64URLEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
@@ -51,7 +52,7 @@ export function createJWT(
   return `${header}.${fullPayload}.${signature}`;
 }
 
-export function verifyJWT(token: string): { userId: string; email: string; role: string } | null {
+export function verifyJWT(token: string): { userId: string; email: string; role: string; remember: boolean; exp: number } | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -62,7 +63,13 @@ export function verifyJWT(token: string): { userId: string; email: string; role:
     if (!safeEqual(signature, expectedSig)) return null;
     const decoded = JSON.parse(base64URLDecode(payload));
     if (decoded.exp < Math.floor(Date.now() / 1000)) return null;
-    return { userId: decoded.userId, email: decoded.email, role: decoded.role };
+    return {
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
+      remember: Boolean(decoded.remember),
+      exp: Number(decoded.exp),
+    };
   } catch { return null; }
 }
 

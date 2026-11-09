@@ -32,8 +32,8 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    if (!isValidPhone(cleanPhone)) {
-      setError('Please enter the phone number used for registration.');
+    if (cleanPhone && !isValidPhone(cleanPhone)) {
+      setError('Please enter a valid phone number, or leave it blank.');
       return;
     }
 
@@ -45,11 +45,11 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email: cleanEmail, phone: cleanPhone }),
       });
 
-      setMessage('If the email and phone match a customer account, reset instructions will be sent by email.');
+      setMessage('If this email matches a customer account, reset instructions will be sent.');
       setEmail('');
       setPhone('');
     } catch {
-      setMessage('If the email and phone match a customer account, reset instructions will be sent by email.');
+      setMessage('If this email matches a customer account, reset instructions will be sent.');
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +62,7 @@ export default function ForgotPasswordPage() {
           <h1 className="mb-2 text-3xl font-bold text-gold-gradient" style={{ fontFamily: 'Playfair Display, serif' }}>
             Forgot Password
           </h1>
-          <p className="text-gray-400">Enter your registered email and phone number.</p>
+          <p className="text-gray-400">Enter your registered email address. The phone number is optional.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-xl border border-border bg-surface p-8">
@@ -102,7 +102,7 @@ export default function ForgotPasswordPage() {
 
           <div className="mb-8">
             <label className="mb-2 block text-sm font-medium text-gray-300">
-              Phone Number
+              Phone Number (optional)
             </label>
             <div className="relative">
               <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />

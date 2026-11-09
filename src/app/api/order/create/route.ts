@@ -11,7 +11,8 @@ import { randomUUID, createHash } from 'crypto';
 import { products } from '@/data/products';
 import { generateOrderNumber } from '@/lib/utils';
 import { findUnsafeUrl } from '@/lib/ssrfProtection';
-import { sendOrderNotificationEmail } from '@/lib/orderEmail';
+import { sendOrderNotificationEmail, sendCustomerOrderReceivedEmail } from '@/lib/orderEmail';
+import { customerOrderNumberFields } from '@/lib/orderView';
 import { getAuthUser } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import { DEFAULT_PER_KG_USD, countryOfPhone, totalWeightKg } from '@/lib/shipping';
@@ -448,16 +449,24 @@ export async function POST(request: NextRequest) {
     // Estimated shipping = total weight x destination country's per-kg rate.
     // Customers who arrange their own carrier pay no shipping here.
     const shippingSelfArranged = body.shippingSelfArranged === true;
+    // The checkout may send an explicit destination country when the delivery
+    // country differs from the phone number's country. Fall back to the phone.
+    const requestedCountryCode =
+      typeof body.shippingCountryCode === 'string'
+        ? body.shippingCountryCode.trim().toUpperCase().slice(0, 2)
+        : '';
     let shippingFee = 0;
     let shippingWeightKg = 0;
     let shippingPerKg = 0;
     let shippingQuoted = false;
+    let shippingCountryCode = '';
     if (!shippingSelfArranged) {
       await ensureDatabaseSchema();
       const shippingDb = getPool();
-      const country = countryOfPhone(address.phone);
-      const rateResult = country
-        ? await shippingDb.query('SELECT per_kg_usd FROM shipping_rates WHERE country_code = $1', [country.code])
+      const phoneCountry = countryOfPhone(address.phone);
+      shippingCountryCode = requestedCountryCode || phoneCountry?.code || '';
+      const rateResult = shippingCountryCode
+        ? await shippingDb.query('SELECT per_kg_usd FROM shipping_rates WHERE country_code = $1', [shippingCountryCode])
         : null;
       shippingPerKg = rateResult?.rowCount ? Number(rateResult.rows[0].per_kg_usd) : DEFAULT_PER_KG_USD;
 
@@ -497,6 +506,7 @@ export async function POST(request: NextRequest) {
         shippingWeightKg,
         shippingPerKg,
         shippingQuoted,
+        shippingCountryCode,
       },
       paymentMethod,
       createdAt: new Date().toISOString(),
@@ -525,10 +535,14 @@ export async function POST(request: NextRequest) {
           [authUser.id, idempotencyKey]
         );
         if (existing.rowCount) {
+          const existingOrder = mapOrderRow(existing.rows[0]);
           return NextResponse.json({
             success: true,
             idempotent: true,
-            order: mapOrderRow(existing.rows[0]),
+            order: {
+              ...existingOrder,
+              ...customerOrderNumberFields(existingOrder.orderNumber, existingOrder.status),
+            },
             serverTotal: Number(existing.rows[0].total_amount || 0),
             message: 'This order was already placed. Returning the existing order.',
           });
@@ -555,7 +569,7 @@ export async function POST(request: NextRequest) {
               error: 'An identical order was placed less than a minute ago. Please confirm that you want to place another one.',
               duplicateOrder: {
                 id: duplicate.id,
-                orderNumber: duplicate.order_number,
+                ...customerOrderNumberFields(duplicate.order_number, duplicate.status),
                 totalAmount: Number(duplicate.total_amount || 0),
                 status: duplicate.status,
                 createdAt: toIsoString(duplicate.created_at),
@@ -605,10 +619,14 @@ export async function POST(request: NextRequest) {
           [authUser.id, idempotencyKey]
         );
         if (existing.rowCount) {
+          const existingOrder = mapOrderRow(existing.rows[0]);
           return NextResponse.json({
             success: true,
             idempotent: true,
-            order: mapOrderRow(existing.rows[0]),
+            order: {
+              ...existingOrder,
+              ...customerOrderNumberFields(existingOrder.orderNumber, existingOrder.status),
+            },
             serverTotal: Number(existing.rows[0].total_amount || 0),
             message: 'This order was already placed. Returning the existing order.',
           });
@@ -618,13 +636,48 @@ export async function POST(request: NextRequest) {
 
       await saveAddressForUser(authUser.id, address);
 
-      // Email is NOT sent on order creation.
-      // Admin notification is only sent when payment is confirmed (status changed to 'paid')
-      // via /api/order/update-status. This prevents false alerts for unpaid orders.
+      // Send the customer their payment instructions and alert the owner as
+      // soon as the order exists. Failures here must never lose the order.
+      const createdOrder = mapOrderRow(inserted.rows[0]);
+      const emailPayload = {
+        orderNumber: order.orderNumber,
+        items: order.items.map((item) => ({
+          productName: item.productName,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        totalAmount: orderTotal,
+        paymentMethod: order.paymentMethod,
+        shippingAddress: {
+          name: address.name,
+          phone: address.phone,
+          province: address.province,
+          city: address.city,
+          district: address.district,
+          detail: address.detail,
+        },
+        createdAt: order.createdAt,
+      };
+
+      // Notify both sides immediately. Failures here must never lose the order.
+      const [customerEmail, adminEmail] = await Promise.allSettled([
+        sendCustomerOrderReceivedEmail(authUser.email, emailPayload),
+        sendOrderNotificationEmail(emailPayload),
+      ]);
+      console.log('[order/create] emails', {
+        orderNumber: order.orderNumber,
+        customer: customerEmail.status,
+        admin: adminEmail.status,
+      });
 
       return NextResponse.json({
         success: true,
-        order: mapOrderRow(inserted.rows[0]),
+        // The official order number is withheld until the payment is confirmed;
+        // the customer only gets the payment reference here.
+        order: {
+          ...createdOrder,
+          ...customerOrderNumberFields(createdOrder.orderNumber, createdOrder.status),
+        },
         // SECURITY: Return server-calculated total for client display
         serverTotal: orderTotal,
         message: 'Order created with server-verified pricing. Awaiting payment confirmation.',

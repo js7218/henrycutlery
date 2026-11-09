@@ -83,7 +83,10 @@ export async function POST(request: Request) {
 
     const role = userRow.role === 'admin' ? 'admin' : 'user';
     const sessionMaxAge = rememberMe ? REMEMBER_ME_EXPIRY : undefined;
-    const accessToken = createJWT({ userId: userRow.id, email: userRow.email, role }, sessionMaxAge);
+    const accessToken = createJWT(
+      { userId: userRow.id, email: userRow.email, role, remember: Boolean(rememberMe) },
+      sessionMaxAge
+    );
     const refreshToken = randomBytes(32).toString('hex');
     await setAuthCookies(accessToken, refreshToken, sessionMaxAge);
     resetAuthFailures(ipRateKey);

@@ -113,10 +113,12 @@ export function shippingFeeFor(
   items: ShippingLine[],
   phone: string,
   rates: ShippingRate[],
-  weights: Record<string, number>
+  weights: Record<string, number>,
+  countryCodeOverride?: string
 ): { fee: number; kg: number; perKgUsd: number; countryCode: string; countryName: string; known: boolean; complete: boolean } {
-  const country = countryOfPhone(phone);
-  const rate = country ? rates.find((r) => r.countryCode === country.code) : undefined;
+  const derived = countryOfPhone(phone);
+  const code = (countryCodeOverride || derived?.code || '').toUpperCase();
+  const rate = code ? rates.find((r) => r.countryCode === code) : undefined;
   const perKgUsd = rate?.perKgUsd ?? DEFAULT_PER_KG_USD;
   const { kg, complete } = totalWeightKg(items, weights);
   const fee = complete ? Math.round(kg * perKgUsd * 100) / 100 : 0;
@@ -124,8 +126,8 @@ export function shippingFeeFor(
     fee,
     kg,
     perKgUsd,
-    countryCode: country?.code ?? '',
-    countryName: country?.name ?? 'Unknown destination',
+    countryCode: code,
+    countryName: rate?.countryName ?? derived?.name ?? 'Unknown destination',
     known: Boolean(rate),
     complete,
   };

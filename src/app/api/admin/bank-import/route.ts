@@ -128,39 +128,40 @@ async function matchTransactions(
   const results: MatchResult[] = [];
 
   for (const tx of transactions) {
-    let matched = false;
-
-    // Priority 1: Order number exact match
-    const orderNumberMatch = tx.reference.match(/AC-\d{8}-\d{3}/i);
-    if (orderNumberMatch) {
-      const orderNumber = orderNumberMatch[0].toUpperCase();
-      const order = pendingOrders.find((o) => o.order_number === orderNumber);
-      if (order) {
-        // Verify amount matches (allow small difference for fees/rounding)
-        const amountDiff = Math.abs(Number(order.total_amount) - tx.amount);
-        if (amountDiff <= 0.01) {
-          results.push({
-            transaction: tx,
-            orderId: order.id,
-            orderNumber: order.order_number,
-            status: 'matched',
-            reason: 'Order number exact match',
-          });
-          matched = true;
-        } else {
-          results.push({
-            transaction: tx,
-            orderId: order.id,
-            orderNumber: order.order_number,
-            status: 'ambiguous',
-            reason: `Order number matched but amount differs: order=${order.total_amount}, tx=${tx.amount}`,
-          });
-          matched = true;
-        }
+    // Priority 1: order number or payment-reference match. The customer only
+    // ever sees the last 8 characters as the payment reference while an order
+    // is pending, so both the full order number and that suffix must match.
+    const referenceTokens = tx.reference
+      .toUpperCase()
+      .split(/[^A-Z0-9]+/)
+      .filter((token) => token.length >= 6);
+    const order = pendingOrders.find((o) => {
+      const full = String(o.order_number || '').toUpperCase();
+      const reference = full.slice(-8);
+      return referenceTokens.some((token) => token === full || token === reference);
+    });
+    if (order) {
+      // Verify amount matches (allow small difference for fees/rounding)
+      const amountDiff = Math.abs(Number(order.total_amount) - tx.amount);
+      if (amountDiff <= 0.01) {
+        results.push({
+          transaction: tx,
+          orderId: order.id,
+          orderNumber: order.order_number,
+          status: 'matched',
+          reason: 'Order number exact match',
+        });
+      } else {
+        results.push({
+          transaction: tx,
+          orderId: order.id,
+          orderNumber: order.order_number,
+          status: 'ambiguous',
+          reason: `Order number matched but amount differs: order=${order.total_amount}, tx=${tx.amount}`,
+        });
       }
+      continue;
     }
-
-    if (matched) continue;
 
     // Priority 2: Amount + date fuzzy match
     const txDate = new Date(tx.date);

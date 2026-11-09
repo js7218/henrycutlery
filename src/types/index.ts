@@ -69,6 +69,9 @@ export interface Address {
 export interface Order {
   id: string;
   orderNumber: string;
+  // Only present while the order is awaiting payment: the customer-facing
+  // reference they should quote, without the official order number.
+  paymentReference?: string;
   items: OrderItem[];
   totalAmount: number;
   status: OrderStatus;

@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import type { Address, Order, User } from '@/types';
+import { customerOrderNumberFields } from '@/lib/orderView';
 
 const connectionString =
   process.env.DATABASE_URL ||
@@ -424,7 +425,7 @@ export async function getUserOrders(userId: string): Promise<Order[]> {
 
   return result.rows.map((row) => ({
     id: row.id,
-    orderNumber: row.order_number,
+    ...customerOrderNumberFields(row.order_number, row.status),
     items: Array.isArray(row.items) ? row.items : [],
     totalAmount: Number(row.total_amount || 0),
     status: row.status,

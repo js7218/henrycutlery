@@ -213,18 +213,10 @@ export async function requireAdmin():
     };
   }
 
-  // MFA (TOTP) 改为「按需启用」：只有管理员配置了 TOTP 密钥时才强制校验。
-  // 代码库目前没有 TOTP 的验证入口（setAdminTOTPSession 无任何调用方），
-  // 若无条件强制，所有 /api/admin/* 都会被永久挡死。
-  const totpEnrolled = Boolean(process.env[getTOTPSecretEnvKey(dbUser.id)]);
-  if (totpEnrolled && !(await isAdminTOTPVerified(dbUser.id))) {
-    return {
-      response: NextResponse.json(
-        { success: false, error: 'Admin MFA (TOTP) verification required.', code: 'ADMIN_TOTP_REQUIRED' },
-        { status: 403 }
-      ),
-    };
-  }
+  // MFA (TOTP) is intentionally NOT enforced here. There is no TOTP
+  // verification endpoint in the app, so requiring it would permanently lock
+  // every admin out as soon as ADMIN_TOTP_SECRET_* was set. The effective
+  // factors are: valid login + role=admin re-checked from Postgres + admin PIN.
 
   return {
     user: {
