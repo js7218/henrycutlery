@@ -1599,13 +1599,6 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  // WeChat Work / WeCom callback endpoint — bypass all WAF rules.
-  // This endpoint is called by Tencent's servers, which don't carry
-  // browser headers (Origin, Referer, etc.) and may use non-standard UAs.
-  if (path === '/api/wecom-kf-callback') {
-    return NextResponse.next();
-  }
-
   const isSafeCheckoutPath = SAFE_PATHS_FOR_CHECKOUT.some(p => path.includes(p));
   const isSocialPublicPageOpen =
     isPublicPagePath(path) &&
