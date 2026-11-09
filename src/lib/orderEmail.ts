@@ -30,6 +30,14 @@ function getOrderReceiverEmail() {
   return process.env.ORDER_RECEIVER_EMAIL || process.env.BUSINESS_EMAIL || 'info@adamcutlery.com';
 }
 
+/**
+ * Recipients for internal admin alerts (new inquiries, daily summaries).
+ * ADMIN_NOTIFY_EMAIL may contain a comma-separated list.
+ */
+export function getAdminNotifyEmails() {
+  return process.env.ADMIN_NOTIFY_EMAIL || getOrderReceiverEmail();
+}
+
 function getPrivateBankDetails() {
   return {
     accountName: process.env.BANK_ACCOUNT_NAME || 'Adam Cutlery',
@@ -319,4 +327,109 @@ export async function sendTransactionalEmail(payload: {
     html: payload.html,
   });
   return { sent: true, skipped: false };
+}
+
+type InquiryEmailPayload = {
+  id: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  company?: string;
+  items: OrderEmailItem[];
+  totalAmount: number;
+  expectedDelivery?: string;
+  customization?: string;
+  notes?: string;
+  reason?: string;
+  createdAt: string;
+};
+
+const reasonLabels: Record<string, string> = {
+  order_value: 'Order value >= $10,000',
+  bulk_quantity: 'Single product quantity >= 1,300 units',
+  insufficient_stock: 'Quantity exceeds current stock',
+};
+
+/**
+ * Notify the owner immediately when a bulk-order inquiry is submitted.
+ */
+export async function sendInquiryNotificationEmail(inquiry: InquiryEmailPayload) {
+  const itemRows = inquiry.items.map((item, index) => `
+    <tr>
+      <td style="padding:8px;border-bottom:1px solid #eee;">${index + 1}</td>
+      <td style="padding:8px;border-bottom:1px solid #eee;">${escapeHtml(item.productName.toUpperCase())}</td>
+      <td style="padding:8px;border-bottom:1px solid #eee;">${item.quantity}</td>
+      <td style="padding:8px;border-bottom:1px solid #eee;">${formatPrice(item.price)}</td>
+      <td style="padding:8px;border-bottom:1px solid #eee;">${formatPrice(item.price * item.quantity)}</td>
+    </tr>
+  `).join('');
+
+  const reasons = (inquiry.reason || '')
+    .split(',')
+    .map((reason) => reason.trim())
+    .filter(Boolean)
+    .map((reason) => reasonLabels[reason] || reason);
+
+  const text = [
+    'New Adam Cutlery bulk order inquiry.',
+    '',
+    `Inquiry ID: ${inquiry.id}`,
+    `Created At: ${inquiry.createdAt}`,
+    reasons.length ? `Reason: ${reasons.join('; ')}` : '',
+    '',
+    `Contact: ${inquiry.contactName}`,
+    `Email: ${inquiry.contactEmail}`,
+    `Phone: ${inquiry.contactPhone}`,
+    inquiry.company ? `Company: ${inquiry.company}` : '',
+    '',
+    `Reference Total: ${formatPrice(inquiry.totalAmount)}`,
+    inquiry.expectedDelivery ? `Expected Delivery: ${inquiry.expectedDelivery}` : '',
+    inquiry.customization ? `Customization: ${inquiry.customization}` : '',
+    inquiry.notes ? `Notes: ${inquiry.notes}` : '',
+    '',
+    'Items:',
+    ...inquiry.items.map((item, index) => `${index + 1}. ${item.productName.toUpperCase()} | Qty: ${item.quantity} | Unit: ${formatPrice(item.price)} | Total: ${formatPrice(item.price * item.quantity)}`),
+  ].filter((line) => line !== '').join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;color:#222;line-height:1.5;">
+      <h2 style="margin:0 0 12px;">New Bulk Order Inquiry</h2>
+      <p><strong>Inquiry ID:</strong> ${escapeHtml(inquiry.id)}</p>
+      <p><strong>Created At:</strong> ${escapeHtml(inquiry.createdAt)}</p>
+      ${reasons.length ? `<p><strong>Reason:</strong> ${escapeHtml(reasons.join('; '))}</p>` : ''}
+
+      <h3 style="margin-top:20px;">Contact</h3>
+      <p><strong>Name:</strong> ${escapeHtml(inquiry.contactName)}</p>
+      <p><strong>Email:</strong> ${escapeHtml(inquiry.contactEmail)}</p>
+      <p><strong>Phone:</strong> ${escapeHtml(inquiry.contactPhone)}</p>
+      ${inquiry.company ? `<p><strong>Company:</strong> ${escapeHtml(inquiry.company)}</p>` : ''}
+
+      <h3 style="margin-top:20px;">Request</h3>
+      <p><strong>Reference Total:</strong> ${formatPrice(inquiry.totalAmount)}</p>
+      ${inquiry.expectedDelivery ? `<p><strong>Expected Delivery:</strong> ${escapeHtml(inquiry.expectedDelivery)}</p>` : ''}
+      ${inquiry.customization ? `<p><strong>Customization:</strong> ${escapeHtml(inquiry.customization)}</p>` : ''}
+      ${inquiry.notes ? `<p><strong>Notes:</strong> ${escapeHtml(inquiry.notes)}</p>` : ''}
+
+      <h3 style="margin-top:20px;">Items</h3>
+      <table style="border-collapse:collapse;width:100%;font-size:14px;">
+        <thead>
+          <tr>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">#</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Product</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Qty</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Unit</th>
+            <th align="left" style="padding:8px;border-bottom:2px solid #ddd;">Total</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+    </div>
+  `;
+
+  return sendTransactionalEmail({
+    to: getAdminNotifyEmails(),
+    subject: `New Bulk Inquiry - ${inquiry.contactName} | Adam Cutlery`,
+    text,
+    html,
+  });
 }

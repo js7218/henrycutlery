@@ -18,6 +18,14 @@ import { ensureDatabaseSchema, getPool } from '@/lib/db';
 const MAX_ORDER_ITEMS = 50;
 const MAX_ITEM_QUANTITY = 5000;
 
+// Bulk thresholds confirmed by the owner: an order at or above $10,000, or
+// containing 1,300+ units of a single product, is handled as an inquiry
+// instead of a self-service order. Quantities beyond available stock also
+// require manual quoting.
+const BULK_ORDER_AMOUNT_USD = 10000;
+const BULK_ITEM_QUANTITY = 1300;
+const HARD_MAX_ITEM_QUANTITY = 100000;
+
 // In production, this would be a database lookup
 function getProductById(productId: string) {
   return products.find(p => p.id === productId);
@@ -322,6 +330,7 @@ export async function POST(request: NextRequest) {
 
     // SECURITY: Validate each item - server-side price lookup
     const verifiedItems = [];
+    const inquiryReasons: string[] = [];
     let serverTotal = 0;
 
     for (const item of items) {
@@ -331,6 +340,13 @@ export async function POST(request: NextRequest) {
       if (typeof productId !== 'string' || typeof quantity !== 'number') {
         return NextResponse.json(
           { error: `Invalid item format for product ${productId}`, code: 'INVALID_ITEM_FORMAT' },
+          { status: 400 }
+        );
+      }
+
+      if (!Number.isInteger(quantity) || quantity > HARD_MAX_ITEM_QUANTITY) {
+        return NextResponse.json(
+          { error: `Invalid quantity for product ${productId}`, code: 'INVALID_QUANTITY' },
           { status: 400 }
         );
       }
@@ -348,7 +364,10 @@ export async function POST(request: NextRequest) {
       const moq = product.moq || 1;
       // SECURITY: Quantity limit based on product type (retail vs wholesale/OEM)
       const maxQuantity = moq >= 100 ? 5000 : 100;
-      if (quantity < moq || quantity > maxQuantity || !Number.isInteger(quantity)) {
+      // Bulk quantities are allowed past the normal per-order cap so they can
+      // be routed to the inquiry flow below instead of being rejected.
+      const isBulkQuantity = quantity >= BULK_ITEM_QUANTITY;
+      if (quantity < moq || (!isBulkQuantity && quantity > maxQuantity)) {
         return NextResponse.json(
           { error: `Invalid quantity for product ${productId}. MOQ is ${moq}, max is ${maxQuantity}.`, code: 'INVALID_QUANTITY' },
           { status: 400 }
@@ -358,6 +377,13 @@ export async function POST(request: NextRequest) {
       // SECURITY: Calculate price SERVER-SIDE using product data
       const itemTotal = product.price * quantity;
       serverTotal += itemTotal;
+
+      if (isBulkQuantity && !inquiryReasons.includes('bulk_quantity')) {
+        inquiryReasons.push('bulk_quantity');
+      }
+      if (quantity > product.stock && !inquiryReasons.includes('insufficient_stock')) {
+        inquiryReasons.push('insufficient_stock');
+      }
 
       verifiedItems.push({
         productId: product.id,
@@ -372,6 +398,39 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (serverTotal >= BULK_ORDER_AMOUNT_USD && !inquiryReasons.includes('order_value')) {
+      inquiryReasons.push('order_value');
+    }
+
+    // Bulk orders are not created as self-service orders. Return the details
+    // the client needs to show the inquiry form.
+    if (inquiryReasons.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'INQUIRY_REQUIRED',
+          error: 'This order qualifies for a bulk quote. Please submit an inquiry and our team will follow up.',
+          inquiry: {
+            reasons: inquiryReasons,
+            totalAmount: serverTotal,
+            items: verifiedItems.map((item) => ({
+              productId: item.productId,
+              productName: item.productName,
+              price: item.price,
+              quantity: item.quantity,
+              lineTotal: item.price * item.quantity,
+            })),
+            suggestedContact: {
+              name: address.name,
+              phone: address.phone,
+              email: authUser.email,
+            },
+          },
+        },
+        { status: 422 }
+      );
+    }
+
     // SECURITY: Generate order with server-verified data
     // SECURITY: Generate order fingerprint to prevent duplicate submissions
     const productIds = items.map((item: { productId: string }) => item.productId).sort().join(',');
@@ -380,8 +439,22 @@ export async function POST(request: NextRequest) {
       .update(`${authUser.id}:${productIds}:${minuteTimestamp}`)
       .digest('hex');
 
+    // Canonical signature of what is being ordered (product + quantity). Used
+    // to spot an identical order submitted seconds apart under a fresh key.
+    const itemsSignature = verifiedItems
+      .map((item) => `${item.productId}:${item.quantity}`)
+      .sort()
+      .join(',');
+
+    // A key supplied by the client makes retries safe: the same key always
+    // resolves to the same order. Clients that omit it still get a random key
+    // so the column and unique index stay consistent.
+    const clientKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';
+    const idempotencyKey = clientKey.length >= 8 ? clientKey.slice(0, 128) : randomUUID();
+    const force = body.force === true;
+
     const order = {
-      id: `o${Date.now()}`,
+      id: `o${randomUUID()}`,
       orderNumber: generateOrderNumber(),
       items: verifiedItems,
       // SECURITY: Total calculated server-side
@@ -404,21 +477,72 @@ export async function POST(request: NextRequest) {
 
     try {
       await ensureDatabaseSchema();
+      const db = getPool();
 
-      // SECURITY: Check for duplicate order fingerprint to prevent race condition
-      const duplicateCheck = await getPool().query(
-        `SELECT id FROM orders WHERE user_id = $1 AND id = $2 LIMIT 1`,
-        [authUser.id, order.id]
-      );
+      // 1) Idempotent retry: the same key always returns the original order.
+      if (clientKey.length >= 8) {
+        const existing = await db.query(
+          `SELECT id, order_number, items, total_amount, status, shipping_address, payment_method,
+                  tracking_number, created_at, updated_at
+           FROM orders
+           WHERE user_id = $1 AND idempotency_key = $2
+           LIMIT 1`,
+          [authUser.id, idempotencyKey]
+        );
+        if (existing.rowCount) {
+          return NextResponse.json({
+            success: true,
+            idempotent: true,
+            order: mapOrderRow(existing.rows[0]),
+            serverTotal: Number(existing.rows[0].total_amount || 0),
+            message: 'This order was already placed. Returning the existing order.',
+          });
+        }
+      }
 
-      await getPool().query(
+      // 2) Duplicate guard: an identical order within the last 60 seconds
+      // requires an explicit second confirmation (force=true) to go through.
+      if (!force) {
+        const recent = await db.query(
+          `SELECT id, order_number, items, total_amount, status, created_at
+           FROM orders
+           WHERE user_id = $1 AND created_at > NOW() - INTERVAL '60 seconds'
+           ORDER BY created_at DESC
+           LIMIT 20`,
+          [authUser.id]
+        );
+        const duplicate = recent.rows.find((row) => itemsSignatureOf(row.items) === itemsSignature);
+        if (duplicate) {
+          return NextResponse.json(
+            {
+              success: false,
+              code: 'DUPLICATE_ORDER',
+              error: 'An identical order was placed less than a minute ago. Please confirm that you want to place another one.',
+              duplicateOrder: {
+                id: duplicate.id,
+                orderNumber: duplicate.order_number,
+                totalAmount: Number(duplicate.total_amount || 0),
+                status: duplicate.status,
+                createdAt: toIsoString(duplicate.created_at),
+              },
+            },
+            { status: 409 }
+          );
+        }
+      }
+
+      // 3) Insert. ON CONFLICT covers both a duplicated id and a concurrent
+      // request carrying the same idempotency key.
+      const inserted = await db.query(
         `
           INSERT INTO orders (
             id, user_id, order_number, items, total_amount, status,
-            shipping_address, payment_method, created_at, updated_at
+            shipping_address, payment_method, created_at, updated_at, idempotency_key
           )
-          VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb, $8, $9, $10)
-          ON CONFLICT (id) DO NOTHING
+          VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb, $8, $9, $10, $11)
+          ON CONFLICT DO NOTHING
+          RETURNING id, order_number, items, total_amount, status, shipping_address,
+                    payment_method, tracking_number, created_at, updated_at
         `,
         [
           order.id,
@@ -431,34 +555,53 @@ export async function POST(request: NextRequest) {
           order.paymentMethod,
           order.createdAt,
           order.updatedAt,
+          idempotencyKey,
         ]
       );
 
+      if (!inserted.rowCount) {
+        // A concurrent request won the race for this idempotency key.
+        const existing = await db.query(
+          `SELECT id, order_number, items, total_amount, status, shipping_address, payment_method,
+                  tracking_number, created_at, updated_at
+           FROM orders
+           WHERE user_id = $1 AND idempotency_key = $2
+           LIMIT 1`,
+          [authUser.id, idempotencyKey]
+        );
+        if (existing.rowCount) {
+          return NextResponse.json({
+            success: true,
+            idempotent: true,
+            order: mapOrderRow(existing.rows[0]),
+            serverTotal: Number(existing.rows[0].total_amount || 0),
+            message: 'This order was already placed. Returning the existing order.',
+          });
+        }
+        throw new Error('Order insert did not return a row');
+      }
+
       await saveAddressForUser(authUser.id, address);
-    } catch {
+
+      // Email is NOT sent on order creation.
+      // Admin notification is only sent when payment is confirmed (status changed to 'paid')
+      // via /api/order/update-status. This prevents false alerts for unpaid orders.
+
+      return NextResponse.json({
+        success: true,
+        order: mapOrderRow(inserted.rows[0]),
+        // SECURITY: Return server-calculated total for client display
+        serverTotal,
+        message: 'Order created with server-verified pricing. Awaiting payment confirmation.',
+      });
+
+    } catch (err) {
+      console.error('[order/create] save failed:', err instanceof Error ? err.message : 'Unknown error');
       return NextResponse.json(
         { error: 'Failed to save order', code: 'ORDER_SAVE_FAILED' },
         { status: 500 }
       );
     }
-
-    // Email is NOT sent on order creation.
-    // Admin notification is only sent when payment is confirmed (status changed to 'paid')
-    // via /api/order/update-status. This prevents false alerts for unpaid orders.
-
-    return NextResponse.json({
-      success: true,
-      order: {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        totalAmount: order.totalAmount,
-        status: order.status,
-        createdAt: order.createdAt,
-      },
-      // SECURITY: Return server-calculated total for client display
-      serverTotal,
-      message: 'Order created with server-verified pricing. Awaiting payment confirmation.',
-    });
 
   } catch (error) {
     return NextResponse.json(
@@ -491,4 +634,46 @@ export async function GET(request: NextRequest) {
 function generateOrderHash(items: Array<{ productId: string; price: number; quantity: number }>, total: number): string {
   const data = items.map(i => `${i.productId}:${i.price}:${i.quantity}`).join('|') + `|total:${total}`;
   return createHash('sha256').update(data).digest('hex');
+}
+
+function toIsoString(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value;
+  return new Date().toISOString();
+}
+
+function itemsSignatureOf(value: unknown): string {
+  if (!Array.isArray(value)) return '';
+  return value
+    .map((item) => `${String(item?.productId ?? '')}:${Number(item?.quantity ?? 0)}`)
+    .sort()
+    .join(',');
+}
+
+interface OrderRow {
+  id: string;
+  order_number: string;
+  items: unknown;
+  total_amount: string | number;
+  status: string;
+  shipping_address: unknown;
+  payment_method: string;
+  tracking_number?: string | null;
+  created_at?: Date | string;
+  updated_at?: Date | string;
+}
+
+function mapOrderRow(row: OrderRow) {
+  return {
+    id: row.id,
+    orderNumber: row.order_number,
+    items: Array.isArray(row.items) ? row.items : [],
+    totalAmount: Number(row.total_amount || 0),
+    status: row.status,
+    shippingAddress: row.shipping_address,
+    paymentMethod: row.payment_method,
+    trackingNumber: row.tracking_number || '',
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at ?? row.created_at),
+  };
 }

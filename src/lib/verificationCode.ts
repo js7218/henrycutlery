@@ -36,10 +36,13 @@ function checkRateLimit(identifier: string): boolean {
   return true;
 }
 
+export type VerificationPurpose = 'login' | 'register' | 'reset';
+
 export async function createVerificationCode(
   identifier: string,
   type: 'email' | 'phone',
-  ip: string
+  ip: string,
+  purpose: VerificationPurpose = 'login'
 ): Promise<{ code: string; expiresAt: Date } | null> {
   if (!checkRateLimit(identifier)) {
     return null; // Rate limited
@@ -61,8 +64,8 @@ export async function createVerificationCode(
   // Insert new code
   await pool.query(
     `INSERT INTO verification_codes (id, ${type}, code_hash, purpose, expires_at, ip)
-     VALUES ($1, $2, $3, 'login', $4, $5)`,
-    [id, identifier, codeHash, expiresAt, ip]
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, identifier, codeHash, purpose, expiresAt, ip]
   );
 
   return { code, expiresAt };
@@ -71,7 +74,8 @@ export async function createVerificationCode(
 export async function verifyCode(
   identifier: string,
   type: 'email' | 'phone',
-  code: string
+  code: string,
+  purpose: VerificationPurpose = 'login'
 ): Promise<{ valid: boolean; userId?: string; error?: string }> {
   const codeHash = hashCode(code);
   const pool = getPool();
@@ -79,10 +83,12 @@ export async function verifyCode(
   const result = await pool.query(
     `SELECT id, user_id, code_hash, expires_at, used_at, attempts
      FROM verification_codes
-     WHERE ${type} = $1 AND used_at IS NULL
+     WHERE ${type} = $1
+       AND purpose = $2
+       AND used_at IS NULL
      ORDER BY created_at DESC
      LIMIT 1`,
-    [identifier]
+    [identifier, purpose]
   );
 
   const row = result.rows[0];

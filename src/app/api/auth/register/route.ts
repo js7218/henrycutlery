@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { randomBytes, randomUUID } from 'crypto';
 import { createJWT, setAuthCookies } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool, getUserById } from '@/lib/db';
-import { hashPassword, verifyPassword } from '@/lib/password';
+import { hashPassword } from '@/lib/password';
+import { verifyCode } from '@/lib/verificationCode';
 import { checkAuthAllowed, getClientIp, recordAuthFailure, resetAuthFailures } from '@/lib/authRateLimit';
 import { WEAK_PASSWORD_SET } from '@/data/weakPasswords';
 
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
     // Normalize phone: strip country code prefix (e.g., "+86 ") so we store just the local number
     const normalizedPhone = phone.replace(/^\+\d{1,4}[\s-]*/, '');
     const password = typeof body.password === 'string' ? body.password : '';
+    const code = typeof body.code === 'string' ? body.code.trim() : '';
     const rateKey = `register:${getClientIp(request)}:${email || 'unknown'}`;
     const allowed = checkAuthAllowed(rateKey);
 
@@ -58,40 +60,38 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!/^\d{6}$/.test(code)) {
+      recordAuthFailure(rateKey);
+      return NextResponse.json(
+        { success: false, code: 'INVALID_CODE', error: 'Please enter the 6-digit verification code sent to your email' },
+        { status: 400 }
+      );
+    }
+
     await ensureDatabaseSchema();
+
+    // Email ownership must be proven before a new account is created.
+    const verifyResult = await verifyCode(email, 'email', code, 'register');
+    if (!verifyResult.valid) {
+      recordAuthFailure(rateKey);
+      return NextResponse.json(
+        { success: false, code: 'INVALID_CODE', error: verifyResult.error || 'Verification code is invalid or has expired' },
+        { status: 400 }
+      );
+    }
+
     const existing = await getPool().query(
-      `
-        SELECT
-          u.id,
-          u.password_hash,
-          COALESCE((SELECT COUNT(*)::int FROM addresses a WHERE a.user_id = u.id), 0) AS address_count,
-          COALESCE((SELECT COUNT(*)::int FROM orders o WHERE o.user_id = u.id), 0) AS order_count,
-          COALESCE(jsonb_array_length(u.favorites), 0) AS favorite_count,
-          u.deleted_at
-        FROM users u
-        WHERE LOWER(u.email) = LOWER($1)
-        LIMIT 1
-      `,
+      `SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
       [email]
     );
 
     if (existing.rowCount) {
-      const existingUser = existing.rows[0];
-      if (existingUser && await verifyPassword(password, existingUser.password_hash)) {
-        const dbUser = await getUserById(existingUser.id);
-        if (dbUser) {
-          const accessToken = createJWT({ userId: dbUser.id, email: dbUser.email, role: dbUser.role || 'user' });
-          const refreshToken = randomBytes(32).toString('hex');
-          await setAuthCookies(accessToken, refreshToken);
-          resetAuthFailures(rateKey);
-          const response = NextResponse.json({ success: true, user: dbUser });
-          response.headers.set('Cache-Control', 'no-store');
-          return response;
-        }
-      }
-
       return NextResponse.json(
-        { success: false, error: 'Registration failed. Please check your input or try again later' },
+        {
+          success: false,
+          code: 'EMAIL_ALREADY_REGISTERED',
+          error: 'This email is already registered. Please sign in or reset your password.',
+        },
         { status: 409 }
       );
     }

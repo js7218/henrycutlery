@@ -188,11 +188,12 @@ interface AppContextType {
   cartCount: number;
   login: (email: string, password: string) => Promise<boolean>;
   loginWithCode: (type: 'email' | 'phone', identifier: string, code: string) => Promise<boolean>;
-  sendVerificationCode: (type: 'email' | 'phone', identifier: string) => Promise<{ success: boolean; error?: string; code?: string }>;
-  register: (name: string, email: string, password: string, phone: string) => Promise<{ success: boolean; error?: string }>;
+  sendVerificationCode: (type: 'email' | 'phone', identifier: string, purpose?: 'login' | 'register' | 'reset') => Promise<{ success: boolean; error?: string; code?: string }>;
+  register: (name: string, email: string, password: string, phone: string, code: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   createOrder: (address: Address, paymentMethod: PaymentMethod) => Order | null;
+  confirmOrderReceived: (orderId: string) => Promise<{ success: boolean; error?: string }>;
   toggleFavorite: (productId: string) => Promise<void>;
   // SECURITY: Session check
   isSessionValid: () => boolean;
@@ -428,12 +429,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ============================================================================
   // SECURITY: Send Verification Code
   // ============================================================================
-  const sendVerificationCode = async (type: 'email' | 'phone', identifier: string): Promise<{ success: boolean; error?: string; code?: string }> => {
+  const sendVerificationCode = async (type: 'email' | 'phone', identifier: string, purpose: 'login' | 'register' | 'reset' = 'login'): Promise<{ success: boolean; error?: string; code?: string }> => {
     try {
       const response = await fetch('/api/auth/send-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, identifier }),
+        body: JSON.stringify({ type, identifier, purpose }),
       });
 
       const data = await response.json().catch(() => null);
@@ -451,7 +452,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ============================================================================
   // SECURITY: Register with Full Protection
   // ============================================================================
-  const register = async (name: string, email: string, password: string, phone: string): Promise<{ success: boolean; error?: string }> => {
+  const register = async (name: string, email: string, password: string, phone: string, code: string): Promise<{ success: boolean; error?: string }> => {
     await new Promise((resolve) => setTimeout(resolve, 80));
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -472,7 +473,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email: normalizedEmail, password, phone }),
+        body: JSON.stringify({ name, email: normalizedEmail, password, phone, code }),
       });
 
       const data = await response.json().catch(() => null);
@@ -577,6 +578,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // ============================================================================
+  // SECURITY: Customer confirms receipt (shipped -> delivered)
+  // The server checks order ownership; the UI only flips local state on success.
+  // ============================================================================
+  const confirmOrderReceived = async (orderId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const response = await fetch('/api/order/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, action: 'confirm-receipt' }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        return { success: false, error: data?.error || 'Failed to confirm receipt. Please try again.' };
+      }
+      dispatch({ type: 'UPDATE_ORDER_STATUS', orderId, status: 'delivered' });
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error. Please try again.' };
+    }
+  };
+
+  // ============================================================================
   // SECURITY: Session Validity Check
   // ============================================================================
   const isSessionValid = useCallback((): boolean => {
@@ -623,6 +646,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         refreshUser,
         toggleFavorite,
         createOrder,
+        confirmOrderReceived,
         isSessionValid,
         canAccessResource,
         hasRole,

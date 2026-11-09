@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BarChart3, Database, Loader2, MessageSquare, Search, ShieldX, Sparkles, Users } from 'lucide-react';
+import { BarChart3, Database, Inbox, Loader2, MessageSquare, Search, ShieldX, Sparkles, Users } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatDate, formatPrice, cn } from '@/lib/utils';
 import SeoReviewPanel from '@/components/admin/SeoReviewPanel';
 
-type Tab = 'dashboard' | 'customers' | 'reviews' | 'seo' | 'security';
+type Tab = 'dashboard' | 'customers' | 'reviews' | 'inquiries' | 'seo' | 'security';
 
 type Customer = {
   id: string;
@@ -38,6 +38,7 @@ type CustomerDetail = {
     totalAmount: number;
     status: string;
     paymentMethod: string;
+    trackingNumber?: string;
     createdAt: string;
   }>;
 };
@@ -55,10 +56,35 @@ type Review = {
   createdAt: string;
 };
 
+type Inquiry = {
+  id: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  company: string;
+  items: Array<{ productId: string; productName: string; price: number; quantity: number; lineTotal: number }>;
+  totalAmount: number;
+  expectedDelivery: string;
+  customization: string;
+  notes: string;
+  reason: string;
+  status: 'new' | 'quoted' | 'sample_sent' | 'won' | 'closed';
+  createdAt: string;
+};
+
+const inquiryStatusLabels: Record<Inquiry['status'], string> = {
+  new: 'New',
+  quoted: 'Quoted',
+  sample_sent: 'Sample Sent',
+  won: 'Won',
+  closed: 'Closed',
+};
+
 const tabs: Array<{ id: Tab; label: string; icon: typeof BarChart3 }> = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { id: 'customers', label: 'Customers', icon: Users },
   { id: 'reviews', label: 'Reviews', icon: MessageSquare },
+  { id: 'inquiries', label: 'Inquiries', icon: Inbox },
   { id: 'seo', label: 'SEO', icon: Sparkles },
   { id: 'security', label: 'Security', icon: Database },
 ];
@@ -87,6 +113,11 @@ export default function AdminPage() {
   const [selected, setSelected] = useState<CustomerDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewStatus, setReviewStatus] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [orderDrafts, setOrderDrafts] = useState<Record<string, { status: string; trackingNumber: string }>>({});
+  const [savingOrderId, setSavingOrderId] = useState('');
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [inquiryStatus, setInquiryStatus] = useState<'all' | Inquiry['status']>('all');
+  const [updatingInquiryId, setUpdatingInquiryId] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -137,8 +168,57 @@ export default function AdminPage() {
     try {
       const data = await fetchJson<CustomerDetail>(`/api/admin/customers/${customerId}`);
       setSelected(data);
+      setOrderDrafts(
+        Object.fromEntries(
+          data.orders.map((order) => [
+            order.id,
+            { status: order.status, trackingNumber: order.trackingNumber || '' },
+          ])
+        )
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load customer detail.');
+    }
+  };
+
+  const updateOrderDraft = (orderId: string, patch: Partial<{ status: string; trackingNumber: string }>) => {
+    setOrderDrafts((prev) => ({
+      ...prev,
+      [orderId]: { ...(prev[orderId] || { status: '', trackingNumber: '' }), ...patch },
+    }));
+  };
+
+  const saveOrder = async (orderId: string) => {
+    const draft = orderDrafts[orderId];
+    if (!draft) return;
+    setError('');
+    setSavingOrderId(orderId);
+    try {
+      await fetchJson('/api/order/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          status: draft.status,
+          trackingNumber: draft.trackingNumber,
+        }),
+      });
+      setSelected((prev) =>
+        prev
+          ? {
+              ...prev,
+              orders: prev.orders.map((order) =>
+                order.id === orderId
+                  ? { ...order, status: draft.status, trackingNumber: draft.trackingNumber }
+                  : order
+              ),
+            }
+          : prev
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update order.');
+    } finally {
+      setSavingOrderId('');
     }
   };
 
@@ -166,6 +246,33 @@ export default function AdminPage() {
     }
   };
 
+  const loadInquiries = useCallback(async (status = inquiryStatus) => {
+    setError('');
+    try {
+      const data = await fetchJson<{ inquiries: Inquiry[] }>(`/api/admin/inquiries?status=${status}`);
+      setInquiries(data.inquiries);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load inquiries.');
+    }
+  }, [inquiryStatus]);
+
+  const updateInquiry = async (id: string, status: Inquiry['status']) => {
+    setError('');
+    setUpdatingInquiryId(id);
+    try {
+      await fetchJson(`/api/admin/inquiries/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      setInquiries((prev) => prev.map((inquiry) => (inquiry.id === id ? { ...inquiry, status } : inquiry)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update inquiry.');
+    } finally {
+      setUpdatingInquiryId('');
+    }
+  };
+
   const submitPin = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
@@ -179,7 +286,7 @@ export default function AdminPage() {
       if (data.success) {
         setPinVerified(true);
         setPin('');
-        await Promise.all([loadCustomers(''), loadReviews('pending')]);
+        await Promise.all([loadCustomers(''), loadReviews('pending'), loadInquiries('all')]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid admin PIN.');
@@ -192,7 +299,8 @@ export default function AdminPage() {
     if (!isAuthorized || !pinVerified) return;
     loadCustomers('');
     loadReviews('pending');
-  }, [isAuthorized, pinVerified, loadCustomers, loadReviews]);
+    loadInquiries('all');
+  }, [isAuthorized, pinVerified, loadCustomers, loadReviews, loadInquiries]);
 
   if (!isLoading && !isAuthorized) {
     return (
@@ -398,18 +506,52 @@ export default function AdminPage() {
                     <div>
                       <h3 className="text-sm font-semibold text-gold mb-3">Orders</h3>
                       <div className="space-y-3">
-                        {selected.orders.map((order) => (
-                          <div key={order.id} className="p-3 rounded-lg bg-surfaceLight text-sm flex justify-between gap-4">
-                            <div>
-                              <p className="text-foreground font-mono">{order.orderNumber}</p>
-                              <p className="text-gray-400">{order.status} · {order.paymentMethod}</p>
+                        {selected.orders.map((order) => {
+                          const draft = orderDrafts[order.id] || { status: order.status, trackingNumber: order.trackingNumber || '' };
+                          const editableStatuses = ['paid', 'shipped', 'delivered', 'cancelled'];
+                          return (
+                            <div key={order.id} className="p-3 rounded-lg bg-surfaceLight text-sm space-y-3">
+                              <div className="flex justify-between gap-4">
+                                <div>
+                                  <p className="text-foreground font-mono">{order.orderNumber}</p>
+                                  <p className="text-gray-400">{order.status} · {order.paymentMethod}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-gold">{formatPrice(order.totalAmount)}</p>
+                                  <p className="text-xs text-gray-500">{formatDate(order.createdAt)}</p>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <select
+                                  value={draft.status}
+                                  onChange={(event) => updateOrderDraft(order.id, { status: event.target.value })}
+                                  className="px-2 py-1.5 bg-surface border border-border rounded text-foreground text-xs focus:outline-none focus:border-gold"
+                                >
+                                  {!editableStatuses.includes(draft.status) && (
+                                    <option value={draft.status} disabled>{draft.status}</option>
+                                  )}
+                                  <option value="paid">paid</option>
+                                  <option value="shipped">shipped</option>
+                                  <option value="delivered">delivered</option>
+                                  <option value="cancelled">cancelled</option>
+                                </select>
+                                <input
+                                  value={draft.trackingNumber}
+                                  onChange={(event) => updateOrderDraft(order.id, { trackingNumber: event.target.value })}
+                                  placeholder="Tracking number"
+                                  className="flex-1 min-w-[140px] px-2 py-1.5 bg-surface border border-border rounded text-foreground text-xs focus:outline-none focus:border-gold"
+                                />
+                                <button
+                                  onClick={() => saveOrder(order.id)}
+                                  disabled={savingOrderId === order.id}
+                                  className="px-3 py-1.5 rounded bg-gold text-background text-xs disabled:opacity-60"
+                                >
+                                  {savingOrderId === order.id ? 'Saving...' : 'Save'}
+                                </button>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-gold">{formatPrice(order.totalAmount)}</p>
-                              <p className="text-xs text-gray-500">{formatDate(order.createdAt)}</p>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                         {selected.orders.length === 0 && <p className="text-gray-500 text-sm">No orders yet.</p>}
                       </div>
                     </div>
@@ -460,6 +602,96 @@ export default function AdminPage() {
                 </div>
               ))}
               {reviews.length === 0 && <p className="text-gray-400">No reviews in this status.</p>}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'inquiries' && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'Playfair Display, serif' }}>Bulk Order Inquiries</h1>
+              <select
+                value={inquiryStatus}
+                onChange={(event) => {
+                  const status = event.target.value as typeof inquiryStatus;
+                  setInquiryStatus(status);
+                  loadInquiries(status);
+                }}
+                className="px-4 py-2 bg-surface border border-border rounded-lg text-foreground focus:outline-none focus:border-gold"
+              >
+                <option value="all">All</option>
+                <option value="new">New</option>
+                <option value="quoted">Quoted</option>
+                <option value="sample_sent">Sample Sent</option>
+                <option value="won">Won</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div className="space-y-4">
+              {inquiries.map((inquiry) => (
+                <div key={inquiry.id} className="bg-surface border border-border rounded-xl p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-foreground font-medium">
+                        {inquiry.contactName}
+                        {inquiry.company ? ` · ${inquiry.company}` : ''}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {inquiry.contactEmail} · {inquiry.contactPhone || 'No phone'} · {formatDate(inquiry.createdAt)}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        'px-2 py-1 rounded-full text-xs',
+                        inquiry.status === 'won'
+                          ? 'bg-green-500/10 text-green-400'
+                          : inquiry.status === 'closed'
+                            ? 'bg-gray-500/10 text-gray-400'
+                            : inquiry.status === 'new'
+                              ? 'bg-yellow-500/10 text-yellow-400'
+                              : 'bg-blue-500/10 text-blue-300'
+                      )}
+                    >
+                      {inquiryStatusLabels[inquiry.status]}
+                    </span>
+                  </div>
+
+                  <div className="text-sm text-gray-300 space-y-1 mb-3">
+                    {inquiry.items.map((item) => (
+                      <p key={item.productId} className="flex justify-between gap-3">
+                        <span>{item.productName} × {item.quantity}</span>
+                        <span className="text-gold">{formatPrice(item.lineTotal)}</span>
+                      </p>
+                    ))}
+                    <p className="text-foreground">Reference total: {formatPrice(inquiry.totalAmount)}</p>
+                  </div>
+
+                  {(inquiry.expectedDelivery || inquiry.customization || inquiry.notes) && (
+                    <div className="text-xs text-gray-400 space-y-1 mb-3">
+                      {inquiry.expectedDelivery && <p>Expected delivery: {inquiry.expectedDelivery}</p>}
+                      {inquiry.customization && <p>Customization: {inquiry.customization}</p>}
+                      {inquiry.notes && <p>Notes: {inquiry.notes}</p>}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={inquiry.status}
+                      onChange={(event) => updateInquiry(inquiry.id, event.target.value as Inquiry['status'])}
+                      disabled={updatingInquiryId === inquiry.id}
+                      className="px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-gold disabled:opacity-60"
+                    >
+                      <option value="new">New</option>
+                      <option value="quoted">Quoted</option>
+                      <option value="sample_sent">Sample Sent</option>
+                      <option value="won">Won</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                    {updatingInquiryId === inquiry.id && <span className="text-xs text-gray-500">Saving...</span>}
+                  </div>
+                </div>
+              ))}
+              {inquiries.length === 0 && <p className="text-gray-400">No inquiries in this status.</p>}
             </div>
           </div>
         )}

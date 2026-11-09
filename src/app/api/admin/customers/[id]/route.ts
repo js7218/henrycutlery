@@ -47,7 +47,7 @@ export async function GET(
         [id]
       ),
       getPool().query(
-        `SELECT id, order_number, total_amount, status, payment_method, created_at
+        `SELECT id, order_number, total_amount, status, payment_method, tracking_number, created_at
          FROM orders
          WHERE user_id = $1
          ORDER BY created_at DESC
@@ -73,6 +73,7 @@ export async function GET(
         totalAmount: Number(row.total_amount),
         status: row.status,
         paymentMethod: row.payment_method,
+        trackingNumber: row.tracking_number || '',
         createdAt: row.created_at?.toISOString?.() || new Date().toISOString(),
       })),
     });

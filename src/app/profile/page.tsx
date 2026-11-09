@@ -63,7 +63,7 @@ export default function ProfilePage() {
 function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { state, logout, dispatch, refreshUser } = useApp();
+  const { state, logout, dispatch, refreshUser, confirmOrderReceived } = useApp();
 
   const [activeTab, setActiveTab] = useState<Tab>('orders');
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -87,6 +87,17 @@ function ProfileContent() {
   const [addressError, setAddressError] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [confirmingOrderId, setConfirmingOrderId] = useState('');
+  const [orderMessage, setOrderMessage] = useState('');
+
+  const handleConfirmReceipt = async (orderId: string) => {
+    if (!window.confirm('Confirm that you have received this order?')) return;
+    setConfirmingOrderId(orderId);
+    setOrderMessage('');
+    const result = await confirmOrderReceived(orderId);
+    setConfirmingOrderId('');
+    setOrderMessage(result.success ? 'Receipt confirmed. Thank you!' : (result.error || 'Failed to confirm receipt.'));
+  };
 
   useEffect(() => {
     const tab = searchParams?.get('tab') as Tab;
@@ -302,6 +313,12 @@ function ProfileContent() {
               <h1 className="text-2xl font-bold text-foreground mb-6" style={{ fontFamily: 'Playfair Display, serif' }}>
                 My Orders
               </h1>
+
+              {orderMessage && (
+                <div className="mb-4 rounded-lg border border-gold/30 bg-gold/10 p-3 text-sm text-gold">
+                  {orderMessage}
+                </div>
+              )}
               
               {state.orders.length === 0 ? (
                 <div className="bg-surface border border-border rounded-lg p-12 text-center">
@@ -354,6 +371,27 @@ function ProfileContent() {
                           </div>
                         ))}
                       </div>
+
+                      {(order.trackingNumber || order.status === 'shipped') && (
+                        <div className="mt-4 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-sm text-gray-400">
+                            {order.trackingNumber ? (
+                              <>Tracking: <span className="font-mono text-foreground">{order.trackingNumber}</span></>
+                            ) : (
+                              'Tracking number will be shared by email once your parcel is on the way.'
+                            )}
+                          </p>
+                          {order.status === 'shipped' && (
+                            <button
+                              onClick={() => handleConfirmReceipt(order.id)}
+                              disabled={confirmingOrderId === order.id}
+                              className="px-4 py-2 bg-gold text-background rounded-lg hover:bg-goldLight transition-colors disabled:opacity-60"
+                            >
+                              {confirmingOrderId === order.id ? 'Confirming...' : 'Confirm Receipt'}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

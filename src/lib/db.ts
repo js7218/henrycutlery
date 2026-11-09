@@ -169,6 +169,53 @@ async function runSchemaMigration(): Promise<void> {
         WHERE order_number IS NOT NULL;
       `);
 
+      // Idempotency key supplied by the checkout page. Two submissions with the
+      // same key map to a single order, so a double click or a retried request
+      // after a timeout cannot create a duplicate order.
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_key TEXT;`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_number TEXT NOT NULL DEFAULT '';`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipped_at TIMESTAMPTZ;`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;`);
+      await db.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS orders_idempotency_key_idx
+        ON orders (idempotency_key)
+        WHERE idempotency_key IS NOT NULL;
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS orders_user_created_idx
+        ON orders (user_id, created_at DESC);
+      `);
+
+      // Bulk orders (high value / high quantity / beyond stock) do not create
+      // an order. They are captured as inquiries for manual quoting.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS inquiries (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          contact_name TEXT NOT NULL,
+          contact_email TEXT NOT NULL,
+          contact_phone TEXT NOT NULL DEFAULT '',
+          company TEXT NOT NULL DEFAULT '',
+          items JSONB NOT NULL,
+          total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+          expected_delivery TEXT NOT NULL DEFAULT '',
+          customization TEXT NOT NULL DEFAULT '',
+          notes TEXT NOT NULL DEFAULT '',
+          reason TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'new',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS inquiries_status_created_idx
+        ON inquiries (status, created_at DESC);
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS inquiries_user_created_idx
+        ON inquiries (user_id, created_at DESC);
+      `);
+
       // Password reset tokens. We never email plaintext passwords; the
       // customer clicks a one-time link bound to a hashed token.
       await db.query(`
@@ -204,6 +251,17 @@ async function runSchemaMigration(): Promise<void> {
       await db.query(`CREATE INDEX IF NOT EXISTS verification_codes_email_idx ON verification_codes(email) WHERE used_at IS NULL;`);
       await db.query(`CREATE INDEX IF NOT EXISTS verification_codes_phone_idx ON verification_codes(phone) WHERE used_at IS NULL;`);
       await db.query(`CREATE INDEX IF NOT EXISTS verification_codes_expires_idx ON verification_codes(expires_at);`);
+
+      // Shared fixed-window counters. Kept in the database because serverless
+      // instances cannot share in-memory rate limit state.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS rate_limits (
+          key TEXT PRIMARY KEY,
+          window_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          count INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS rate_limits_window_idx ON rate_limits(window_start);`);
 
       // Login history for multi-device detection and security alerts
       await db.query(`
@@ -316,7 +374,8 @@ export async function getUserOrders(userId: string): Promise<Order[]> {
   await ensureDatabaseSchema();
   const result = await getPool().query(
     `
-      SELECT id, order_number, items, total_amount, status, shipping_address, payment_method, created_at, updated_at
+      SELECT id, order_number, items, total_amount, status, shipping_address, payment_method,
+             tracking_number, shipped_at, delivered_at, created_at, updated_at
       FROM orders
       WHERE user_id = $1
       ORDER BY created_at DESC
@@ -333,6 +392,9 @@ export async function getUserOrders(userId: string): Promise<Order[]> {
     status: row.status,
     shippingAddress: row.shipping_address,
     paymentMethod: row.payment_method,
+    trackingNumber: row.tracking_number || '',
+    shippedAt: row.shipped_at?.toISOString?.() || undefined,
+    deliveredAt: row.delivered_at?.toISOString?.() || undefined,
     createdAt: row.created_at?.toISOString?.() || new Date().toISOString(),
     updatedAt: row.updated_at?.toISOString?.() || new Date().toISOString(),
   }));

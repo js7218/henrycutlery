@@ -74,6 +74,9 @@ export interface Order {
   status: OrderStatus;
   shippingAddress: Address;
   paymentMethod: PaymentMethod;
+  trackingNumber?: string;
+  shippedAt?: string;
+  deliveredAt?: string;
   createdAt: string;
   role?: 'user' | 'admin';
   updatedAt: string;

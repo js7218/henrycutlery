@@ -100,6 +100,28 @@ export default function CheckoutPage() {
   const [geocodingValid, setGeocodingValid] = useState<boolean | null>(null);
   const [isValidatingAddress, setIsValidatingAddress] = useState(false);
   const lastPaymentAttemptRef = useRef(0);
+  // Stable key for one checkout attempt. A retried request carrying the same
+  // key resolves to the same order server-side instead of creating a duplicate.
+  const idempotencyKeyRef = useRef('');
+  const [pendingDuplicate, setPendingDuplicate] = useState<{
+    orderNumber: string;
+    totalAmount: number;
+    createdAt: string;
+  } | null>(null);
+  const [inquiryPrompt, setInquiryPrompt] = useState<{
+    reasons: string[];
+    totalAmount: number;
+    items: Array<{ productId: string; productName: string; price: number; quantity: number; lineTotal: number }>;
+  } | null>(null);
+  const [inquiryForm, setInquiryForm] = useState({
+    company: '',
+    phone: '',
+    expectedDelivery: '',
+    customization: '',
+    notes: '',
+  });
+  const [submittingInquiry, setSubmittingInquiry] = useState(false);
+  const [inquirySent, setInquirySent] = useState(false);
 
   // New address form
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
@@ -207,20 +229,18 @@ export default function CheckoutPage() {
     setCurrentStep('payment');
   };
 
-  const handlePayment = async () => {
-    if (!selectedAddress) return;
-    if (isProcessing) return;
-    const now = Date.now();
-    if (now - lastPaymentAttemptRef.current < 3000) return;
-    lastPaymentAttemptRef.current = now;
-
-    const addressValidation = validateAddress(selectedAddress);
-    if (addressValidation) {
-      securityLogger.log('INPUT_VALIDATION_FAILURE', 'Checkout: incomplete address');
-      setAddressError(addressValidation);
-      return;
+  const getOrCreateIdempotencyKey = () => {
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `k${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     }
+    return idempotencyKeyRef.current;
+  };
 
+  const submitOrder = async (force: boolean) => {
+    if (!selectedAddress) return;
     setIsProcessing(true);
     setPaymentError('');
 
@@ -243,6 +263,8 @@ export default function CheckoutPage() {
           items: orderItems,
           address: selectedAddress,
           paymentMethod,
+          idempotencyKey: getOrCreateIdempotencyKey(),
+          force,
         }),
       });
 
@@ -256,6 +278,34 @@ export default function CheckoutPage() {
       if (!response.ok || !result.success) {
         if (response.status === 401 || result.code === 'LOGIN_REQUIRED') {
           router.replace('/login?next=/checkout');
+          setIsProcessing(false);
+          return;
+        }
+        // Bulk orders ($10,000+, 1,300+ units, or beyond stock) become an
+        // inquiry instead of a self-service order.
+        if (response.status === 422 && result.code === 'INQUIRY_REQUIRED' && result.inquiry) {
+          setInquiryPrompt(result.inquiry);
+          setInquirySent(false);
+          setInquiryForm({
+            company: '',
+            phone: selectedAddress?.phone || '',
+            expectedDelivery: '',
+            customization: '',
+            notes: '',
+          });
+          setIsProcessing(false);
+          return;
+        }
+        // Identical order placed less than a minute ago: ask for confirmation
+        // before forcing a second one through.
+        if (response.status === 409 && result.code === 'DUPLICATE_ORDER') {
+          setPendingDuplicate(
+            result.duplicateOrder || {
+              orderNumber: '',
+              totalAmount: 0,
+              createdAt: new Date().toISOString(),
+            }
+          );
           setIsProcessing(false);
           return;
         }
@@ -280,13 +330,74 @@ export default function CheckoutPage() {
       dispatch({ type: 'ADD_ORDER', order: serverOrder });
       dispatch({ type: 'CLEAR_CART' });
 
+      // This checkout attempt is finished; the next one needs a fresh key.
+      idempotencyKeyRef.current = '';
+
       securityLogger.log('ORDER_CREATED', `Server-verified order ${serverOrder.orderNumber}, total: ${result.serverTotal}`);
       setCurrentStep('complete');
+      setIsProcessing(false);
     } catch (error) {
       securityLogger.log('ORDER_FAILED', 'Failed to create order via API');
       setPaymentError('Network error. Please check your connection and try again.');
       setIsProcessing(false);
     }
+  };
+
+  const handlePayment = async () => {
+    if (!selectedAddress) return;
+    if (isProcessing) return;
+    const now = Date.now();
+    if (now - lastPaymentAttemptRef.current < 3000) return;
+    lastPaymentAttemptRef.current = now;
+
+    const addressValidation = validateAddress(selectedAddress);
+    if (addressValidation) {
+      securityLogger.log('INPUT_VALIDATION_FAILURE', 'Checkout: incomplete address');
+      setAddressError(addressValidation);
+      return;
+    }
+
+    await submitOrder(false);
+  };
+
+  const handleConfirmDuplicate = async () => {
+    setPendingDuplicate(null);
+    await submitOrder(true);
+  };
+
+  const handleSubmitInquiry = async () => {
+    if (!inquiryPrompt || submittingInquiry) return;
+    setSubmittingInquiry(true);
+    setPaymentError('');
+    try {
+      const response = await fetch('/api/inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: inquiryPrompt.items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+          })),
+          contactName: selectedAddress?.name || state.user?.name || '',
+          contactPhone: inquiryForm.phone || selectedAddress?.phone || '',
+          company: inquiryForm.company,
+          expectedDelivery: inquiryForm.expectedDelivery,
+          customization: inquiryForm.customization,
+          notes: inquiryForm.notes,
+          reason: inquiryPrompt.reasons.join(','),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.success) {
+        setPaymentError(data?.error || 'Failed to submit inquiry. Please try again.');
+        setSubmittingInquiry(false);
+        return;
+      }
+      setInquirySent(true);
+    } catch {
+      setPaymentError('Network error. Please try again.');
+    }
+    setSubmittingInquiry(false);
   };
 
   const handleCopyOrderNumber = () => {
@@ -759,6 +870,158 @@ export default function CheckoutPage() {
                 Continue Shopping
               </button>
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate order confirmation: an identical order was placed < 60s ago */}
+      {pendingDuplicate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-2">Place this order again?</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              You placed an identical order less than a minute ago
+              {pendingDuplicate.orderNumber ? (
+                <>
+                  {' '}(<span className="font-mono text-gold">{pendingDuplicate.orderNumber}</span>)
+                </>
+              ) : null}
+              . Place another one only if that was intentional.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setPendingDuplicate(null)}
+                className="flex-1 px-4 py-3 border border-border text-gray-300 rounded-lg hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDuplicate}
+                disabled={isProcessing}
+                className="flex-1 px-4 py-3 bg-gold text-background rounded-lg hover:bg-goldLight transition-colors disabled:opacity-60"
+              >
+                {isProcessing ? 'Placing...' : 'Yes, place another'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Bulk order inquiry form */}
+      {inquiryPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-xl border border-border bg-surface p-6 my-auto">
+            {inquirySent ? (
+              <>
+                <h2 className="text-lg font-semibold text-foreground mb-2">Inquiry received</h2>
+                <p className="text-sm text-gray-400 mb-6">
+                  Thank you. Our team will review your bulk order request and contact you at{' '}
+                  <span className="text-foreground">{state.user?.email}</span> shortly.
+                </p>
+                <button
+                  onClick={() => {
+                    setInquiryPrompt(null);
+                    setInquirySent(false);
+                    setPaymentError('');
+                  }}
+                  className="w-full px-4 py-3 bg-gold text-background rounded-lg hover:bg-goldLight transition-colors"
+                >
+                  Close
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold text-foreground mb-2">Bulk Order Inquiry</h2>
+                <p className="text-sm text-gray-400 mb-4">
+                  This order qualifies for a volume quote, so it will not be placed directly. Send us an inquiry and our
+                  team will confirm pricing, stock, and lead time.
+                </p>
+
+                <div className="mb-4 rounded-lg border border-gold/30 bg-gold/10 p-3 text-xs text-gold space-y-1">
+                  {inquiryPrompt.reasons.map((reason) => (
+                    <p key={reason}>
+                      {reason === 'order_value'
+                        ? 'Order value is $10,000 or above'
+                        : reason === 'bulk_quantity'
+                          ? 'A single product quantity is 1,300 units or above'
+                          : reason === 'insufficient_stock'
+                            ? 'A quantity exceeds current stock'
+                            : reason}
+                    </p>
+                  ))}
+                  <p className="text-gray-300">
+                    Estimated reference total: {formatPrice(inquiryPrompt.totalAmount)}
+                  </p>
+                </div>
+
+                <div className="mb-4 max-h-32 overflow-y-auto rounded-lg border border-border bg-surfaceLight p-3 text-xs text-gray-300 space-y-1">
+                  {inquiryPrompt.items.map((item) => (
+                    <p key={item.productId} className="flex justify-between gap-3">
+                      <span>{item.productName} × {item.quantity}</span>
+                      <span className="text-gold">{formatPrice(item.lineTotal)}</span>
+                    </p>
+                  ))}
+                </div>
+
+                <div className="space-y-3">
+                  <input
+                    value={inquiryForm.company}
+                    onChange={(event) => setInquiryForm((prev) => ({ ...prev, company: event.target.value }))}
+                    placeholder="Company name (optional)"
+                    className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
+                  />
+                  <input
+                    value={inquiryForm.phone}
+                    onChange={(event) => setInquiryForm((prev) => ({ ...prev, phone: event.target.value }))}
+                    placeholder="Contact phone with country code"
+                    className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
+                  />
+                  <input
+                    value={inquiryForm.expectedDelivery}
+                    onChange={(event) => setInquiryForm((prev) => ({ ...prev, expectedDelivery: event.target.value }))}
+                    placeholder="Expected delivery date (optional)"
+                    className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
+                  />
+                  <textarea
+                    value={inquiryForm.customization}
+                    onChange={(event) => setInquiryForm((prev) => ({ ...prev, customization: event.target.value }))}
+                    placeholder="Customization requirements, e.g. logo, blade steel, packaging"
+                    rows={2}
+                    className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold resize-none"
+                  />
+                  <textarea
+                    value={inquiryForm.notes}
+                    onChange={(event) => setInquiryForm((prev) => ({ ...prev, notes: event.target.value }))}
+                    placeholder="Anything else we should know?"
+                    rows={2}
+                    className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold resize-none"
+                  />
+                </div>
+
+                {paymentError && (
+                  <p className="mt-3 text-sm text-red-400">{paymentError}</p>
+                )}
+
+                <div className="mt-5 flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => {
+                      setInquiryPrompt(null);
+                      setPaymentError('');
+                    }}
+                    disabled={submittingInquiry}
+                    className="flex-1 px-4 py-3 border border-border text-gray-300 rounded-lg hover:text-foreground transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmitInquiry}
+                    disabled={submittingInquiry || !inquiryForm.phone.trim()}
+                    className="flex-1 px-4 py-3 bg-gold text-background rounded-lg hover:bg-goldLight transition-colors disabled:opacity-60"
+                  >
+                    {submittingInquiry ? 'Submitting...' : 'Submit Inquiry'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

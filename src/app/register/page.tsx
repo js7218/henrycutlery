@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, Eye, EyeOff, User, Phone, UserPlus, Check, X } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User, Phone, UserPlus, Check, X, ShieldCheck } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { getSafeReturnPathFromBrowser } from '@/lib/safeNavigation';
 
@@ -392,12 +392,16 @@ function PasswordRequirements({ password }: { password: string }) {
 // ============================================================================
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useApp();
+  const { register, sendVerificationCode } = useApp();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+86');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [codeSending, setCodeSending] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -439,6 +443,44 @@ export default function RegisterPage() {
 
     return () => clearInterval(interval);
   }, [isLocked]);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((current) => (current <= 1 ? 0 : current - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  const handleSendCode = useCallback(async () => {
+    if (codeSending || countdown > 0 || isLocked || isLoading) return;
+
+    setError('');
+    setSecurityErrors([]);
+
+    const emailSanitized = sanitizeInput(email, 'email');
+    const cleanEmail = emailSanitized.sanitized;
+    const emailValidation = validateEmailStrict(cleanEmail);
+    if (!emailValidation.valid) {
+      setError(emailValidation.error || 'Please enter a valid email address');
+      return;
+    }
+
+    setCodeSending(true);
+    try {
+      const result = await sendVerificationCode('email', cleanEmail, 'register');
+      if (result.success) {
+        setCodeSent(true);
+        setCountdown(60);
+      } else {
+        setError(result.error || 'Failed to send verification code. Please try again.');
+      }
+    } catch {
+      setError('Network error, please try again');
+    } finally {
+      setCodeSending(false);
+    }
+  }, [email, codeSending, countdown, isLocked, isLoading, sendVerificationCode]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -490,6 +532,12 @@ export default function RegisterPage() {
       setError(emailValidation.error!);
       return;
     }
+
+    const cleanCode = verificationCode.trim();
+    if (!/^\d{6}$/.test(cleanCode)) {
+      setError('Please enter the 6-digit verification code sent to your email');
+      return;
+    }
     
     const phoneValidation = validatePhoneStrict(cleanPhone);
     if (!phoneValidation.valid) {
@@ -523,7 +571,7 @@ export default function RegisterPage() {
     submittingRef.current = true;
     
     try {
-      const result = await register(cleanName, cleanEmail, cleanPassword, cleanPhone);
+      const result = await register(cleanName, cleanEmail, cleanPassword, cleanPhone, cleanCode);
       
       if (result.success) {
         localStorage.removeItem(OLD_REGISTER_ATTEMPTS_KEY);
@@ -538,7 +586,7 @@ export default function RegisterPage() {
       setIsLoading(false);
       submittingRef.current = false;
     }
-  }, [name, email, phone, countryCode, password, confirmPassword, agreeTerms, register, router, isLoading]);
+  }, [name, email, phone, countryCode, verificationCode, password, confirmPassword, agreeTerms, register, router, isLoading]);
 
   const formatCountdown = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -622,6 +670,39 @@ export default function RegisterPage() {
                 className="w-full pl-12 pr-4 py-3 bg-surfaceLight border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
               />
             </div>
+          </div>
+
+          {/* Email Verification Code */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Email Verification Code <span className="text-red-400">*</span>
+            </label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="6-digit code"
+                  inputMode="numeric"
+                  maxLength={6}
+                  disabled={isLocked || isLoading}
+                  className="w-full pl-12 pr-4 py-3 bg-surfaceLight border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSendCode}
+                disabled={codeSending || countdown > 0 || isLocked || isLoading}
+                className="px-4 py-3 bg-gold/10 border border-gold/40 text-gold text-sm font-medium rounded-lg hover:bg-gold/20 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {codeSending ? 'Sending...' : countdown > 0 ? `Resend in ${countdown}s` : codeSent ? 'Resend code' : 'Send code'}
+              </button>
+            </div>
+            {codeSent && (
+              <p className="text-xs text-green-400 mt-1">Code sent. Please check your inbox (and spam folder).</p>
+            )}
           </div>
 
           {/* Phone */}
