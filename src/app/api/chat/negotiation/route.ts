@@ -127,6 +127,10 @@ function fallbackLine(amount: number): string {
   return `I can do $${amount.toFixed(2)} for shipping on this order — that's the best we can offer.`;
 }
 
+function acceptLine(amount: number): string {
+  return `Done — $${amount.toFixed(2)} for shipping. Press the button in the chat to apply it.`;
+}
+
 /**
  * Pulls money-like numbers out of free text, supporting both "9,500" (thousands
  * separator) and "23.5" (decimal point).
@@ -273,16 +277,29 @@ export async function POST(request: NextRequest) {
 
     let offerUsd: number | null = null;
     let token: string | undefined;
-    // Safety net: if the customer explicitly named an acceptable amount and the
-    // model answered with words only, honour the amount the customer asked for.
-    if (modelOffer === null) {
-      const lastUser = [...messages].reverse().find((message) => message.role === 'user');
-      const amounts = parseAmounts(lastUser?.content || '').filter(
-        (value) => value >= floor && value <= 1_000_000
-      );
-      if (amounts.length > 0) {
-        modelOffer = amounts[amounts.length - 1];
+    // The customer's own number always wins. The model is asked to echo it, but
+    // in practice it keeps returning the floor once a discount has been offered,
+    // so we extract it here and override the model.
+    const lastUser = [...messages].reverse().find((message) => message.role === 'user');
+    const lastUserText = (lastUser?.content || '').trim();
+    const namedAmounts = parseAmounts(lastUserText).filter(
+      (value) => value >= floor && value <= 1_000_000
+    );
+    const looksLikeOffer =
+      namedAmounts.length > 0 &&
+      (lastUserText.replace(/[\d.,\s$]/g, '').length <= 3 ||
+        /\b(pay|paying|make it|do|take|accept|ok|okay|let'?s|how about|fine|deal|agreed?|use|set|go with|will pay|i can)\b/i.test(
+          lastUserText
+        ));
+    if (looksLikeOffer) {
+      modelOffer = namedAmounts[namedAmounts.length - 1];
+      if (!reply.includes(modelOffer.toFixed(2)) && !reply.includes(String(modelOffer))) {
+        reply = acceptLine(modelOffer);
       }
+    } else if (modelOffer === null && namedAmounts.length > 0) {
+      // Safety net: the customer named an acceptable amount and the model only
+      // answered with words.
+      modelOffer = namedAmounts[namedAmounts.length - 1];
     }
     if (typeof modelOffer === 'number' && Number.isFinite(modelOffer)) {
       // Paying more is never a loss, so there is no upper cap: any amount at
