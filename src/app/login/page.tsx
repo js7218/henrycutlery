@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, LogIn, Phone, ShieldCheck, KeyRound } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { getSafeReturnPathFromBrowser } from '@/lib/safeNavigation';
@@ -381,6 +382,7 @@ function resetLoginAttempts(): void {
 // ============================================================================
 export default function LoginPage() {
   const { login, sendVerificationCode, loginWithCode } = useApp();
+  const router = useRouter();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'password' | 'code'>('password');
@@ -514,9 +516,9 @@ export default function LoginPage() {
       if (success) {
         // SECURITY: Reset attempts on successful login
         resetLoginAttempts();
-        // Full navigation so the new session cookie is picked up by the
-        // server-rendered protected page without a client-state race.
-        window.location.assign(getSafeReturnPathFromBrowser() || '/profile');
+        // Client-side navigation avoids a full reload and the blank screen
+        // that appears while the protected page re-fetches the session.
+        router.push(getSafeReturnPathFromBrowser() || '/profile');
       } else {
         setError('Incorrect email or password');
       }
@@ -637,7 +639,7 @@ export default function LoginPage() {
       if (success) {
         // SECURITY: Reset attempts on successful login
         resetLoginAttempts();
-        window.location.assign(getSafeReturnPathFromBrowser() || '/profile');
+        router.push(getSafeReturnPathFromBrowser() || '/profile');
       } else {
         setError('Incorrect verification code');
       }

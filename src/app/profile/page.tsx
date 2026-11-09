@@ -122,7 +122,11 @@ function ProfileContent() {
   }, [state.user]);
 
   if (!isSessionReady || !state.user) {
-    return null;
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <span className="h-8 w-8 rounded-full border-2 border-gold/30 border-t-gold animate-spin" />
+      </div>
+    );
   }
 
   const favoriteProducts = state.user ? products.filter(p => state.user?.favorites.includes(p.id)) : [];

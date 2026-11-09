@@ -42,11 +42,7 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
           <button
             onClick={() => {
               onSelect(method.id);
-              if (method.id === 'wechat' || method.id === 'alipay') {
-                setShowQrCode(true);
-              } else {
-                setShowQrCode(false);
-              }
+              setShowQrCode(method.id === 'wechat');
             }}
             className={`w-full flex items-center justify-between p-4 border rounded-lg transition-all ${
               selected === method.id
