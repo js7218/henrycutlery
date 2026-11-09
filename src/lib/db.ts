@@ -139,7 +139,7 @@ async function runSchemaMigration(): Promise<void> {
         CREATE TABLE IF NOT EXISTS shipping_rates (
           country_code TEXT PRIMARY KEY,
           country_name TEXT NOT NULL DEFAULT '',
-          per_kg_usd NUMERIC(10,2) NOT NULL,
+          per_kg_usd NUMERIC(12,4) NOT NULL,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
@@ -147,9 +147,29 @@ async function runSchemaMigration(): Promise<void> {
       await db.query(`
         CREATE TABLE IF NOT EXISTS product_weights (
           product_id TEXT PRIMARY KEY,
-          weight_kg NUMERIC(10,3) NOT NULL,
+          weight_kg NUMERIC(12,6) NOT NULL,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+      `);
+
+      // Accept whatever precision the owner types instead of silently rounding
+      // shipping inputs to 2 or 3 decimals.
+      await db.query(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'shipping_rates' AND column_name = 'per_kg_usd' AND numeric_scale < 4
+          ) THEN
+            ALTER TABLE shipping_rates ALTER COLUMN per_kg_usd TYPE NUMERIC(12,4);
+          END IF;
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'product_weights' AND column_name = 'weight_kg' AND numeric_scale < 6
+          ) THEN
+            ALTER TABLE product_weights ALTER COLUMN weight_kg TYPE NUMERIC(12,6);
+          END IF;
+        END $$;
       `);
 
       // Freight can only be calculated automatically once every SKU has a
