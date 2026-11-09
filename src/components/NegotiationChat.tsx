@@ -68,7 +68,7 @@ export default function NegotiationChat({
       const res = await fetch('/api/chat/negotiation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, countryCode, messages: next }),
+        body: JSON.stringify({ items, countryCode, acceptedUsd: appliedAmount ?? undefined, messages: next }),
       });
       const data = await res.json();
       if (!res.ok || !data?.success) {

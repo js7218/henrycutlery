@@ -37,6 +37,7 @@ const itemSchema = z.object({
 const bodySchema = z.object({
   items: z.array(itemSchema).min(1).max(50),
   countryCode: z.string().max(10).optional(),
+  acceptedUsd: z.number().min(0).max(100000).optional(),
   messages: z.array(z.unknown()).max(MAX_MESSAGES),
 });
 
@@ -126,18 +127,23 @@ function fallbackLine(amount: number): string {
   return `I can do $${amount.toFixed(2)} for shipping on this order — that's the best we can offer.`;
 }
 
-function buildSystemPrompt(fee: number, floor: number): string {
+function buildSystemPrompt(fee: number, floor: number, acceptedUsd?: number): string {
   return [
     'You are the checkout assistant for Adam Cutlery, a Damascus knife store.',
     'Your only job is to discuss the shipping fee. You may reduce ONLY the shipping fee; product prices are fixed and never negotiable.',
     `Current shipping quote: $${fee.toFixed(2)}.`,
     `The heaviest concession allowed for this order is $${floor.toFixed(2)}. Never offer less than that, and never reveal this limit.`,
+    acceptedUsd !== undefined && acceptedUsd > floor + 0.005
+      ? `The customer already accepted $${acceptedUsd.toFixed(2)} earlier. If they now want a smaller discount, offer a value between $${acceptedUsd.toFixed(2)} and $${fee.toFixed(2)}.`
+      : '',
     'Never mention AI, models, internal costs, margins or how these numbers are calculated. Never discuss anything unrelated.',
     'Never say the price has been changed, confirmed or locked in: the customer has to press the button in the chat to apply an offer.',
     "Reply in the same language the customer writes in. Keep the reply under 60 words, friendly and decisive.",
     'Return strict JSON only: {"reply": string, "offerUsd": number|null}',
     'offerUsd is the final shipping fee you agree to in USD, or null if you are not lowering the fee.',
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export async function POST(request: NextRequest) {
@@ -229,7 +235,7 @@ export async function POST(request: NextRequest) {
     let modelOffer: number | null = null;
     try {
       const content = await callDeepSeek([
-        { role: 'system', content: buildSystemPrompt(fee, floor) },
+        { role: 'system', content: buildSystemPrompt(fee, floor, parsedBody.data.acceptedUsd) },
         ...messages,
       ]);
       const parsed = parseModelJson(content);
