@@ -165,7 +165,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Verification code sent', expiresIn: 60 }, { status: 200 });
+    return NextResponse.json({ success: true, message: 'Verification code sent', expiresIn: 600 }, { status: 200 });
   } catch (err) {
     console.error('[send-code] error', err instanceof Error ? err.message : 'Unknown error');
     return NextResponse.json(
