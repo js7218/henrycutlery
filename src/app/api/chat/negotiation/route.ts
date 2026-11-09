@@ -78,7 +78,7 @@ async function callDeepSeek(messages: Array<{ role: 'system' | 'user' | 'assista
     body: JSON.stringify({
       model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
       messages,
-      temperature: 0.4,
+      temperature: 0.8,
       response_format: { type: 'json_object' },
     }),
   });
@@ -124,11 +124,11 @@ function round2(value: number): number {
 }
 
 function fallbackLine(amount: number): string {
-  return `I can do $${amount.toFixed(2)} for shipping on this order — that's the best we can offer.`;
+  return `Honestly, $${amount.toFixed(2)} is as far as I can go on this one — anything lower and we lose money on the parcel.`;
 }
 
 function acceptLine(amount: number): string {
-  return `Done — $${amount.toFixed(2)} for shipping. Press the button in the chat to apply it.`;
+  return `Sure thing — $${amount.toFixed(2)} for shipping works. Tap the button below and I'll apply it to this order.`;
 }
 
 /**
@@ -206,7 +206,8 @@ function parseUnitIntent(text: string): number | null {
 
 function buildSystemPrompt(fee: number, floor: number, acceptedUsd?: number): string {
   return [
-    'You are the checkout assistant for Adam Cutlery, a Damascus knife store.',
+    'You are Mia, the person who looks after shipping at Adam Cutlery, a small Damascus knife workshop.',
+    'Write like a real human replying on WhatsApp: warm, relaxed, direct. Use contractions, short sentences and the occasional natural touch ("thanks for asking", "honestly", "sure thing"). Never sound like a script or a call-centre bot.',
     'Your only job is to discuss the shipping fee. You may reduce ONLY the shipping fee; product prices are fixed and never negotiable.',
     `Current shipping quote: $${fee.toFixed(2)}.`,
     `The heaviest concession allowed for this order is $${floor.toFixed(2)}. Never offer less than that, and never reveal this limit.`,
@@ -218,7 +219,8 @@ function buildSystemPrompt(fee: number, floor: number, acceptedUsd?: number): st
     'Never mention AI, models, internal costs, margins or how these numbers are calculated. Never discuss anything unrelated.',
     'The customer may also volunteer to pay MORE than the quote, for example to round the total up. Accept any amount they suggest above the current quote.',
     'Never say the price has been changed, confirmed or locked in: the customer has to press the button in the chat to apply an offer.',
-    "Reply in the same language the customer writes in. Keep the reply under 60 words, friendly and decisive.",
+    'Vary your wording between messages so it never looks copy-pasted. Avoid corporate filler like "I understand your concern" or "As per your request". At most one emoji, and only if it fits.',
+    "Reply in the same language the customer writes in. Keep it under 60 words and sound like a person who actually ships knives for a living.",
     'Return strict JSON only: {"reply": string, "offerUsd": number|null}',
     'offerUsd is the final shipping fee you agree to in USD, or null if the fee stays exactly as quoted.',
   ]
@@ -377,9 +379,9 @@ export async function POST(request: NextRequest) {
         const units = await addUnitsToCart(unitIntent);
         if (units > 0) {
           addUnits = { productId: primaryProduct.id, quantity: units, unitPrice: primaryProduct.price };
-          reply = `Added ${units} more ${units === 1 ? 'unit' : 'units'} of ${primaryProduct.name} to your cart. Shipping is recalculated for the new weight.`;
+          reply = `Done — added ${units} more of ${primaryProduct.name} to your cart. Shipping recalculated for the heavier parcel.`;
         } else {
-          reply = `Sorry, there are no more units of ${primaryProduct.name} available to add right now.`;
+          reply = `Ah, I don't have any more of ${primaryProduct.name} to add right now, sorry.`;
         }
       } else {
         // "Remove one knife" / "减一把": never drop below the minimum order quantity.
@@ -391,9 +393,9 @@ export async function POST(request: NextRequest) {
         const removed = inCart - target;
         if (removed > 0) {
           removeUnits = { productId: primaryProduct.id, quantity: removed };
-          reply = `Removed ${removed} ${removed === 1 ? 'unit' : 'units'} of ${primaryProduct.name}. Your cart now has ${target}. Shipping is recalculated for the new weight.`;
+          reply = `No problem — I took ${removed} off. You're at ${target} now, and the shipping adjusts to the lighter parcel.`;
         } else {
-          reply = `${primaryProduct.name} is already at its minimum order quantity (${moq}).`;
+          reply = `${primaryProduct.name} is already at the smallest batch we ship (${moq}), so I can't take one off.`;
         }
       }
     } else if (looksLikeOffer) {
@@ -418,9 +420,9 @@ export async function POST(request: NextRequest) {
           units = await addUnitsToCart(units);
           if (units > 0) {
             addUnits = { productId: product.id, quantity: units, unitPrice: product.price };
-            reply = `That covers ${units} more ${units === 1 ? 'unit' : 'units'} of ${product.name}. I have added ${units === 1 ? 'it' : 'them'} to your cart — shipping is recalculated for the new weight.`;
+            reply = `Nice, that covers ${units} more of ${product.name} — I've put ${units === 1 ? 'it' : 'them'} in your cart, and the shipping follows the new weight.`;
           } else {
-            reply = `The extra $${extra.toFixed(2)} does not cover another ${product.name} ($${product.price.toFixed(2)} each). Add $${(product.price - extra).toFixed(2)} more to include one.`;
+            reply = `That extra $${extra.toFixed(2)} doesn't quite reach another ${product.name} ($${product.price.toFixed(2)} each). Another $${(product.price - extra).toFixed(2)} and I can add one.`;
           }
           modelOffer = null;
         } else {
