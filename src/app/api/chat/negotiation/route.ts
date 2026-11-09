@@ -161,8 +161,12 @@ function parseUnitIntent(text: string): number | null {
   const cn: Record<string, number> = {
     一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10,
   };
-  const toNumber = (raw: string) =>
-    /^\d+$/.test(raw) ? Number(raw) : [...raw].reduce((sum, char) => sum + (cn[char] ?? words[char] ?? 0), 0);
+  const toNumber = (raw: string) => {
+    if (/^\d+$/.test(raw)) return Number(raw);
+    if (words[raw] !== undefined) return words[raw];
+    if (cn[raw] !== undefined) return cn[raw];
+    return [...raw].reduce((sum, char) => sum + (cn[char] ?? 0), 0);
+  };
 
   // Removing units is expressed as a negative intent.
   const removeEnglish =
