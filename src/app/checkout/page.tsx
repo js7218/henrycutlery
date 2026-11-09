@@ -470,7 +470,7 @@ export default function CheckoutPage() {
   };
 
   const handleCopyOrderNumber = () => {
-    navigator.clipboard.writeText(orderNumber);
+    navigator.clipboard.writeText(orderNumber.slice(-8).toUpperCase());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -885,13 +885,16 @@ export default function CheckoutPage() {
           <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-500/20 flex items-center justify-center">
             <CheckCircle className="w-10 h-10 text-green-500" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Order Submitted Successfully</h2>
-          <p className="text-gray-400 mb-8">Thank you for your purchase!</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Order Received</h2>
+          <p className="text-gray-400 mb-2">Thank you. Your order is awaiting payment.</p>
+          <p className="text-sm text-yellow-400/90 mb-8">
+            The order number will be issued once we confirm your payment.
+          </p>
 
           <div className="bg-surface border border-border rounded-lg p-6 mb-8">
-            <p className="text-sm text-gray-400 mb-2">Order Number</p>
+            <p className="text-sm text-gray-400 mb-2">Payment Reference</p>
             <div className="flex items-center justify-center gap-2">
-              <span className="text-xl font-mono text-gold">{orderNumber}</span>
+              <span className="text-xl font-mono text-gold">{orderNumber.slice(-8).toUpperCase()}</span>
               <button
                 onClick={handleCopyOrderNumber}
                 className="p-2 text-gray-400 hover:text-gold transition-colors"
@@ -916,7 +919,7 @@ export default function CheckoutPage() {
                 <div className="mt-4 p-3 bg-gold/10 border border-gold/30 rounded-lg">
                   <p className="text-sm text-gold font-medium mb-1">Important:</p>
                   <p className="text-sm text-gray-300">
-                    Please include your order number <span className="font-mono text-gold">{orderNumber}</span> in the transfer reference/remark.
+                    Please include your payment reference <span className="font-mono text-gold">{orderNumber.slice(-8).toUpperCase()}</span> in the transfer reference/remark.
                     This helps us confirm your payment faster.
                   </p>
                 </div>
@@ -1041,13 +1044,13 @@ export default function CheckoutPage() {
                   <input
                     value={inquiryForm.company}
                     onChange={(event) => setInquiryForm((prev) => ({ ...prev, company: event.target.value }))}
-                    placeholder="Company name (optional)"
+                    placeholder="Company name (required)"
                     className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
                   />
                   <input
                     value={inquiryForm.phone}
                     onChange={(event) => setInquiryForm((prev) => ({ ...prev, phone: event.target.value }))}
-                    placeholder="Contact phone with country code"
+                    placeholder="Your contact phone with country code (required)"
                     className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
                   />
                   <input
@@ -1089,7 +1092,7 @@ export default function CheckoutPage() {
                   </button>
                   <button
                     onClick={handleSubmitInquiry}
-                    disabled={submittingInquiry || !inquiryForm.phone.trim()}
+                    disabled={submittingInquiry || !inquiryForm.phone.trim() || !inquiryForm.company.trim()}
                     className="flex-1 px-4 py-3 bg-gold text-background rounded-lg hover:bg-goldLight transition-colors disabled:opacity-60"
                   >
                     {submittingInquiry ? 'Submitting...' : 'Submit Inquiry'}

@@ -90,6 +90,9 @@ export async function POST(request: Request) {
     if (contactPhone.length < 5) {
       return NextResponse.json({ success: false, error: 'Please provide a contact phone number.' }, { status: 400 });
     }
+    if (company.length < 2) {
+      return NextResponse.json({ success: false, error: 'Please provide your company name.' }, { status: 400 });
+    }
 
     const id = `inq_${randomUUID()}`;
     const pool = getPool();

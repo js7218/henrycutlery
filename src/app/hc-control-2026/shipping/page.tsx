@@ -20,6 +20,11 @@ export default function ShippingAdminPage() {
   const [savingRates, setSavingRates] = useState(false);
   const [savingWeights, setSavingWeights] = useState(false);
 
+  const missingWeightCount = useMemo(
+    () => products.filter((product) => !weights[product.id]).length,
+    [weights]
+  );
+
   useEffect(() => {
     fetch('/api/shipping/rates')
       .then((res) => res.json())
@@ -100,6 +105,14 @@ export default function ShippingAdminPage() {
 
         {status && <p className="text-sm text-green-400">{status}</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
+
+        {missingWeightCount > 0 && (
+          <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-300">
+            {missingWeightCount} product{missingWeightCount === 1 ? '' : 's'} still have no weight.
+            Orders containing them show <strong>To Be Quoted</strong> instead of a shipping fee until you
+            enter a weight in the list below.
+          </div>
+        )}
 
         <section className="bg-surface border border-border rounded-lg p-5">
           <div className="flex items-start justify-between gap-4 mb-4">

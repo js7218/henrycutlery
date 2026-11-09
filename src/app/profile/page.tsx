@@ -89,6 +89,28 @@ function ProfileContent() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [confirmingOrderId, setConfirmingOrderId] = useState('');
   const [orderMessage, setOrderMessage] = useState('');
+  const [deletingOrderId, setDeletingOrderId] = useState('');
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!window.confirm('Delete this order from your history? This cannot be undone.')) return;
+    setDeletingOrderId(orderId);
+    setOrderMessage('');
+    try {
+      const res = await fetch('/api/order/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setOrderMessage(data.error || 'Failed to delete order.');
+        return;
+      }
+      await refreshUser();
+    } finally {
+      setDeletingOrderId('');
+    }
+  };
 
   const handleConfirmReceipt = async (orderId: string) => {
     if (!window.confirm('Confirm that you have received this order?')) return;
@@ -120,6 +142,21 @@ function ProfileContent() {
       setProfilePhone(state.user.phone || '');
     }
   }, [state.user]);
+
+  // Re-fetch orders when the customer returns to this tab so an admin status
+  // change (paid / shipped / tracking number) shows up without a manual reload.
+  useEffect(() => {
+    if (!isSessionReady || !state.user) return;
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void refreshUser();
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [isSessionReady, state.user, refreshUser]);
 
   if (!isSessionReady || !state.user) {
     return (
@@ -341,8 +378,15 @@ function ProfileContent() {
                     <div key={order.id} className="bg-surface border border-border rounded-lg p-6">
                       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-border">
                         <div>
-                          <p className="text-sm text-gray-400">Order Number</p>
-                          <p className="font-mono text-foreground">{order.orderNumber}</p>
+                          <p className="text-sm text-gray-400">{order.status === 'pending' ? 'Payment Reference' : 'Order Number'}</p>
+                          <p className="font-mono text-foreground">
+                            {order.status === 'pending'
+                              ? order.orderNumber.slice(-8).toUpperCase()
+                              : order.orderNumber}
+                          </p>
+                          {order.status === 'pending' && (
+                            <p className="text-[11px] text-gray-500">Order number issued after payment confirmation</p>
+                          )}
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Order Date</p>
@@ -396,6 +440,18 @@ function ProfileContent() {
                               {confirmingOrderId === order.id ? 'Confirming...' : 'Confirm Receipt'}
                             </button>
                           )}
+                        </div>
+                      )}
+
+                      {['pending', 'cancelled', 'delivered'].includes(order.status) && (
+                        <div className="mt-4 pt-4 border-t border-border flex justify-end">
+                          <button
+                            onClick={() => handleDeleteOrder(order.id)}
+                            disabled={deletingOrderId === order.id}
+                            className="px-4 py-2 border border-red-500/40 text-red-400 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-60"
+                          >
+                            {deletingOrderId === order.id ? 'Deleting...' : 'Delete Order'}
+                          </button>
                         </div>
                       )}
                     </div>
