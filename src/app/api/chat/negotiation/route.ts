@@ -357,6 +357,12 @@ export async function POST(request: NextRequest) {
       /(?:shipping|freight|postage|运费|邮费|物流费|快递费)[^.!?]{0,15}?\$?\d[\d.,]*|\$?\d[\d.,]*[^.!?]{0,12}?(?:shipping|freight|postage|运费|邮费|物流费|快递费)|(?:多付|多给|多加|凑整|凑到|凑个整|加)\s*\$?\d[\d.,]*/i.test(
         lastUserText
       );
+    // "add 1200 to the shipping" / "运费多加100" name an amount ON TOP of the
+    // quote, while "make it 110" / "凑到100" name the final total.
+    const incrementIntent =
+      /(?:^|[^a-z])(?:add|adding|extra|more|on top)(?:[^a-z]|$)/i.test(lastUserText) ||
+      /(?:多加|再加|多付|多给|加)\s*\$?\d/.test(lastUserText);
+    const asTotal = (value: number) => (incrementIntent ? round2(fee + value) : value);
     const looksLikeOffer =
       namedAmounts.length > 0 &&
       (amountNextToShipping ||
@@ -413,7 +419,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } else if (looksLikeOffer) {
-      const named = namedAmounts[namedAmounts.length - 1];
+      const named = asTotal(namedAmounts[namedAmounts.length - 1]);
       if (named > fee + 0.005) {
         // Paying above the quote means buying more product: the surplus over the
         // quote is spent on whole units of the item the customer is ordering.
@@ -461,7 +467,7 @@ export async function POST(request: NextRequest) {
     } else if (modelOffer === null && namedAmounts.length > 0) {
       // Safety net: the customer named an acceptable amount and the model only
       // answered with words.
-      modelOffer = namedAmounts[namedAmounts.length - 1];
+      modelOffer = asTotal(namedAmounts[namedAmounts.length - 1]);
     }
     if (typeof modelOffer === 'number' && Number.isFinite(modelOffer)) {
       // Paying more is never a loss, so there is no upper cap: any amount at
