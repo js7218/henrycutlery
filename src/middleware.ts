@@ -522,7 +522,10 @@ const CMD_EXECUTION_PATTERNS = [
   // Direct command execution
   /[;&|`$]\s*(whoami|id|uname|hostname|ls|cat|echo|wget|curl|nc|netcat|bash|sh|cmd|powershell|python|perl|ruby|php)\b/i,
   /\|\s*\w+/i, /&&\s*\w+/i, /\|\|\s*\w+/i,
-  /\$?\(\s*\w+/i, /`\w+`/i, /\$+\{?\w+\}?/i,
+  // Shell command substitution only. A bare "$word" or "$5.75" is ordinary
+  // text (prices, promo codes) and used to ban real visitors, so it is not
+  // treated as an attack on its own.
+  /\$?\(\s*\w+/i, /`\w+`/i, /\$\{[^}]{1,80}\}/,
   // Command chaining
   /;\s*(cat|ls|dir|rm|del|echo|wget|curl|nc|bash|sh|python|perl|ruby|php|cmd|powershell)\b/i,
   // Reverse shell patterns
