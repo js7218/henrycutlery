@@ -332,6 +332,30 @@ async function runSchemaMigration(): Promise<void> {
         ON inquiries (user_id, created_at DESC);
       `);
 
+      // Sample requests. B2B knife buyers almost always want to see a physical
+      // sample before placing a bulk order, so this is a separate funnel entry.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS sample_requests (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL DEFAULT '',
+          product_name TEXT NOT NULL DEFAULT '',
+          name TEXT NOT NULL,
+          company TEXT NOT NULL DEFAULT '',
+          email TEXT NOT NULL,
+          phone TEXT NOT NULL DEFAULT '',
+          country TEXT NOT NULL DEFAULT '',
+          address TEXT NOT NULL DEFAULT '',
+          message TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'new',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS sample_requests_created_idx
+        ON sample_requests (created_at DESC);
+      `);
+
       // Destination-country import guidance for bladed items. These are
       // advisory only: the customer confirms the rule before checkout and the
       // import responsibility stays with the importer. The owner can edit

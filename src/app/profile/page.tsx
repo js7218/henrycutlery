@@ -458,6 +458,17 @@ function ProfileContent() {
                         </div>
                       )}
 
+                      <div className="mt-3 flex flex-wrap justify-end gap-2">
+                        <a
+                          href={`/api/order/pi?id=${encodeURIComponent(order.id)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-4 py-2 border border-border rounded-lg text-sm hover:border-gold hover:text-gold transition-colors"
+                        >
+                          Proforma Invoice
+                        </a>
+                      </div>
+
                       {(order.trackingNumber || order.status === 'shipped') && (
                         <div className="mt-4 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
                           <p className="text-sm text-gray-400">

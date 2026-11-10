@@ -1,6 +1,7 @@
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Heart, ShoppingCart, Flame } from 'lucide-react';
 import { Product } from '@/types';
@@ -16,6 +17,7 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const { addToCart, state, toggleFavorite } = useApp();
+  const router = useRouter();
   const liveStock = useLiveStock();
   const availableStock =
     typeof liveStock[product.id] === 'number' ? liveStock[product.id] : product.stock;
@@ -161,6 +163,16 @@ export default function ProductCard({ product }: ProductCardProps) {
           {product.moq && product.moq > 1 && (
             <p className="text-[11px] text-gray-500 mt-1.5">Minimum order: {product.moq} pcs</p>
           )}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              router.push(`/sample-request?product=${encodeURIComponent(product.id)}`);
+            }}
+            className="mt-3 text-xs text-gray-400 hover:text-gold underline underline-offset-2"
+          >
+            Request a sample
+          </button>
         </div>
       </TiltCard>
     </Link>
