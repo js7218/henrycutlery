@@ -198,21 +198,31 @@ export async function getMonthlySummary(): Promise<MonthRow[]> {
     billsResult.rows.map((row) => [String(row.month), Number(row.cost || 0)])
   );
 
-  return ordersResult.rows.map((row) => {
-    const month = String(row.month);
-    const expectedUsd = Number(row.expected || 0);
-    const receivedUsd = Number(row.received || 0);
-    const shippingRevenueUsd = Number(row.shipping_revenue || 0);
-    const shippingCostUsd = costByMonth.get(month) || 0;
-    return {
-      month,
-      orders: Number(row.orders || 0),
-      expectedUsd,
-      receivedUsd,
-      shippingRevenueUsd,
-      shippingCostUsd,
-      varianceUsd: Math.round((receivedUsd - expectedUsd) * 100) / 100,
-      shippingVarianceUsd: Math.round((shippingRevenueUsd - shippingCostUsd) * 100) / 100,
-    };
-  });
+  // A month can have bills but no orders (for example a shipment paid in a
+  // month with no new sales). Include those months so freight cost is never
+  // silently dropped from the summary.
+  const months = new Set<string>([
+    ...ordersResult.rows.map((row) => String(row.month)),
+    ...costByMonth.keys(),
+  ]);
+
+  return [...months]
+    .sort((a, b) => b.localeCompare(a))
+    .map((month) => {
+      const row = ordersResult.rows.find((entry) => String(entry.month) === month);
+      const expectedUsd = Number(row?.expected || 0);
+      const receivedUsd = Number(row?.received || 0);
+      const shippingRevenueUsd = Number(row?.shipping_revenue || 0);
+      const shippingCostUsd = costByMonth.get(month) || 0;
+      return {
+        month,
+        orders: Number(row?.orders || 0),
+        expectedUsd,
+        receivedUsd,
+        shippingRevenueUsd,
+        shippingCostUsd,
+        varianceUsd: Math.round((receivedUsd - expectedUsd) * 100) / 100,
+        shippingVarianceUsd: Math.round((shippingRevenueUsd - shippingCostUsd) * 100) / 100,
+      };
+    });
 }
