@@ -477,6 +477,14 @@ export async function POST(request: NextRequest) {
     const idempotencyKey = clientKey.length >= 8 ? clientKey.slice(0, 128) : randomUUID();
     const force = body.force === true;
 
+    // Buyer contact email for the order. Falls back to the account email, so a
+    // blank or malformed value never blocks checkout.
+    const requestedContactEmail =
+      typeof body.contactEmail === 'string' ? body.contactEmail.trim().slice(0, 200) : '';
+    const contactEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(requestedContactEmail)
+      ? requestedContactEmail
+      : authUser.email;
+
     // Estimated shipping = total weight x destination country's per-kg rate.
     // Customers who arrange their own carrier pay no shipping here.
     const shippingSelfArranged = body.shippingSelfArranged === true;
@@ -715,9 +723,10 @@ export async function POST(request: NextRequest) {
           `
             INSERT INTO orders (
               id, user_id, order_number, items, total_amount, status,
-              shipping_address, payment_method, created_at, updated_at, idempotency_key
+              shipping_address, payment_method, created_at, updated_at, idempotency_key,
+              contact_email
             )
-            VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb, $8, $9, $10, $11, $12)
             ON CONFLICT DO NOTHING
             RETURNING id, order_number, items, total_amount, status, shipping_address,
                       payment_method, tracking_number, created_at, updated_at
@@ -734,6 +743,7 @@ export async function POST(request: NextRequest) {
             order.createdAt,
             order.updatedAt,
             idempotencyKey,
+            contactEmail,
           ]
         );
         if (!inserted.rowCount) {
@@ -818,7 +828,7 @@ export async function POST(request: NextRequest) {
 
       // Notify both sides immediately. Failures here must never lose the order.
       const [customerEmail, adminEmail] = await Promise.allSettled([
-        sendCustomerOrderReceivedEmail(authUser.email, emailPayload),
+        sendCustomerOrderReceivedEmail(contactEmail, emailPayload),
         sendOrderNotificationEmail(emailPayload),
       ]);
       console.log('[order/create] emails', {

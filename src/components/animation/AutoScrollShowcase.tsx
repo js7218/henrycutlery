@@ -108,7 +108,7 @@ export default function AutoScrollShowcase({
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
                 {/* Info */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
-                  <p className="text-gold text-[10px] md:text-xs tracking-wider uppercase mb-1.5">
+                  <p className="text-gold text-xs md:text-sm tracking-wider uppercase mb-1.5">
                     {product.category}
                   </p>
                   <h3

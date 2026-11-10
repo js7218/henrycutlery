@@ -659,7 +659,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
               </div>
             )}
           </div>
-          <span className="block text-[10px] text-gray-500 mt-1 ml-1">{formatTime(message.timestamp)}</span>
+          <span className="block text-xs text-gray-400 mt-1 ml-1">{formatTime(message.timestamp)}</span>
         </div>
       </div>
     );
@@ -672,7 +672,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         <div className="bg-gradient-to-br from-[#c9a962] to-[#d4b978] text-[#1a1a1a] rounded-2xl rounded-tr-sm px-4 py-2.5">
           <p className="text-sm leading-relaxed whitespace-pre-line">{message.text}</p>
         </div>
-        <span className="block text-[10px] text-gray-500 mt-1 mr-1 text-right">{formatTime(message.timestamp)}</span>
+        <span className="block text-xs text-gray-400 mt-1 mr-1 text-right">{formatTime(message.timestamp)}</span>
       </div>
     </div>
   );

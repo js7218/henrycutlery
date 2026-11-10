@@ -135,6 +135,16 @@ export default function CheckoutPage() {
   });
   const [submittingInquiry, setSubmittingInquiry] = useState(false);
   const [inquirySent, setInquirySent] = useState(false);
+  // Buyer contact email, prefilled from the account but editable so a
+  // purchasing agent can receive the order updates.
+  const [contactEmail, setContactEmail] = useState('');
+  const contactEmailTouchedRef = useRef(false);
+
+  useEffect(() => {
+    if (!contactEmailTouchedRef.current && state.user?.email) {
+      setContactEmail(state.user.email);
+    }
+  }, [state.user?.email]);
 
   // New address form
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
@@ -413,6 +423,7 @@ export default function CheckoutPage() {
           shippingSelfArranged: customerArrangesShipping,
           shippingCountryCode: shipToCountry || undefined,
           shippingQuoteToken: negotiatedShipping?.token || undefined,
+          contactEmail: contactEmail.trim() || undefined,
           complianceConfirmed: complianceRule ? complianceAck : undefined,
         }),
       });
@@ -829,6 +840,32 @@ export default function CheckoutPage() {
                       Address verified
                     </div>
                   )}
+                </div>
+              )}
+              {selectedAddress && (
+                <div className="mt-5">
+                  <label htmlFor="checkout-contact-email" className="block text-sm font-medium text-foreground mb-2">
+                    Contact email <span className="text-gray-500 font-normal">(order updates go here)</span>
+                  </label>
+                  <input
+                    id="checkout-contact-email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={contactEmail}
+                    onChange={(event) => {
+                      contactEmailTouchedRef.current = true;
+                      setContactEmail(event.target.value);
+                    }}
+                    placeholder="you@company.com"
+                    className="w-full px-4 py-3 bg-surfaceLight border border-border rounded-lg text-foreground text-base placeholder:text-gray-500 focus:outline-none focus:border-gold"
+                  />
+                  {contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(contactEmail.trim()) && (
+                    <p className="mt-2 text-sm text-red-400">Please enter a valid email address.</p>
+                  )}
+                  <p className="mt-2 text-sm text-gray-400">
+                    We send the order confirmation and payment instructions to this address.
+                  </p>
                 </div>
               )}
               {selectedAddress && (

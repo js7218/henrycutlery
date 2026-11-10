@@ -286,6 +286,7 @@ async function runSchemaMigration(): Promise<void> {
       // same key map to a single order, so a double click or a retried request
       // after a timeout cannot create a duplicate order.
       await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_key TEXT;`);
+      await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS contact_email TEXT NOT NULL DEFAULT '';`);
       await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_number TEXT NOT NULL DEFAULT '';`);
       await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipped_at TIMESTAMPTZ;`);
       await db.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;`);

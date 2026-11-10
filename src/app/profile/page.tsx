@@ -385,7 +385,7 @@ function ProfileContent() {
                               : order.orderNumber}
                           </p>
                           {order.status === 'pending' && (
-                            <p className="text-[11px] text-gray-500">Order number issued after payment confirmation</p>
+                            <p className="text-xs text-gray-400">Order number issued after payment confirmation</p>
                           )}
                         </div>
                         <div>

@@ -161,7 +161,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
           {product.moq && product.moq > 1 && (
-            <p className="text-[11px] text-gray-500 mt-1.5">Minimum order: {product.moq} pcs</p>
+            <p className="text-sm text-gray-400 mt-2">Minimum order: {product.moq} pcs</p>
           )}
           <button
             onClick={(e) => {
