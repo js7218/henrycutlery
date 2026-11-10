@@ -351,9 +351,16 @@ export async function POST(request: NextRequest) {
     const namedAmounts = parseAmounts(lastUserText).filter(
       (value) => value >= floor && value <= 1_000_000
     );
+    // "Make the shipping 110" / "freight at 95" pins the number to the freight
+    // even without a verb like "pay" or "let's".
+    const amountNextToShipping =
+      /(?:shipping|freight|postage)[^.!?]{0,15}?\$?\d[\d.,]*|\$?\d[\d.,]*[^.!?]{0,12}?(?:shipping|freight|postage)/i.test(
+        lastUserText
+      );
     const looksLikeOffer =
       namedAmounts.length > 0 &&
-      (lastUserText.replace(/[\d.,\s$]/g, '').length <= 3 ||
+      (amountNextToShipping ||
+        lastUserText.replace(/[\d.,\s$]/g, '').length <= 3 ||
         /\b(pay|paying|make it|do|take|accept|ok|okay|let'?s|how about|fine|deal|agreed?|use|set|go with|will pay|i can)\b/i.test(
           lastUserText
         ));
