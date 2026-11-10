@@ -218,7 +218,11 @@ async function judge(countryCode: string, excerpt: string): Promise<Judgement | 
             'You read official customs/import pages and decide whether they restrict importing knives into one country.',
             'Only answer from the text provided. Do not use outside assumptions.',
             'affectsKnifeImport = true only when the text states or clearly updates a restriction on bladed items.',
-            'riskLevel: "high" when locking/flick/gravity/butterfly knives or similar are prohibited; "medium" when only some categories are limited or a licence is required; "none" when nothing restricts knives.',
+            'riskLevel definitions:',
+            '"high" only when common folding/locking knives that an ordinary customer might buy are prohibited or need a permit.',
+            '"medium" when only specialty categories (switchblades, automatics, butterfly/flick knives, push daggers, ballistic knives) are restricted and ordinary kitchen or fixed-blade knives are fine.',
+            '"none" when nothing restricts ordinary knives.',
+            'message must say in plain words whether ordinary kitchen and fixed-blade knives are affected.',
             'confident = true only when the text is explicit. If it is a news item, statistics, or unrelated, set affectsKnifeImport=false and confident=false.',
             'restrictedTypes: short comma-separated list of the restricted item categories, or "".',
             'message: one or two sentences a customer can read, or "".',
@@ -407,7 +411,11 @@ async function judgeWithSources(
             `You verify knife-import rules for ${rule.countryName} (${rule.countryCode}) for ${year}.`,
             'Use ONLY the numbered search results below. Never rely on memory.',
             'A result counts as current only if it states a rule that is in force now (or a dated change).',
-            'riskLevel: "high" when locking/flick/gravity/butterfly knives or similar are prohibited; "medium" when only some categories are restricted or a permit is needed; "none" when the sources explicitly allow ordinary knives.',
+            'riskLevel definitions:',
+            '"high" only when common folding/locking knives that an ordinary customer might buy are prohibited or need a permit.',
+            '"medium" when only specialty categories (switchblades, automatics, butterfly/flick knives, push daggers, ballistic knives) are restricted and ordinary kitchen or fixed-blade knives are fine.',
+            '"none" when the sources explicitly allow ordinary knives.',
+            'message must say in plain words whether ordinary kitchen and fixed-blade knives are affected.',
             'citedIndex = the 1-based number of the result your answer is based on, or 0 when no result supports a clear answer.',
             'confident = true only when the cited result is explicit and dated within the last 24 months.',
             'restrictedTypes: short comma-separated list, or "".',
@@ -488,7 +496,26 @@ export async function runKnowledgeScan(batchSize = 8): Promise<KnowledgeScanResu
         (oldRisk === 'high' && newRisk === 'none') || (oldRisk === 'none' && newRisk === 'high');
 
       if (newRisk !== oldRisk) {
-        if (extremeJump) {
+        if (rule.manualOverride) {
+          // The owner set this country by hand; keep it and surface the
+          // disagreement instead of overwriting their decision.
+          await recordChange(
+            {
+              id: 'knowledge',
+              countryCode: rule.countryCode,
+              label: 'AI verification',
+              url: cited.url,
+              enabled: true,
+              lastCheckedAt: '',
+              lastStatus: '',
+            },
+            oldRisk,
+            newRisk,
+            `${verdict.message} (kept your manual setting)`,
+            false
+          );
+          result.skipped += 1;
+        } else if (extremeJump) {
           await recordChange(
             {
               id: 'knowledge',

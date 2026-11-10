@@ -49,6 +49,7 @@ export async function PUT(request: Request) {
       message: body.message,
       sourceUrl: body.sourceUrl,
       enabled: body.enabled,
+      manualOverride: true,
     });
     if (!rule) {
       return NextResponse.json({ success: false, error: 'Invalid country code' }, { status: 400 });

@@ -10,6 +10,8 @@ export interface ComplianceRule {
   message: string;
   sourceUrl: string;
   enabled: boolean;
+  /** True once the owner edits the rule by hand; automatic scans then stop changing it. */
+  manualOverride: boolean;
   updatedAt: string;
 }
 
@@ -29,6 +31,7 @@ function mapRow(row: Record<string, unknown>): ComplianceRule {
     message: String(row.message || ''),
     sourceUrl: String(row.source_url || ''),
     enabled: Boolean(row.enabled),
+    manualOverride: Boolean(row.manual_override),
     updatedAt: row.updated_at ? new Date(String(row.updated_at)).toISOString() : '',
   };
 }
@@ -66,6 +69,8 @@ export async function updateComplianceRule(input: {
   message?: string;
   sourceUrl?: string;
   enabled?: unknown;
+  /** Set by the admin UI: from then on automatic scans leave this row alone. */
+  manualOverride?: boolean;
 }): Promise<ComplianceRule | null> {
   const code = input.countryCode.trim().toUpperCase().slice(0, 2);
   if (!/^[A-Z]{2}$/.test(code)) return null;
@@ -73,8 +78,8 @@ export async function updateComplianceRule(input: {
   await ensureDatabaseSchema();
   const result = await getPool().query(
     `INSERT INTO knife_compliance_rules
-       (country_code, country_name, risk_level, restricted_types, message, source_url, enabled, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       (country_code, country_name, risk_level, restricted_types, message, source_url, enabled, manual_override, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
      ON CONFLICT (country_code) DO UPDATE SET
        country_name = EXCLUDED.country_name,
        risk_level = EXCLUDED.risk_level,
@@ -82,6 +87,7 @@ export async function updateComplianceRule(input: {
        message = EXCLUDED.message,
        source_url = EXCLUDED.source_url,
        enabled = EXCLUDED.enabled,
+       manual_override = knife_compliance_rules.manual_override OR EXCLUDED.manual_override,
        updated_at = NOW()
      RETURNING *`,
     [
@@ -92,6 +98,7 @@ export async function updateComplianceRule(input: {
       String(input.message || '').slice(0, 800),
       String(input.sourceUrl || '').slice(0, 500),
       input.enabled === undefined ? true : Boolean(input.enabled),
+      input.manualOverride === true,
     ]
   );
 

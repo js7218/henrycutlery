@@ -392,6 +392,8 @@ async function runSchemaMigration(): Promise<void> {
           enabled BOOLEAN NOT NULL DEFAULT TRUE,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE knife_compliance_rules
+          ADD COLUMN IF NOT EXISTS manual_override BOOLEAN NOT NULL DEFAULT FALSE;
         CREATE TABLE IF NOT EXISTS compliance_scan_sources (
           id TEXT PRIMARY KEY,
           country_code TEXT NOT NULL,
