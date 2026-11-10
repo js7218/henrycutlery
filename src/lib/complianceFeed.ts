@@ -292,6 +292,18 @@ export async function runComplianceScan(): Promise<ScanResult> {
       if (RISK_ORDER[newRisk] < RISK_ORDER[oldRisk]) {
         // Loosening is never automatic: a false positive here ships a parcel
         // that customs will seize.
+        const duplicate = await getPool().query(
+          `SELECT 1 FROM compliance_scan_changes
+            WHERE country_code = $1 AND new_risk = $2 AND applied = FALSE
+              AND created_at > NOW() - INTERVAL '7 days'
+            LIMIT 1`,
+          [source.countryCode, newRisk]
+        );
+        if ((duplicate.rowCount || 0) > 0) {
+          await setSourceStatus(source.id, 'loosening already awaiting review');
+          result.skipped += 1;
+          continue;
+        }
         await recordChange(source, oldRisk, newRisk, judgement.message, false);
         result.pending += 1;
         await setSourceStatus(source.id, `suggests loosening to ${newRisk}`);
