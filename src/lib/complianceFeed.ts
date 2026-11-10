@@ -494,6 +494,9 @@ export async function runKnowledgeScan(batchSize = 8): Promise<KnowledgeScanResu
       // to trust to a single snippet; it is queued for the owner instead.
       const extremeJump =
         (oldRisk === 'high' && newRisk === 'none') || (oldRisk === 'none' && newRisk === 'high');
+      // Downgrades are always queued: removing or softening a warning can let a
+      // restricted shipment through, and a wrong call here is not recoverable.
+      const loosening = RISK_ORDER[newRisk] < RISK_ORDER[oldRisk];
 
       if (newRisk !== oldRisk) {
         if (rule.manualOverride) {
@@ -515,7 +518,7 @@ export async function runKnowledgeScan(batchSize = 8): Promise<KnowledgeScanResu
             false
           );
           result.skipped += 1;
-        } else if (extremeJump) {
+        } else if (extremeJump || loosening) {
           await recordChange(
             {
               id: 'knowledge',
