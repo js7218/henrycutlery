@@ -8,6 +8,7 @@ import {
   Share2, 
   Mail,
   Images,
+  Package,
   Truck, 
   Shield, 
   RotateCcw,
@@ -478,6 +479,15 @@ export default function ProductDetailPage() {
                 {shareMessage}
               </p>
             )}
+            <ThreeDButton
+              href={`/sample-request?product=${encodeURIComponent(product.id)}`}
+              variant="secondary"
+              size="lg"
+              className="w-full"
+            >
+              <Package className="w-5 h-5" />
+              Request a Sample
+            </ThreeDButton>
             <button
               onClick={() => setActiveTab('reviews')}
               className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-left text-gray-300 hover:border-gold hover:text-gold transition-colors"
