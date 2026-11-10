@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BarChart3, Database, FlaskConical, Inbox, Loader2, MessageSquare, Package, ReceiptText, Scale, Search, ShieldX, Sparkles, TrendingUp, Truck, Users } from 'lucide-react';
+import { BarChart3, BookOpen, Database, FlaskConical, Inbox, Loader2, MessageSquare, Package, ReceiptText, Scale, Search, ShieldX, Sparkles, TrendingUp, Truck, Users } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatDate, formatPrice, cn } from '@/lib/utils';
 import SeoReviewPanel from '@/components/admin/SeoReviewPanel';
@@ -454,6 +454,13 @@ export default function AdminPage() {
           >
             <ReceiptText className="w-5 h-5" />
             Reconciliation
+          </Link>
+          <Link
+            href="/hc-control-2026/guide"
+            className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors whitespace-nowrap bg-surface border border-border text-gray-400 hover:text-foreground"
+          >
+            <BookOpen className="w-5 h-5" />
+            Guide
           </Link>
         </div>
 
