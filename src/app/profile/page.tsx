@@ -443,7 +443,7 @@ function ProfileContent() {
                             </div>
                           ) : (
                             <div className="text-sm text-gray-400 space-y-1">
-                              <p><span className="text-gray-500">Account Name:</span> {process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'Adam Cutlery'}</p>
+                              <p><span className="text-gray-500">Account Name:</span> {process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'Adam Cutlery'}{!/adam cutlery/i.test(process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'Adam Cutlery') && ' (registered company behind Adam Cutlery)'}</p>
                               <p>
                                 <span className="text-gray-500">Account Number:</span>{' '}
                                 <span className="font-mono text-gold">{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || 'Contact us for details'}</span>

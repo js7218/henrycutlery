@@ -282,7 +282,7 @@ export async function sendCustomerOrderReceivedEmail(
       ]
     : [
         'Payment method: HSBC bank transfer',
-        bank.accountName ? `Account name: ${bank.accountName}` : '',
+        bank.accountName ? `Account name: ${bank.accountName}${/adam cutlery/i.test(bank.accountName) ? '' : ' (registered company behind Adam Cutlery)'}` : '',
         bank.accountNumber ? `Account number: ${bank.accountNumber}` : '',
         bank.bankName ? `Bank: ${bank.bankName}` : '',
         bank.bankAddress ? `Bank address: ${bank.bankAddress}` : '',
@@ -318,7 +318,7 @@ export async function sendCustomerOrderReceivedEmail(
     ? `<p><strong>Payment method:</strong> WeChat Pay</p>
        <p>Open the order in your account, scan the WeChat payment code and send us the receipt.</p>`
     : `<p><strong>Payment method:</strong> HSBC bank transfer</p>
-       <p>${bank.accountName ? `<strong>Account name:</strong> ${escapeHtml(bank.accountName)}<br/>` : ''}
+       <p>${bank.accountName ? `<strong>Account name:</strong> ${escapeHtml(bank.accountName)}${/adam cutlery/i.test(bank.accountName) ? '' : ' (registered company behind Adam Cutlery)'}<br/>` : ''}
        ${bank.accountNumber ? `<strong>Account number:</strong> ${escapeHtml(bank.accountNumber)}<br/>` : ''}
        ${bank.bankName ? `<strong>Bank:</strong> ${escapeHtml(bank.bankName)}<br/>` : ''}
        ${bank.bankAddress ? `<strong>Bank address:</strong> ${escapeHtml(bank.bankAddress)}<br/>` : ''}

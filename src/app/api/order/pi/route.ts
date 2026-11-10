@@ -218,7 +218,7 @@ export async function GET(request: Request) {
 
     <div class="block">
       <h2>Bank details</h2>
-      <div>Account name: ${escapeHtml(bank.accountName)}</div>
+      <div>Account name: ${escapeHtml(bank.accountName)}${/adam cutlery/i.test(bank.accountName) ? '' : ' (registered company behind Adam Cutlery)'}</div>
       <div>Account number: ${escapeHtml(bank.accountNumber || 'Contact us for details')}</div>
       <div>Bank: ${escapeHtml(bank.bankName)}${bank.bankAddress ? ` · ${escapeHtml(bank.bankAddress)}` : ''}</div>
       ${bank.swift ? `<div>SWIFT: ${escapeHtml(bank.swift)}</div>` : ''}

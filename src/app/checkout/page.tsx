@@ -1176,7 +1176,7 @@ export default function CheckoutPage() {
                   HSBC Bank Transfer Details
                 </h3>
                 <div className="space-y-2 text-sm text-gray-300">
-                  <p><span className="text-gray-500">Account Name:</span> {process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'Adam Cutlery'}</p>
+                  <p><span className="text-gray-500">Account Name:</span> {process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'Adam Cutlery'}{!/adam cutlery/i.test(process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'Adam Cutlery') && ' (registered company behind Adam Cutlery)'}</p>
                   <p><span className="text-gray-500">Account Number:</span> <span className="font-mono text-gold">{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || 'Contact us for details'}</span></p>
                   <p><span className="text-gray-500">Bank:</span> {process.env.NEXT_PUBLIC_BANK_NAME || 'HSBC'}</p>
                 </div>
