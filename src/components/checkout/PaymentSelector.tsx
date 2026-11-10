@@ -27,7 +27,7 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
       id: 'bank_transfer' as const,
       name: 'HSBC',
       icon: (
-        <div className="flex h-8 w-12 items-center justify-center rounded bg-red-600 text-[10px] font-bold tracking-wide text-white">
+        <div className="flex h-10 w-14 items-center justify-center rounded bg-red-600 text-xs font-bold tracking-wide text-white">
           HSBC
         </div>
       ),

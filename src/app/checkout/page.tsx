@@ -796,6 +796,7 @@ export default function CheckoutPage() {
                           <div className="flex justify-between items-start gap-3">
                             <div>
                               <p className="font-medium text-foreground">{address.name}</p>
+                              <p className="text-sm text-gray-300 mt-1">{address.phone}</p>
                               <p className="text-sm text-gray-400 mt-1">
                                 {address.province} {address.city} {address.district} {address.detail}
                               </p>

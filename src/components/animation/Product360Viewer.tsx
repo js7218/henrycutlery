@@ -352,8 +352,7 @@ export default function Product360Viewer({
       </div>
 
       {/* Controls bar */}
-      <div className="absolute bottom-4 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        style={{ opacity: isHovering ? 1 : 0 }}
+      <div className="absolute bottom-4 right-4 z-20 flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300"
       >
         <button
           onClick={handleReset}

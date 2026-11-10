@@ -251,7 +251,7 @@ export default function Home() {
                     Collection
                   </h3>
                   <p className="text-gray-400 text-sm">One-off pieces and limited runs</p>
-                  <span className="inline-flex items-center text-gold text-sm mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="inline-flex items-center text-gold text-sm mt-3">
                     See them <ArrowRight className="w-4 h-4 ml-1" />
                   </span>
                 </div>

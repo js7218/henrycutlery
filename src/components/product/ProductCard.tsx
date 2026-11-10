@@ -169,7 +169,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               e.stopPropagation();
               router.push(`/sample-request?product=${encodeURIComponent(product.id)}`);
             }}
-            className="mt-3 text-xs text-gray-400 hover:text-gold underline underline-offset-2"
+            className="mt-3 w-full rounded-lg border border-gold/50 px-3 py-2 text-sm font-medium text-gold hover:bg-gold/10 transition-colors"
           >
             Request a sample
           </button>
