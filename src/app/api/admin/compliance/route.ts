@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/adminGuard';
 import { listComplianceRules, updateComplianceRule } from '@/lib/compliance';
-import { listScanChanges, listScanSources, runComplianceScan } from '@/lib/complianceFeed';
+import { listScanChanges, listScanSources, runComplianceScan, runKnowledgeScan } from '@/lib/complianceFeed';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -64,14 +64,22 @@ export async function PUT(request: Request) {
   }
 }
 
-/** POST /api/admin/compliance — runs the official-source scan right now. */
-export async function POST() {
+/** POST /api/admin/compliance — runs a scan now; body { mode: 'knowledge' } verifies a country batch. */
+export async function POST(request: Request) {
   const adminResult = await requireAdmin();
   if ('response' in adminResult) return adminResult.response;
 
+  const body = await request.json().catch(() => null);
+
   try {
+    if (body?.mode === 'knowledge') {
+      const batch = Number(body?.batch);
+      const result = await runKnowledgeScan(Number.isFinite(batch) ? batch : 8);
+      return NextResponse.json({ success: true, mode: 'knowledge', ...result });
+    }
+
     const result = await runComplianceScan();
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({ success: true, mode: 'official', ...result });
   } catch (error) {
     console.error(
       '[admin-compliance] scan failed:',

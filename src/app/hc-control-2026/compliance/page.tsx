@@ -58,17 +58,26 @@ export default function ComplianceAdminPage() {
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'));
   }, []);
 
-  async function runScan() {
+  async function runScan(mode: 'official' | 'knowledge' = 'official') {
     setScanning(true);
     setStatus('');
     setError('');
     try {
-      const res = await fetch('/api/admin/compliance', { method: 'POST' });
+      const res = await fetch('/api/admin/compliance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mode === 'knowledge' ? { mode: 'knowledge', batch: 8 } : {}),
+      });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Scan failed');
       setStatus(
-        `Scan done: ${data.applied} applied, ${data.pending} awaiting review, ${data.skipped} unchanged.`
+        data.mode === 'knowledge'
+          ? `AI verification: ${data.checked} checked, ${data.applied} changed, ${data.skipped} skipped.`
+          : `Scan done: ${data.applied} applied, ${data.pending} awaiting review, ${data.skipped} unchanged.`
       );
+      if (Array.isArray(data.errors) && data.errors.length > 0) {
+        setError(data.errors.join(' · '));
+      }
       const fresh = await fetch('/api/admin/compliance').then((r) => r.json());
       if (fresh?.success) {
         setRules(Array.isArray(fresh.rules) ? fresh.rules : []);
@@ -130,16 +139,27 @@ export default function ComplianceAdminPage() {
               <h2 className="text-lg font-medium">Automatic scan</h2>
               <p className="text-xs text-gray-400 mt-1">
                 Official pages are read daily at 02:00 UTC. A stricter rule is applied
-                automatically; a looser one is listed here for your review.
+                automatically; a looser one is listed here for your review. "Verify 8 (AI)"
+                searches the live web for eight countries and only applies a change when the
+                model cites a dated source.
               </p>
             </div>
-            <button
-              onClick={runScan}
-              disabled={scanning}
-              className="rounded-md bg-gold px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
-            >
-              {scanning ? 'Scanning…' : 'Scan now'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => runScan('official')}
+                disabled={scanning}
+                className="rounded-md bg-gold px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+              >
+                {scanning ? 'Working…' : 'Scan now'}
+              </button>
+              <button
+                onClick={() => runScan('knowledge')}
+                disabled={scanning}
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium disabled:opacity-50"
+              >
+                Verify 8 (AI)
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1 text-xs text-gray-400">

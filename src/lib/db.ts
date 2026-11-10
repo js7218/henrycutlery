@@ -412,6 +412,13 @@ async function runSchemaMigration(): Promise<void> {
           applied BOOLEAN NOT NULL DEFAULT FALSE,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        CREATE TABLE IF NOT EXISTS compliance_verifications (
+          country_code TEXT PRIMARY KEY,
+          risk_level TEXT NOT NULL DEFAULT 'none',
+          source_url TEXT NOT NULL DEFAULT '',
+          snippet TEXT NOT NULL DEFAULT '',
+          checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
       `);
       await db.query(`
         INSERT INTO knife_compliance_rules

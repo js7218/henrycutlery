@@ -39,14 +39,14 @@ function clean(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
-async function searchWithSerper(name: string): Promise<SearchResult[]> {
+async function searchWithSerper(query: string): Promise<SearchResult[]> {
   const res = await fetch('https://google.serper.dev/search', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-API-KEY': process.env.SERPER_API_KEY || '',
     },
-    body: JSON.stringify({ q: `"${name}" company`, num: MAX_RESULTS }),
+    body: JSON.stringify({ q: query, num: MAX_RESULTS }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
 
@@ -70,13 +70,13 @@ async function searchWithSerper(name: string): Promise<SearchResult[]> {
     .filter((item) => item.url);
 }
 
-async function searchWithTavily(name: string): Promise<SearchResult[]> {
+async function searchWithTavily(query: string): Promise<SearchResult[]> {
   const res = await fetch('https://api.tavily.com/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       api_key: process.env.TAVILY_API_KEY,
-      query: `${name} company`,
+      query,
       max_results: MAX_RESULTS,
     }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -102,10 +102,17 @@ async function searchWithTavily(name: string): Promise<SearchResult[]> {
     .filter((item) => item.url);
 }
 
-function getSearchProvider(): ((name: string) => Promise<SearchResult[]>) | null {
+function getSearchProvider(): ((query: string) => Promise<SearchResult[]>) | null {
   if (process.env.SERPER_API_KEY) return searchWithSerper;
   if (process.env.TAVILY_API_KEY) return searchWithTavily;
   return null;
+}
+
+/** Raw web search shared by the company and compliance checks. */
+export async function webSearch(query: string): Promise<SearchResult[]> {
+  const provider = getSearchProvider();
+  if (!provider) return [];
+  return provider(query);
 }
 
 const verdictSchema = z.object({
@@ -307,7 +314,7 @@ export async function checkCompany(name: string): Promise<CompanyCheck> {
 
   let results: SearchResult[] = [];
   try {
-    results = await search(company);
+    results = await search(`"${company}" company`);
   } catch (err) {
     console.error(
       '[companyLookup] search failed:',

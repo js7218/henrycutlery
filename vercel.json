@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/compliance-scan",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/compliance-knowledge",
+      "schedule": "30 2 * * *"
     }
   ]
 }

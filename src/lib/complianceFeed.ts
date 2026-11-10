@@ -12,9 +12,11 @@ import { randomUUID } from 'crypto';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import {
   getComplianceRule,
+  listComplianceRules,
   updateComplianceRule,
   type ComplianceRiskLevel,
 } from '@/lib/compliance';
+import { webSearch } from '@/lib/companyLookup';
 import { isSafePublicUrl } from '@/lib/shippingMarket';
 
 export interface ScanSource {
@@ -335,4 +337,221 @@ async function recordChange(
      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [randomUUID(), source.countryCode, oldRisk, newRisk, summary.slice(0, 600), source.url, applied]
   );
+}
+
+export interface KnowledgeScanResult {
+  checkedAt: string;
+  checked: number;
+  applied: number;
+  skipped: number;
+  errors: string[];
+}
+
+interface KnowledgeVerdict {
+  riskLevel: ComplianceRiskLevel;
+  restrictedTypes: string;
+  message: string;
+  citedIndex: number;
+  confident: boolean;
+}
+
+function parseVerdict(content: string): KnowledgeVerdict | null {
+  const text = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    return {
+      riskLevel: normalizeRisk(parsed.riskLevel),
+      restrictedTypes:
+        typeof parsed.restrictedTypes === 'string' ? parsed.restrictedTypes.slice(0, 300) : '',
+      message: typeof parsed.message === 'string' ? parsed.message.slice(0, 600) : '',
+      citedIndex:
+        typeof parsed.citedIndex === 'number' && Number.isInteger(parsed.citedIndex)
+          ? parsed.citedIndex
+          : 0,
+      confident: parsed.confident === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verifies one country against fresh search results. The model must cite the
+ * result it relied on; without a citation the answer is treated as unverified.
+ */
+async function judgeWithSources(
+  rule: { countryCode: string; countryName: string },
+  results: Array<{ title: string; snippet: string; url: string }>
+): Promise<KnowledgeVerdict | null> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error('DEEPSEEK_API_KEY is not configured');
+
+  const baseUrl = (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, '');
+  const year = new Date().getUTCFullYear();
+  const list = results
+    .slice(0, 6)
+    .map((item, index) => `${index + 1}. ${item.title}\n   ${item.snippet}\n   ${item.url}`)
+    .join('\n');
+
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: [
+            `You verify knife-import rules for ${rule.countryName} (${rule.countryCode}) for ${year}.`,
+            'Use ONLY the numbered search results below. Never rely on memory.',
+            'A result counts as current only if it states a rule that is in force now (or a dated change).',
+            'riskLevel: "high" when locking/flick/gravity/butterfly knives or similar are prohibited; "medium" when only some categories are restricted or a permit is needed; "none" when the sources explicitly allow ordinary knives.',
+            'citedIndex = the 1-based number of the result your answer is based on, or 0 when no result supports a clear answer.',
+            'confident = true only when the cited result is explicit and dated within the last 24 months.',
+            'restrictedTypes: short comma-separated list, or "".',
+            'message: one or two sentences a customer can read, or "".',
+            'Return strict JSON: {"riskLevel":"none|medium|high","restrictedTypes":string,"message":string,"citedIndex":number,"confident":boolean}',
+          ].join('\n'),
+        },
+        { role: 'user', content: list || '(no results)' },
+      ],
+    }),
+  });
+
+  if (!res.ok) throw new Error(`DeepSeek ${res.status}`);
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const content = data.choices?.[0]?.message?.content;
+  return content ? parseVerdict(content) : null;
+}
+
+/**
+ * Weekly rotation over every country: searches the live web, demands a dated
+ * citation, then applies the verdict. Countries verified least recently go
+ * first, so the whole list is covered in a few days.
+ */
+export async function runKnowledgeScan(batchSize = 8): Promise<KnowledgeScanResult> {
+  await ensureDatabaseSchema();
+  const result: KnowledgeScanResult = {
+    checkedAt: new Date().toISOString(),
+    checked: 0,
+    applied: 0,
+    skipped: 0,
+    errors: [],
+  };
+
+  if (!process.env.SERPER_API_KEY && !process.env.TAVILY_API_KEY) {
+    result.errors.push('SERPER_API_KEY / TAVILY_API_KEY not configured — nothing verified');
+    return result;
+  }
+
+  const rules = (await listComplianceRules()).filter((rule) => rule.enabled);
+  const verified = await getPool().query('SELECT country_code, checked_at FROM compliance_verifications');
+  const lastChecked = new Map<string, number>(
+    verified.rows.map((row) => [String(row.country_code), new Date(String(row.checked_at)).getTime()])
+  );
+
+  const queue = rules
+    .sort((a, b) => (lastChecked.get(a.countryCode) ?? 0) - (lastChecked.get(b.countryCode) ?? 0))
+    .slice(0, Math.min(Math.max(batchSize, 1), 12));
+
+  for (const rule of queue) {
+    try {
+      const year = new Date().getUTCFullYear();
+      const results = await webSearch(
+        `${rule.countryName} knife import restriction prohibited ${year} customs`
+      );
+      if (results.length === 0) {
+        result.skipped += 1;
+        continue;
+      }
+
+      const verdict = await judgeWithSources(rule, results);
+      if (!verdict || !verdict.confident || verdict.citedIndex < 1) {
+        result.skipped += 1;
+        continue;
+      }
+
+      const cited = results[Math.min(verdict.citedIndex, results.length) - 1];
+      if (!cited || !isSafePublicUrl(cited.url)) {
+        result.skipped += 1;
+        continue;
+      }
+
+      const oldRisk: ComplianceRiskLevel = rule.riskLevel || 'none';
+      const newRisk = verdict.riskLevel;
+
+      // A jump between the two extremes (prohibited <-> allowed) is too large
+      // to trust to a single snippet; it is queued for the owner instead.
+      const extremeJump =
+        (oldRisk === 'high' && newRisk === 'none') || (oldRisk === 'none' && newRisk === 'high');
+
+      if (newRisk !== oldRisk) {
+        if (extremeJump) {
+          await recordChange(
+            {
+              id: 'knowledge',
+              countryCode: rule.countryCode,
+              label: 'AI verification',
+              url: cited.url,
+              enabled: true,
+              lastCheckedAt: '',
+              lastStatus: '',
+            },
+            oldRisk,
+            newRisk,
+            verdict.message,
+            false
+          );
+          result.skipped += 1;
+        } else {
+          await updateComplianceRule({
+            countryCode: rule.countryCode,
+            countryName: rule.countryName,
+            riskLevel: newRisk,
+            restrictedTypes: verdict.restrictedTypes || rule.restrictedTypes,
+            message: verdict.message || rule.message,
+            sourceUrl: cited.url,
+            enabled: true,
+          });
+          await recordChange(
+            {
+              id: 'knowledge',
+              countryCode: rule.countryCode,
+              label: 'AI verification',
+              url: cited.url,
+              enabled: true,
+              lastCheckedAt: '',
+              lastStatus: '',
+            },
+            oldRisk,
+            newRisk,
+            verdict.message,
+            true
+          );
+          result.applied += 1;
+        }
+      }
+
+      await getPool().query(
+        `INSERT INTO compliance_verifications
+           (country_code, risk_level, source_url, snippet, checked_at)
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (country_code) DO UPDATE SET
+           risk_level = EXCLUDED.risk_level,
+           source_url = EXCLUDED.source_url,
+           snippet = EXCLUDED.snippet,
+           checked_at = NOW()`,
+        [rule.countryCode, newRisk, cited.url, cited.snippet.slice(0, 500)]
+      );
+      result.checked += 1;
+    } catch (error) {
+      result.errors.push(
+        `${rule.countryCode}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  return result;
 }
