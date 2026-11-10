@@ -68,7 +68,7 @@ export default function PaymentSelector({ selected, onSelect }: PaymentSelectorP
                   alt="WeChat payment code"
                   className="mb-4 h-auto w-56 max-w-full rounded-lg border border-gray-200 object-contain"
                 />
-                <p className="text-sm text-gray-600 text-center">
+                <p className="text-sm text-gray-300 text-center">
                   Please use WeChat to scan and complete payment, then email us the receipt.
                 </p>
               </div>

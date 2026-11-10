@@ -95,7 +95,7 @@ export default function Footer() {
               <a href="#" className="text-xs text-gray-500 hover:text-gold transition-colors">Sitemap</a>
             </div>
           </div>
-          <p className="text-xs text-gray-600 text-center mt-4">
+          <p className="text-sm text-gray-400 text-center mt-4">
             A quick note from us: these knives are made for collectors, cooks, and everyday carriers who'll use them with respect. You must be 18 or older to order—please handle each blade with the care it deserves.
           </p>
         </div>

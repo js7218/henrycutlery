@@ -74,7 +74,7 @@ export default function SampleRequestForm({ productId, productName }: SampleRequ
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="text-sm">
-          <span className="block text-xs text-gray-500 mb-1">Your name *</span>
+          <span className="block text-sm font-medium text-gray-300 mb-1">Your name *</span>
           <input
             value={form.name}
             onChange={(e) => update('name', e.target.value)}
@@ -84,7 +84,7 @@ export default function SampleRequestForm({ productId, productName }: SampleRequ
           />
         </label>
         <label className="text-sm">
-          <span className="block text-xs text-gray-500 mb-1">Company</span>
+          <span className="block text-sm font-medium text-gray-300 mb-1">Company</span>
           <input
             value={form.company}
             onChange={(e) => update('company', e.target.value)}
@@ -93,7 +93,7 @@ export default function SampleRequestForm({ productId, productName }: SampleRequ
           />
         </label>
         <label className="text-sm">
-          <span className="block text-xs text-gray-500 mb-1">Email *</span>
+          <span className="block text-sm font-medium text-gray-300 mb-1">Email *</span>
           <input
             type="email"
             value={form.email}
@@ -104,7 +104,7 @@ export default function SampleRequestForm({ productId, productName }: SampleRequ
           />
         </label>
         <label className="text-sm">
-          <span className="block text-xs text-gray-500 mb-1">Phone / WhatsApp</span>
+          <span className="block text-sm font-medium text-gray-300 mb-1">Phone / WhatsApp</span>
           <input
             value={form.phone}
             onChange={(e) => update('phone', e.target.value)}
@@ -113,7 +113,7 @@ export default function SampleRequestForm({ productId, productName }: SampleRequ
           />
         </label>
         <label className="text-sm">
-          <span className="block text-xs text-gray-500 mb-1">Country *</span>
+          <span className="block text-sm font-medium text-gray-300 mb-1">Country *</span>
           <input
             value={form.country}
             onChange={(e) => update('country', e.target.value)}
@@ -123,7 +123,7 @@ export default function SampleRequestForm({ productId, productName }: SampleRequ
           />
         </label>
         <label className="text-sm sm:col-span-2">
-          <span className="block text-xs text-gray-500 mb-1">Shipping address *</span>
+          <span className="block text-sm font-medium text-gray-300 mb-1">Shipping address *</span>
           <input
             value={form.address}
             onChange={(e) => update('address', e.target.value)}
@@ -135,7 +135,7 @@ export default function SampleRequestForm({ productId, productName }: SampleRequ
       </div>
 
       <label className="text-sm block">
-        <span className="block text-xs text-gray-500 mb-1">What do you need?</span>
+        <span className="block text-sm font-medium text-gray-300 mb-1">What do you need?</span>
         <textarea
           value={form.message}
           onChange={(e) => update('message', e.target.value)}

@@ -346,7 +346,7 @@ function ProductsContent() {
             )}
           >
             <SlidersHorizontal className="w-4 h-4" />
-            <span className="hidden sm:inline">Filter</span>
+            <span>Filter</span>
           </button>
           {hasActiveFilters && (
             <button
