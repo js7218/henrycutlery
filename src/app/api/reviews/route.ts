@@ -183,9 +183,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (content.length < 3 || content.length > MAX_REVIEW_LENGTH) {
+    if (content.length < 2 || content.length > MAX_REVIEW_LENGTH) {
       return NextResponse.json(
-        { success: false, error: 'Review content must be between 3 and 2000 characters.' },
+        { success: false, error: 'Review content must be between 2 and 2000 characters.' },
         { status: 400 }
       );
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import AdminHint from '@/components/admin/AdminHint';
 
 interface SampleRequest {
   id: string;
@@ -81,6 +82,11 @@ export default function SamplesAdminPage() {
         Buyers who asked for a physical sample. Reply by email with the sample price, courier
         cost and lead time, then update the status here.
       </p>
+
+      <AdminHint section="samples">
+        客户申请的样品都列在这里。流程是：先回客户邮件，报样品价、快递费和交期，再回到这一行改状态。
+        状态改成 Sample Sent 才代表样品已经寄出。
+      </AdminHint>
 
       {status && <p className="text-sm text-green-400 mb-3">{status}</p>}
       {error && <p className="text-sm text-red-400 mb-3">{error}</p>}

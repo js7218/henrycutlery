@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import AdminHint from '@/components/admin/AdminHint';
 
 type RiskLevel = 'none' | 'medium' | 'high';
 
@@ -129,6 +130,11 @@ export default function ComplianceAdminPage() {
             before an affected order can proceed. Advisory only — the importer remains responsible.
           </p>
         </div>
+
+        <AdminHint section="compliance">
+          每个国家一条进口提示。客户结账时按收货国家自动显示：绿色 none = 不提示，黄色 medium / 红色 high = 必须勾选才能下单。
+          系统每天自动扫描官方页面，变严的规则自动生效，变松的会留在这里等你点确认。
+        </AdminHint>
 
         {status && <p className="text-sm text-green-400">{status}</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}

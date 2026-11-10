@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import AdminHint from '@/components/admin/AdminHint';
 
 interface MarketRow {
   countryCode: string;
@@ -382,6 +383,11 @@ export default function ShippingMarketAdminPage() {
             logged, larger moves stay for manual review, and nothing can go below its cost floor.
           </p>
         </div>
+
+        <AdminHint section="rate">
+          这一页每天自动记录市场运价，并算出建议价。打开自动更新后：小幅波动自动改价并写日志，大幅波动挂起等你审，
+          任何价格都不会跌破保底价。你只需要处理标着“待审”的行。
+        </AdminHint>
 
         {status && <p className="text-sm text-green-400">{status}</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}

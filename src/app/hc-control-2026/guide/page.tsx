@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BookOpen, CheckCircle2, Lightbulb, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -193,6 +193,14 @@ const SECTIONS: Section[] = [
 export default function AdminGuidePage() {
   const [active, setActive] = useState(SECTIONS[0].id);
   const section = SECTIONS.find((item) => item.id === active) ?? SECTIONS[0];
+
+  // Admin pages link here as /guide#<section>, so open that chapter directly.
+  useEffect(() => {
+    const id = window.location.hash.replace('#', '');
+    if (id && SECTIONS.some((item) => item.id === id)) {
+      setActive(id);
+    }
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-8 py-16">

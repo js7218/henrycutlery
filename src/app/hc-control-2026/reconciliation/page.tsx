@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import AdminHint from '@/components/admin/AdminHint';
 
 interface LedgerRow {
   orderId: string;
@@ -136,6 +137,11 @@ export default function ReconciliationPage() {
         Compare what each order should collect, what actually arrived, and what the forwarder
         charged for freight. Variance is received minus expected.
       </p>
+
+      <AdminHint section="reconciliation">
+        这一页对账：应收（订单金额）对实收（银行到账），再对货代收的运费。差异 = 实收 − 应收，正数是多收，负数是少收。
+        底下可以录入账单，每月核对一次，差异大的订单要单独查。
+      </AdminHint>
 
       {status && <p className="text-sm text-green-400 mb-3">{status}</p>}
       {error && <p className="text-sm text-red-400 mb-3">{error}</p>}

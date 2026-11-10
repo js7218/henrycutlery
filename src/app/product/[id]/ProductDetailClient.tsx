@@ -266,8 +266,8 @@ export default function ProductDetailPage() {
       setReviewError('Please sign in before submitting a review.');
       return;
     }
-    if (reviewContent.trim().length < 8) {
-      setReviewError('Please write at least 8 characters.');
+    if (reviewContent.trim().length < 2) {
+      setReviewError('Please write at least 2 characters.');
       return;
     }
     setReviewLoading(true);

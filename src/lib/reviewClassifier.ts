@@ -64,7 +64,7 @@ export function classifyReview(input: { content: string; rating: number }): Revi
   }
 
   // Very short reviews look like dummy text. Bump score slightly.
-  if (content.length < 8) {
+  if (content.length < 2) {
     score += 15;
     labels.push('too-short');
   }

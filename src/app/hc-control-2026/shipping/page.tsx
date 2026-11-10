@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { products } from '@/data/products';
+import AdminHint from '@/components/admin/AdminHint';
 
 interface Rate {
   countryCode: string;
@@ -211,6 +212,11 @@ export default function ShippingAdminPage() {
             Update rates when your carrier prices change.
           </p>
         </div>
+
+        <AdminHint section="shipping">
+          运费 = 订单总重量（kg）× 目的国的每公斤单价。货代涨价就改这里的单价，客户结账立刻按新价算。
+          下面的产品重量也要填真实值，否则运费会算少。
+        </AdminHint>
 
         {status && <p className="text-sm text-green-400">{status}</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}

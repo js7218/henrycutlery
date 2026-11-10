@@ -7,6 +7,7 @@ import { useApp } from '@/context/AppContext';
 import { formatDate, formatPrice, cn } from '@/lib/utils';
 import SeoReviewPanel from '@/components/admin/SeoReviewPanel';
 import HealthBanner from '@/components/admin/HealthBanner';
+import AdminHint from '@/components/admin/AdminHint';
 
 type Tab = 'dashboard' | 'customers' | 'reviews' | 'inquiries' | 'seo' | 'security';
 
@@ -90,6 +91,34 @@ const tabs: Array<{ id: Tab; label: string; icon: typeof BarChart3 }> = [
   { id: 'seo', label: 'SEO', icon: Sparkles },
   { id: 'security', label: 'Security', icon: Database },
 ];
+
+// One-line reminder per tab, so staff who forgot the manual still know what to do.
+const tabHints: Record<Tab, { section: string; text: string }> = {
+  dashboard: {
+    section: 'dashboard',
+    text: '这页是总览：客户数、订单数、地址数、待审评论。点上方标签进入对应模块，表格里的数字点开就能看明细。',
+  },
+  customers: {
+    section: 'customers',
+    text: '按邮箱、姓名、电话、订单号搜索客户；点一行可看他的地址和历史订单。右侧垃圾桶是删客户：账号不能登录，但历史订单保留用于对账。',
+  },
+  reviews: {
+    section: 'reviews',
+    text: '客户评论先到这里等你审。Approve = 前台显示；Reject = 隐藏。拿不准就先放着，不会影响客户下单。',
+  },
+  inquiries: {
+    section: 'inquiries',
+    text: '批量询价单都在这。先回邮件报价，再回来改状态：New → Quoted → Sample Sent → Won / Closed。',
+  },
+  seo: {
+    section: 'seo',
+    text: '检查每个产品的标题和描述够不够完整。按红色提示补齐后点保存，前台搜索排名会更稳。',
+  },
+  security: {
+    section: 'security',
+    text: '这里看登录记录、封禁名单和异常情况；数据库密码轮换也在这一页。看不懂的先别动，截图发我。',
+  },
+};
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, cache: 'no-store' });
@@ -487,6 +516,10 @@ export default function AdminPage() {
         </div>
 
         <HealthBanner />
+
+        <div className="mt-4 mb-6">
+          <AdminHint section={tabHints[activeTab].section}>{tabHints[activeTab].text}</AdminHint>
+        </div>
 
         {error && (
           <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">

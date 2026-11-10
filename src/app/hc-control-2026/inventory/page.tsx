@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { products } from '@/data/products';
+import AdminHint from '@/components/admin/AdminHint';
 
 export default function InventoryAdminPage() {
   const [stock, setStock] = useState<Record<string, string>>({});
@@ -110,6 +111,11 @@ export default function InventoryAdminPage() {
           &larr; Back to dashboard
         </Link>
       </div>
+
+      <AdminHint section="inventory">
+        这一页是每个产品的可售库存。客户付款成功会自动扣减，取消订单会自动加回，所以不要手动去补扣。
+        低于 20 件会变黄提醒；填完数字点保存，刷新确认数字还在才算存好。
+      </AdminHint>
 
       {status && <p className="text-sm text-green-400">{status}</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
