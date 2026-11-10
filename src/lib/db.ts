@@ -461,6 +461,57 @@ async function runSchemaMigration(): Promise<void> {
            'https://www.customs.gov.sg/', TRUE)
         ON CONFLICT (country_code) DO NOTHING;
       `);
+      // Every remaining shipping destination gets a placeholder rule. The risk
+      // level stays "none" (no notice at checkout) until the daily AI
+      // verification finds a real restriction, but the row is what puts the
+      // country into that rotation in the first place.
+      await db.query(`
+        INSERT INTO knife_compliance_rules
+          (country_code, country_name, risk_level, restricted_types, message, source_url, enabled)
+        VALUES
+          ('IT', 'Italy', 'none', '', '', '', TRUE),
+          ('ES', 'Spain', 'none', '', '', '', TRUE),
+          ('KR', 'South Korea', 'none', '', '', '', TRUE),
+          ('AE', 'United Arab Emirates', 'none', '', '', '', TRUE),
+          ('IL', 'Israel', 'none', '', '', '', TRUE),
+          ('HK', 'Hong Kong', 'none', '', '', '', TRUE),
+          ('TW', 'Taiwan', 'none', '', '', '', TRUE),
+          ('CH', 'Switzerland', 'none', '', '', '', TRUE),
+          ('AT', 'Austria', 'none', '', '', '', TRUE),
+          ('BE', 'Belgium', 'none', '', '', '', TRUE),
+          ('PL', 'Poland', 'none', '', '', '', TRUE),
+          ('SE', 'Sweden', 'none', '', '', '', TRUE),
+          ('NO', 'Norway', 'none', '', '', '', TRUE),
+          ('DK', 'Denmark', 'none', '', '', '', TRUE),
+          ('FI', 'Finland', 'none', '', '', '', TRUE),
+          ('PT', 'Portugal', 'none', '', '', '', TRUE),
+          ('GR', 'Greece', 'none', '', '', '', TRUE),
+          ('SA', 'Saudi Arabia', 'none', '', '', '', TRUE),
+          ('TR', 'Turkey', 'none', '', '', '', TRUE),
+          ('MY', 'Malaysia', 'none', '', '', '', TRUE),
+          ('TH', 'Thailand', 'none', '', '', '', TRUE),
+          ('VN', 'Vietnam', 'none', '', '', '', TRUE),
+          ('ID', 'Indonesia', 'none', '', '', '', TRUE),
+          ('PH', 'Philippines', 'none', '', '', '', TRUE),
+          ('IN', 'India', 'none', '', '', '', TRUE),
+          ('PK', 'Pakistan', 'none', '', '', '', TRUE),
+          ('BD', 'Bangladesh', 'none', '', '', '', TRUE),
+          ('LK', 'Sri Lanka', 'none', '', '', '', TRUE),
+          ('MO', 'Macau', 'none', '', '', '', TRUE),
+          ('CN', 'China', 'none', '', '', '', TRUE),
+          ('MX', 'Mexico', 'none', '', '', '', TRUE),
+          ('BR', 'Brazil', 'none', '', '', '', TRUE),
+          ('AR', 'Argentina', 'none', '', '', '', TRUE),
+          ('CL', 'Chile', 'none', '', '', '', TRUE),
+          ('CO', 'Colombia', 'none', '', '', '', TRUE),
+          ('PE', 'Peru', 'none', '', '', '', TRUE),
+          ('ZA', 'South Africa', 'none', '', '', '', TRUE),
+          ('EG', 'Egypt', 'none', '', '', '', TRUE),
+          ('NG', 'Nigeria', 'none', '', '', '', TRUE),
+          ('KE', 'Kenya', 'none', '', '', '', TRUE),
+          ('RU', 'Russia', 'none', '', '', '', TRUE)
+        ON CONFLICT (country_code) DO NOTHING;
+      `);
 
       // Daily market snapshots for shipping. The cron job records an FX rate
       // and whatever public carrier/forwarder pages the owner configured, so
