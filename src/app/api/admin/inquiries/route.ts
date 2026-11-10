@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
         company: row.company,
         items: Array.isArray(row.items) ? row.items : [],
         totalAmount: Number(row.total_amount || 0),
+        startDate: row.start_date,
         expectedDelivery: row.expected_delivery,
         customization: row.customization,
         notes: row.notes,

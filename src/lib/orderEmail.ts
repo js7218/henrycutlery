@@ -602,6 +602,7 @@ type InquiryEmailPayload = {
   company?: string;
   items: OrderEmailItem[];
   totalAmount: number;
+  startDate?: string;
   expectedDelivery?: string;
   customization?: string;
   notes?: string;
@@ -661,7 +662,8 @@ export async function sendInquiryNotificationEmail(
     companyVerificationText,
     '',
     `Reference Total: ${formatPrice(inquiry.totalAmount)}`,
-    inquiry.expectedDelivery ? `Expected Delivery: ${inquiry.expectedDelivery}` : '',
+    inquiry.startDate ? `Order Start Date: ${inquiry.startDate}` : '',
+    inquiry.expectedDelivery ? `Delivery Date: ${inquiry.expectedDelivery}` : '',
     inquiry.customization ? `Customization: ${inquiry.customization}` : '',
     inquiry.notes ? `Notes: ${inquiry.notes}` : '',
     '',
@@ -693,7 +695,8 @@ export async function sendInquiryNotificationEmail(
 
       <h3 style="margin-top:20px;">Request</h3>
       <p><strong>Reference Total:</strong> ${formatPrice(inquiry.totalAmount)}</p>
-      ${inquiry.expectedDelivery ? `<p><strong>Expected Delivery:</strong> ${escapeHtml(inquiry.expectedDelivery)}</p>` : ''}
+      ${inquiry.startDate ? `<p><strong>Order Start Date:</strong> ${escapeHtml(inquiry.startDate)}</p>` : ''}
+      ${inquiry.expectedDelivery ? `<p><strong>Delivery Date:</strong> ${escapeHtml(inquiry.expectedDelivery)}</p>` : ''}
       ${inquiry.customization ? `<p><strong>Customization:</strong> ${escapeHtml(inquiry.customization)}</p>` : ''}
       ${inquiry.notes ? `<p><strong>Notes:</strong> ${escapeHtml(inquiry.notes)}</p>` : ''}
 

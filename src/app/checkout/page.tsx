@@ -129,6 +129,7 @@ export default function CheckoutPage() {
   const [inquiryForm, setInquiryForm] = useState({
     company: '',
     phone: '',
+    startDate: '',
     expectedDelivery: '',
     customization: '',
     notes: '',
@@ -362,6 +363,7 @@ export default function CheckoutPage() {
       setInquiryForm({
         company: '',
         phone: selectedAddress?.phone || '',
+        startDate: '',
         expectedDelivery: '',
         customization: '',
         notes: '',
@@ -449,6 +451,7 @@ export default function CheckoutPage() {
           setInquiryForm({
             company: '',
             phone: selectedAddress?.phone || '',
+            startDate: '',
             expectedDelivery: '',
             customization: '',
             notes: '',
@@ -545,18 +548,25 @@ export default function CheckoutPage() {
   const handleSubmitInquiry = async () => {
     if (!inquiryPrompt || submittingInquiry) return;
     // Accept "2026/12/01", "2026.12.01" and "2026-12-01" instead of forcing a picker.
+    const startDate = inquiryForm.startDate.trim().replace(/[/.]/g, '-');
     const deliveryDate = inquiryForm.expectedDelivery.trim().replace(/[/.]/g, '-');
     const formError = !inquiryForm.company.trim()
       ? 'Please enter your company name.'
       : !/^\+[1-9]\d{0,3}[\s.-]?[0-9][0-9\s().-]{5,30}$/.test(inquiryForm.phone.trim())
         ? 'Please enter your phone with a country code, e.g. +1 415 555 0123.'
-        : !deliveryDate
-          ? 'Please enter the expected delivery date.'
-          : !/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate) || Number.isNaN(Date.parse(deliveryDate))
-            ? 'Please enter the delivery date as YYYY-MM-DD, e.g. 2026-12-01.'
-            : inquiryForm.customization.trim().length < 2
-              ? 'Please describe your customization requirements.'
-              : '';
+        : !startDate
+          ? 'Please enter the start date (when the order should begin).'
+          : !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || Number.isNaN(Date.parse(startDate))
+            ? 'Please enter the start date as YYYY-MM-DD, e.g. 2026-12-01.'
+            : !deliveryDate
+              ? 'Please enter the delivery date (when the goods should arrive).'
+              : !/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate) || Number.isNaN(Date.parse(deliveryDate))
+                ? 'Please enter the delivery date as YYYY-MM-DD, e.g. 2026-12-20.'
+                : deliveryDate < startDate
+                  ? 'The delivery date cannot be earlier than the start date.'
+                  : inquiryForm.customization.trim().length < 2
+                    ? 'Please describe your customization requirements.'
+                    : '';
     if (formError) {
       setPaymentError(formError);
       return;
@@ -575,6 +585,7 @@ export default function CheckoutPage() {
           contactName: selectedAddress?.name || state.user?.name || '',
           contactPhone: inquiryForm.phone || selectedAddress?.phone || '',
           company: inquiryForm.company,
+          startDate,
           expectedDelivery: deliveryDate,
           customization: inquiryForm.customization,
           notes: inquiryForm.notes,
@@ -1359,14 +1370,32 @@ export default function CheckoutPage() {
                     placeholder="Your contact phone with country code (required)"
                     className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
                   />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={inquiryForm.expectedDelivery}
-                    onChange={(event) => setInquiryForm((prev) => ({ ...prev, expectedDelivery: event.target.value }))}
-                    placeholder="Expected delivery date, e.g. 2026-12-01 (required)"
-                    className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-gray-300">Start date (required)</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={inquiryForm.startDate}
+                        onChange={(event) => setInquiryForm((prev) => ({ ...prev, startDate: event.target.value }))}
+                        placeholder="2026-12-01"
+                        className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
+                      />
+                      <span className="mt-1 block text-xs text-gray-500">When the order should start.</span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-gray-300">Delivery date (required)</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={inquiryForm.expectedDelivery}
+                        onChange={(event) => setInquiryForm((prev) => ({ ...prev, expectedDelivery: event.target.value }))}
+                        placeholder="2026-12-20"
+                        className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
+                      />
+                      <span className="mt-1 block text-xs text-gray-500">When the goods should arrive. Must be after the start date.</span>
+                    </label>
+                  </div>
                   <textarea
                     value={inquiryForm.customization}
                     onChange={(event) => setInquiryForm((prev) => ({ ...prev, customization: event.target.value }))}

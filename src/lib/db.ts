@@ -312,6 +312,7 @@ async function runSchemaMigration(): Promise<void> {
           company TEXT NOT NULL DEFAULT '',
           items JSONB NOT NULL,
           total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+          start_date TEXT NOT NULL DEFAULT '',
           expected_delivery TEXT NOT NULL DEFAULT '',
           customization TEXT NOT NULL DEFAULT '',
           notes TEXT NOT NULL DEFAULT '',
@@ -324,6 +325,8 @@ async function runSchemaMigration(): Promise<void> {
       // Advisory company lookup verdict, stored as JSON text. Empty when the
       // check was skipped or predates this column.
       await db.query(`ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS company_check TEXT NOT NULL DEFAULT '';`);
+      // Order start date, added after the first inquiries were already stored.
+      await db.query(`ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS start_date TEXT NOT NULL DEFAULT '';`);
       await db.query(`
         CREATE INDEX IF NOT EXISTS inquiries_status_created_idx
         ON inquiries (status, created_at DESC);

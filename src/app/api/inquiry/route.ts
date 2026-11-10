@@ -80,6 +80,7 @@ export async function POST(request: Request) {
     const contactName = cleanText(body?.contactName, 100) || authUser.name || '';
     const contactPhone = cleanText(body?.contactPhone, 40);
     const company = cleanText(body?.company, 200);
+    const startDate = cleanText(body?.startDate, 20);
     const expectedDelivery = cleanText(body?.expectedDelivery, 200);
     const customization = cleanText(body?.customization, 2000);
     const notes = cleanText(body?.notes, 2000);
@@ -100,12 +101,27 @@ export async function POST(request: Request) {
     if (company.length < 2 || !/\p{L}/u.test(company)) {
       return NextResponse.json({ success: false, error: 'Please provide your company name.' }, { status: 400 });
     }
+    if (!startDate) {
+      return NextResponse.json({ success: false, error: 'Please tell us the order start date.' }, { status: 400 });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || Number.isNaN(Date.parse(startDate))) {
+      return NextResponse.json(
+        { success: false, error: 'Please enter the start date as YYYY-MM-DD.' },
+        { status: 400 }
+      );
+    }
     if (!expectedDelivery) {
       return NextResponse.json({ success: false, error: 'Please tell us the expected delivery date.' }, { status: 400 });
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(expectedDelivery) || Number.isNaN(Date.parse(expectedDelivery))) {
       return NextResponse.json(
         { success: false, error: 'Please enter the expected delivery date as YYYY-MM-DD.' },
+        { status: 400 }
+      );
+    }
+    if (expectedDelivery < startDate) {
+      return NextResponse.json(
+        { success: false, error: 'The delivery date cannot be earlier than the start date.' },
         { status: 400 }
       );
     }
@@ -126,9 +142,9 @@ export async function POST(request: Request) {
       `
         INSERT INTO inquiries (
           id, user_id, contact_name, contact_email, contact_phone, company,
-          items, total_amount, expected_delivery, customization, notes, reason, status
+          items, total_amount, start_date, expected_delivery, customization, notes, reason, status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, 'new')
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13, 'new')
       `,
       [
         id,
@@ -139,6 +155,7 @@ export async function POST(request: Request) {
         company,
         JSON.stringify(items),
         totalAmount,
+        startDate,
         expectedDelivery,
         customization,
         notes,
@@ -168,6 +185,7 @@ export async function POST(request: Request) {
           company,
           items,
           totalAmount,
+          startDate,
           expectedDelivery,
           customization,
           notes,

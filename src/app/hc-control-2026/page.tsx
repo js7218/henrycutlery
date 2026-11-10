@@ -66,6 +66,7 @@ type Inquiry = {
   company: string;
   items: Array<{ productId: string; productName: string; price: number; quantity: number; lineTotal: number }>;
   totalAmount: number;
+  startDate: string;
   expectedDelivery: string;
   customization: string;
   notes: string;
@@ -788,9 +789,10 @@ export default function AdminPage() {
                     <p className="text-foreground">Reference total: {formatPrice(inquiry.totalAmount)}</p>
                   </div>
 
-                  {(inquiry.expectedDelivery || inquiry.customization || inquiry.notes) && (
+                  {(inquiry.startDate || inquiry.expectedDelivery || inquiry.customization || inquiry.notes) && (
                     <div className="text-xs text-gray-400 space-y-1 mb-3">
-                      {inquiry.expectedDelivery && <p>Expected delivery: {inquiry.expectedDelivery}</p>}
+                      {inquiry.startDate && <p>Start date: {inquiry.startDate}</p>}
+                      {inquiry.expectedDelivery && <p>Delivery date: {inquiry.expectedDelivery}</p>}
                       {inquiry.customization && <p>Customization: {inquiry.customization}</p>}
                       {inquiry.notes && <p>Notes: {inquiry.notes}</p>}
                     </div>
