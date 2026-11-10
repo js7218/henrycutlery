@@ -459,9 +459,11 @@ export async function saveAutomationSettings(input: {
 }
 
 /**
- * Applies the market median to countries whose rate moved inside the review
- * threshold. A country is skipped when the move is too large (needs a human),
- * when the suggestion is below the cost floor, or when the batch cap is hit.
+ * Applies the price suggestion to countries whose change sits inside the review
+ * threshold. The suggestion is the top of the public range plus the configured
+ * margin (or, once a real bill exists, the billed cost plus margin). A country
+ * is skipped when the move is too large (needs a human), when the suggestion is
+ * below the cost floor, or when the batch cap is hit.
  */
 export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
   const settings = await getAutomationSettings();
@@ -496,10 +498,12 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
     const rate = rates.get(countryCode);
     // Real bills beat public estimates: when we have a bill for this country,
     // the suggestion is the actual cost per kg plus the configured margin.
+    // Without a bill we price above the top of the public range, never at the
+    // median, so a customer can always find a cheaper carrier and we still win.
     const rawSuggested = calibrationRow
       ? calibrationRow.actualPerKgUsd * (1 + settings.marginPct / 100)
       : item
-        ? item.median
+        ? item.high * (1 + settings.marginPct / 100)
         : 0;
     const suggested = Math.round(rawSuggested * 10000) / 10000;
 
