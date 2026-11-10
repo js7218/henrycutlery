@@ -533,15 +533,19 @@ export default function CheckoutPage() {
 
   const handleSubmitInquiry = async () => {
     if (!inquiryPrompt || submittingInquiry) return;
+    // Accept "2026/12/01", "2026.12.01" and "2026-12-01" instead of forcing a picker.
+    const deliveryDate = inquiryForm.expectedDelivery.trim().replace(/[/.]/g, '-');
     const formError = !inquiryForm.company.trim()
       ? 'Please enter your company name.'
       : !/^\+[1-9]\d{0,3}[\s.-]?[0-9][0-9\s().-]{5,30}$/.test(inquiryForm.phone.trim())
         ? 'Please enter your phone with a country code, e.g. +1 415 555 0123.'
-        : !inquiryForm.expectedDelivery
-          ? 'Please pick the expected delivery date.'
-          : inquiryForm.customization.trim().length < 5
-            ? 'Please describe your customization requirements.'
-            : '';
+        : !deliveryDate
+          ? 'Please enter the expected delivery date.'
+          : !/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate) || Number.isNaN(Date.parse(deliveryDate))
+            ? 'Please enter the delivery date as YYYY-MM-DD, e.g. 2026-12-01.'
+            : inquiryForm.customization.trim().length < 2
+              ? 'Please describe your customization requirements.'
+              : '';
     if (formError) {
       setPaymentError(formError);
       return;
@@ -560,7 +564,7 @@ export default function CheckoutPage() {
           contactName: selectedAddress?.name || state.user?.name || '',
           contactPhone: inquiryForm.phone || selectedAddress?.phone || '',
           company: inquiryForm.company,
-          expectedDelivery: inquiryForm.expectedDelivery,
+          expectedDelivery: deliveryDate,
           customization: inquiryForm.customization,
           notes: inquiryForm.notes,
           reason: inquiryPrompt.reasons.join(','),
@@ -1318,11 +1322,11 @@ export default function CheckoutPage() {
                     className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
                   />
                   <input
-                    type="date"
+                    type="text"
+                    inputMode="numeric"
                     value={inquiryForm.expectedDelivery}
-                    min={new Date().toISOString().slice(0, 10)}
                     onChange={(event) => setInquiryForm((prev) => ({ ...prev, expectedDelivery: event.target.value }))}
-                    placeholder="Expected delivery date (required)"
+                    placeholder="Expected delivery date, e.g. 2026-12-01 (required)"
                     className="w-full px-3 py-2 bg-surfaceLight border border-border rounded-lg text-foreground text-sm placeholder:text-gray-500 focus:outline-none focus:border-gold"
                   />
                   <textarea

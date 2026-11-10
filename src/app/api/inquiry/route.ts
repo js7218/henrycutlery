@@ -105,13 +105,13 @@ export async function POST(request: Request) {
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(expectedDelivery) || Number.isNaN(Date.parse(expectedDelivery))) {
       return NextResponse.json(
-        { success: false, error: 'Please pick a valid expected delivery date.' },
+        { success: false, error: 'Please enter the expected delivery date as YYYY-MM-DD.' },
         { status: 400 }
       );
     }
-    if (customization.trim().length < 5) {
+    if (customization.trim().length < 2) {
       return NextResponse.json(
-        { success: false, error: 'Please describe your customization requirements (at least 5 characters).' },
+        { success: false, error: 'Please describe your customization requirements.' },
         { status: 400 }
       );
     }
