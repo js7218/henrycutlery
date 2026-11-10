@@ -12,6 +12,7 @@ export default function InventoryAdminPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [bulkValue, setBulkValue] = useState('');
 
   useEffect(() => {
     fetch('/api/admin/inventory')
@@ -43,6 +44,15 @@ export default function InventoryAdminPage() {
     () => products.filter((product) => Number(stock[product.id] ?? 0) <= 20).length,
     [stock]
   );
+
+  function applyBulk() {
+    const value = bulkValue.replace(/[^\d]/g, '');
+    if (value === '') return;
+    const next: Record<string, string> = { ...stock };
+    for (const product of filteredProducts) next[product.id] = value;
+    setStock(next);
+    setStatus(`Set ${filteredProducts.length} products to ${value}. Click “Save inventory” to store it.`);
+  }
 
   async function save() {
     setSaving(true);
@@ -137,6 +147,31 @@ export default function InventoryAdminPage() {
           </div>
         </div>
 
+        <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-border bg-background/60 p-3">
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">
+              Set every listed product to
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="1000000"
+              value={bulkValue}
+              onChange={(e) => setBulkValue(e.target.value.replace(/[^\d]/g, ''))}
+              placeholder="e.g. 2400"
+              className="w-40 bg-background border border-border rounded px-3 py-2 text-sm"
+            />
+          </div>
+          <button
+            onClick={applyBulk}
+            disabled={bulkValue === ''}
+            className="px-4 py-2 border border-gold text-gold rounded text-sm font-medium disabled:opacity-40"
+          >
+            Apply to {filteredProducts.length} shown
+          </button>
+          <p className="text-sm text-gray-500">Then click “Save inventory” to store it.</p>
+        </div>
+
         <div className="max-h-[560px] overflow-auto">
           <table className="w-full text-sm">
             <thead className="text-gray-400 sticky top-0 bg-surface">
@@ -163,7 +198,10 @@ export default function InventoryAdminPage() {
                         step="1"
                         value={stock[product.id] ?? '0'}
                         onChange={(e) =>
-                          setStock((prev) => ({ ...prev, [product.id]: e.target.value }))
+                          setStock((prev) => ({
+                            ...prev,
+                            [product.id]: e.target.value.replace(/[^\d]/g, ''),
+                          }))
                         }
                         className="w-28 bg-background border border-border rounded px-2 py-1"
                       />
