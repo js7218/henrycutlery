@@ -73,6 +73,12 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
+// JSON-LD sits inside a <script> tag, so a literal "</script>" in the data
+// would end the tag early. Escaping "<" keeps the payload inert.
+function safeJsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
 const structuredData = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -103,7 +109,7 @@ export default function RootLayout({
       <head>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(structuredData) }}
         />
         {GA_MEASUREMENT_ID && (
           <>
