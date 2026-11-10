@@ -6,6 +6,7 @@ import { BarChart3, Database, FlaskConical, Inbox, Loader2, MessageSquare, Packa
 import { useApp } from '@/context/AppContext';
 import { formatDate, formatPrice, cn } from '@/lib/utils';
 import SeoReviewPanel from '@/components/admin/SeoReviewPanel';
+import HealthBanner from '@/components/admin/HealthBanner';
 
 type Tab = 'dashboard' | 'customers' | 'reviews' | 'inquiries' | 'seo' | 'security';
 
@@ -453,6 +454,8 @@ export default function AdminPage() {
             Reconciliation
           </Link>
         </div>
+
+        <HealthBanner />
 
         {error && (
           <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
