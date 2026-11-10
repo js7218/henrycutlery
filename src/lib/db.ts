@@ -445,6 +445,23 @@ async function runSchemaMigration(): Promise<void> {
         CREATE INDEX IF NOT EXISTS shipping_rate_changes_country_idx
         ON shipping_rate_changes (country_code, changed_at DESC);
       `);
+      // Automation thresholds. A single row (id = 'default') keeps the owner in
+      // charge: nothing is applied unless auto-apply is switched on explicitly.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS shipping_market_settings (
+          id TEXT PRIMARY KEY,
+          auto_apply_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+          quiet_pct NUMERIC(6, 2) NOT NULL DEFAULT 5,
+          review_pct NUMERIC(6, 2) NOT NULL DEFAULT 15,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      // Cost floor per country. Automated updates are never allowed to go
+      // below it, so a bad capture cannot make shipping a loss-maker.
+      await db.query(`
+        ALTER TABLE shipping_rates
+        ADD COLUMN IF NOT EXISTS floor_usd_per_kg NUMERIC(12, 4);
+      `);
       // Password reset tokens. We never email plaintext passwords; the
       // customer clicks a one-time link bound to a hashed token.
       await db.query(`

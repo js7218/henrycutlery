@@ -18,6 +18,31 @@ export interface MarketCaptureResult {
   captured: number;
   failed: number;
   errors: string[];
+  autoApply?: AutoApplyOutcome;
+}
+
+export interface MarketAutomationSettings {
+  autoApplyEnabled: boolean;
+  quietPct: number;
+  reviewPct: number;
+}
+
+export interface AutoApplyOutcome {
+  enabled: boolean;
+  applied: Array<{
+    countryCode: string;
+    before: number;
+    after: number;
+    pct: number;
+    mode: 'quiet' | 'notice';
+  }>;
+  skipped: Array<{
+    countryCode: string;
+    suggestion: number;
+    current: number | null;
+    pct: number | null;
+    reason: string;
+  }>;
 }
 
 const BROWSER_UA =
@@ -261,6 +286,9 @@ export async function runMarketCapture(): Promise<MarketCaptureResult> {
     }
   }
 
+  // Only runs when the owner has switched it on; otherwise this is a no-op.
+  result.autoApply = await autoApplyMarketRates();
+
   return result;
 }
 
@@ -378,4 +406,178 @@ export async function getLatestFx(): Promise<{ rate: number; source: string; cap
     source: String(result.rows[0].source || ''),
     capturedAt: new Date(String(result.rows[0].captured_at)).toISOString(),
   };
+}
+
+const SETTINGS_ID = 'default';
+
+export async function getAutomationSettings(): Promise<MarketAutomationSettings> {
+  await ensureDatabaseSchema();
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO shipping_market_settings (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`,
+    [SETTINGS_ID]
+  );
+  const result = await pool.query('SELECT * FROM shipping_market_settings WHERE id = $1', [
+    SETTINGS_ID,
+  ]);
+  const row = result.rows[0] || {};
+  return {
+    autoApplyEnabled: Boolean(row.auto_apply_enabled),
+    quietPct: Number(row.quiet_pct ?? 5),
+    reviewPct: Number(row.review_pct ?? 15),
+  };
+}
+
+export async function saveAutomationSettings(input: {
+  autoApplyEnabled?: unknown;
+  quietPct?: unknown;
+  reviewPct?: unknown;
+}): Promise<MarketAutomationSettings | null> {
+  const current = await getAutomationSettings();
+  const quietPct = input.quietPct === undefined ? current.quietPct : Number(input.quietPct);
+  const reviewPct = input.reviewPct === undefined ? current.reviewPct : Number(input.reviewPct);
+  const autoApplyEnabled =
+    input.autoApplyEnabled === undefined ? current.autoApplyEnabled : Boolean(input.autoApplyEnabled);
+
+  if (!Number.isFinite(quietPct) || quietPct < 0 || quietPct > 50) return null;
+  if (!Number.isFinite(reviewPct) || reviewPct < quietPct || reviewPct > 100) return null;
+
+  await ensureDatabaseSchema();
+  await getPool().query(
+    `UPDATE shipping_market_settings
+        SET auto_apply_enabled = $2, quiet_pct = $3, review_pct = $4, updated_at = NOW()
+      WHERE id = $1`,
+    [SETTINGS_ID, autoApplyEnabled, quietPct, reviewPct]
+  );
+  return { autoApplyEnabled, quietPct, reviewPct };
+}
+
+/**
+ * Applies the market median to countries whose rate moved inside the review
+ * threshold. A country is skipped when the move is too large (needs a human),
+ * when the suggestion is below the cost floor, or when the batch cap is hit.
+ */
+export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
+  const settings = await getAutomationSettings();
+  const outcome: AutoApplyOutcome = { enabled: settings.autoApplyEnabled, applied: [], skipped: [] };
+  if (!settings.autoApplyEnabled) return outcome;
+
+  const pool = getPool();
+  const summary = await getMarketSummary();
+  if (!summary.length) return outcome;
+
+  const ratesResult = await pool.query(
+    'SELECT country_code, per_kg_usd, floor_usd_per_kg FROM shipping_rates'
+  );
+  const rates = new Map<string, { current: number; floor: number | null }>();
+  for (const row of ratesResult.rows) {
+    rates.set(String(row.country_code), {
+      current: Number(row.per_kg_usd),
+      floor: row.floor_usd_per_kg === null ? null : Number(row.floor_usd_per_kg),
+    });
+  }
+
+  for (const item of summary) {
+    const rate = rates.get(item.countryCode);
+    const suggested = Math.round(item.median * 10000) / 10000;
+
+    if (!rate || !Number.isFinite(rate.current) || rate.current <= 0) {
+      outcome.skipped.push({
+        countryCode: item.countryCode,
+        suggestion: suggested,
+        current: null,
+        pct: null,
+        reason: 'No current rate configured',
+      });
+      continue;
+    }
+    if (!Number.isFinite(suggested) || suggested < 0.5 || suggested > 1000) {
+      outcome.skipped.push({
+        countryCode: item.countryCode,
+        suggestion: suggested,
+        current: rate.current,
+        pct: null,
+        reason: 'Suggestion out of range',
+      });
+      continue;
+    }
+    if (rate.floor !== null && suggested < rate.floor) {
+      outcome.skipped.push({
+        countryCode: item.countryCode,
+        suggestion: suggested,
+        current: rate.current,
+        pct: null,
+        reason: 'Below cost floor',
+      });
+      continue;
+    }
+
+    const pct = Math.round((Math.abs(suggested - rate.current) / rate.current) * 10000) / 100;
+    if (pct === 0) continue;
+    if (pct > settings.reviewPct) {
+      outcome.skipped.push({
+        countryCode: item.countryCode,
+        suggestion: suggested,
+        current: rate.current,
+        pct,
+        reason: 'Needs manual review',
+      });
+      continue;
+    }
+    if (outcome.applied.length >= 5) {
+      outcome.skipped.push({
+        countryCode: item.countryCode,
+        suggestion: suggested,
+        current: rate.current,
+        pct,
+        reason: 'Batch limit reached',
+      });
+      continue;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        'UPDATE shipping_rates SET per_kg_usd = $2, updated_at = NOW() WHERE country_code = $1',
+        [item.countryCode, suggested]
+      );
+      await client.query(
+        `INSERT INTO shipping_rate_changes
+           (id, country_code, before_usd, after_usd, source, note)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          `c${randomUUID()}`,
+          item.countryCode,
+          rate.current,
+          suggested,
+          'auto market median',
+          `median of ${item.count} source(s), ${pct}% change`,
+        ]
+      );
+      await client.query('COMMIT');
+    } catch {
+      await client.query('ROLLBACK').catch(() => {});
+      outcome.skipped.push({
+        countryCode: item.countryCode,
+        suggestion: suggested,
+        current: rate.current,
+        pct,
+        reason: 'Write failed',
+      });
+      continue;
+    } finally {
+      client.release();
+    }
+
+    outcome.applied.push({
+      countryCode: item.countryCode,
+      before: rate.current,
+      after: suggested,
+      pct,
+      mode: pct <= settings.quietPct ? 'quiet' : 'notice',
+    });
+  }
+
+  return outcome;
 }

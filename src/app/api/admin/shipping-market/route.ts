@@ -4,10 +4,12 @@ import { requireAdmin } from '@/lib/adminGuard';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import {
   deleteMarketSource,
+  getAutomationSettings,
   getLatestFx,
   getMarketSummary,
   listMarketSources,
   runMarketCapture,
+  saveAutomationSettings,
   upsertMarketSource,
 } from '@/lib/shippingMarket';
 
@@ -18,10 +20,11 @@ async function loadSnapshot() {
   await ensureDatabaseSchema();
   const pool = getPool();
 
-  const [fx, summary, sources, ratesResult, changesResult] = await Promise.all([
+  const [fx, summary, sources, settings, ratesResult, changesResult] = await Promise.all([
     getLatestFx(),
     getMarketSummary(),
     listMarketSources(),
+    getAutomationSettings(),
     pool.query('SELECT * FROM shipping_rates ORDER BY country_code ASC'),
     pool.query('SELECT * FROM shipping_rate_changes ORDER BY changed_at DESC LIMIT 20'),
   ]);
@@ -30,10 +33,12 @@ async function loadSnapshot() {
     fx,
     summary,
     sources,
+    settings,
     rates: ratesResult.rows.map((row) => ({
       countryCode: String(row.country_code),
       countryName: String(row.country_name || row.country_code),
       perKgUsd: Number(row.per_kg_usd),
+      floorUsdPerKg: row.floor_usd_per_kg == null ? null : Number(row.floor_usd_per_kg),
       updatedAt: row.updated_at ? new Date(String(row.updated_at)).toISOString() : '',
     })),
     changes: changesResult.rows.map((row) => ({
@@ -150,6 +155,54 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json().catch(() => null);
+
+    // Automation thresholds (auto-apply switch, quiet and review percentages).
+    if (body?.action === 'settings') {
+      const saved = await saveAutomationSettings(body);
+      if (!saved) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid thresholds: quiet must be 0-50 and review must be between quiet and 100.',
+          },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json({ success: true, ...(await loadSnapshot()) });
+    }
+
+    // Cost floor for one country. null clears it.
+    if (body?.action === 'floor') {
+      const countryCode =
+        typeof body?.countryCode === 'string'
+          ? body.countryCode.trim().toUpperCase().slice(0, 2)
+          : '';
+      if (!/^[A-Z]{2}$/.test(countryCode)) {
+        return NextResponse.json({ success: false, error: 'Invalid country code' }, { status: 400 });
+      }
+      const raw = body?.floorUsdPerKg;
+      const floor = raw === null || raw === '' ? null : Number(raw);
+      if (floor !== null && (!Number.isFinite(floor) || floor < 0.1 || floor > 1000)) {
+        return NextResponse.json(
+          { success: false, error: 'Floor must be between 0.1 and 1000 USD/kg, or empty to clear.' },
+          { status: 400 }
+        );
+      }
+
+      await ensureDatabaseSchema();
+      const updated = await getPool().query(
+        `UPDATE shipping_rates SET floor_usd_per_kg = $2, updated_at = NOW() WHERE country_code = $1`,
+        [countryCode, floor]
+      );
+      if (!updated.rowCount) {
+        return NextResponse.json(
+          { success: false, error: 'Country has no shipping rate yet' },
+          { status: 404 }
+        );
+      }
+      return NextResponse.json({ success: true, ...(await loadSnapshot()) });
+    }
+
     const countryCode =
       typeof body?.countryCode === 'string' ? body.countryCode.trim().toUpperCase().slice(0, 2) : '';
     const perKgUsd = Number(body?.perKgUsd);
@@ -170,10 +223,24 @@ export async function PATCH(request: Request) {
     try {
       await client.query('BEGIN');
       const existing = await client.query(
-        'SELECT per_kg_usd, country_name FROM shipping_rates WHERE country_code = $1 FOR UPDATE',
+        'SELECT per_kg_usd, country_name, floor_usd_per_kg FROM shipping_rates WHERE country_code = $1 FOR UPDATE',
         [countryCode]
       );
       const before = existing.rowCount ? Number(existing.rows[0].per_kg_usd) : null;
+      const floorUsd =
+        existing.rowCount && existing.rows[0].floor_usd_per_kg != null
+          ? Number(existing.rows[0].floor_usd_per_kg)
+          : null;
+      if (floorUsd !== null && perKgUsd < floorUsd) {
+        await client.query('ROLLBACK');
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Below the cost floor of $${floorUsd.toFixed(2)}/kg. Lower the floor first if this is intentional.`,
+          },
+          { status: 400 }
+        );
+      }
       const countryName = existing.rowCount
         ? String(existing.rows[0].country_name || countryCode)
         : countryCode;

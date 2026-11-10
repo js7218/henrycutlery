@@ -16,6 +16,7 @@ interface RateRow {
   countryCode: string;
   countryName: string;
   perKgUsd: number;
+  floorUsdPerKg: number | null;
   updatedAt: string;
 }
 
@@ -45,7 +46,14 @@ interface Snapshot {
   summary: MarketRow[];
   rates: RateRow[];
   sources: SourceRow[];
+  settings: { autoApplyEnabled: boolean; quietPct: number; reviewPct: number };
   changes: ChangeRow[];
+}
+
+interface AutoApplyResult {
+  enabled: boolean;
+  applied: Array<{ countryCode: string; before: number; after: number; pct: number }>;
+  skipped: Array<{ countryCode: string; reason: string }>;
 }
 
 const EMPTY_SOURCE = {
@@ -63,13 +71,17 @@ export default function ShippingMarketAdminPage() {
     summary: [],
     rates: [],
     sources: [],
+    settings: { autoApplyEnabled: false, quietPct: 5, reviewPct: 15 },
     changes: [],
   });
   const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [floorInputs, setFloorInputs] = useState<Record<string, string>>({});
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [running, setRunning] = useState(false);
   const [savingRate, setSavingRate] = useState('');
+  const [savingFloor, setSavingFloor] = useState('');
+  const [savingSettings, setSavingSettings] = useState(false);
   const [sourceForm, setSourceForm] = useState({ ...EMPTY_SOURCE });
   const [savingSource, setSavingSource] = useState(false);
 
@@ -79,13 +91,18 @@ export default function ShippingMarketAdminPage() {
       summary: data.summary || [],
       rates: data.rates || [],
       sources: data.sources || [],
+      settings: data.settings || { autoApplyEnabled: false, quietPct: 5, reviewPct: 15 },
       changes: data.changes || [],
     });
     const next: Record<string, string> = {};
+    const nextFloors: Record<string, string> = {};
     for (const rate of data.rates || []) {
       next[rate.countryCode] = String(rate.perKgUsd);
+      nextFloors[rate.countryCode] =
+        rate.floorUsdPerKg === null ? '' : String(rate.floorUsdPerKg);
     }
     setInputs(next);
+    setFloorInputs(nextFloors);
   }
 
   useEffect(() => {
@@ -120,10 +137,19 @@ export default function ShippingMarketAdminPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Capture failed');
       applySnapshot(data);
+      const auto = data.autoApply as AutoApplyResult | undefined;
+      const appliedText =
+        auto && auto.applied.length > 0
+          ? ` Auto-applied ${auto.applied.length}: ${auto.applied
+              .map((item) => `${item.countryCode} $${item.before.toFixed(2)}→$${item.after.toFixed(2)}`)
+              .join(', ')}.`
+          : auto?.enabled
+            ? ' Auto-apply is on, but nothing moved within the review threshold.'
+            : '';
       setStatus(
         `Capture finished: ${data.captured} price(s), ${data.failed} failed. FX ${
           data.fxUsdCny ? data.fxUsdCny.toFixed(4) : 'unavailable'
-        }.`
+        }.${appliedText}`
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Capture failed');
@@ -151,6 +177,58 @@ export default function ShippingMarketAdminPage() {
       setError(err instanceof Error ? err.message : 'Apply failed');
     } finally {
       setSavingRate('');
+    }
+  }
+
+  async function saveFloor(countryCode: string) {
+    const raw = (floorInputs[countryCode] ?? '').trim();
+    setSavingFloor(countryCode);
+    setStatus('');
+    setError('');
+    try {
+      const res = await fetch('/api/admin/shipping-market', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'floor',
+          countryCode,
+          floorUsdPerKg: raw === '' ? null : Number(raw),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Floor update failed');
+      applySnapshot(data);
+      setStatus(raw === '' ? `${countryCode} floor cleared.` : `${countryCode} floor set to $${raw}/kg.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Floor update failed');
+    } finally {
+      setSavingFloor('');
+    }
+  }
+
+  async function saveSettings() {
+    setSavingSettings(true);
+    setStatus('');
+    setError('');
+    try {
+      const res = await fetch('/api/admin/shipping-market', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'settings',
+          autoApplyEnabled: snapshot.settings.autoApplyEnabled,
+          quietPct: snapshot.settings.quietPct,
+          reviewPct: snapshot.settings.reviewPct,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Settings update failed');
+      applySnapshot(data);
+      setStatus('Automation settings saved.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Settings update failed');
+    } finally {
+      setSavingSettings(false);
     }
   }
 
@@ -201,8 +279,9 @@ export default function ShippingMarketAdminPage() {
           </Link>
           <h1 className="text-2xl font-semibold mt-2">Shipping Rate Monitor</h1>
           <p className="text-sm text-gray-400 mt-1">
-            Records the USD/CNY rate and one price per configured source, daily. Nothing changes
-            automatically — review a row and press Apply.
+            Records the USD/CNY rate and one price per configured source, daily. Automatic updates
+            are off by default; when enabled, moves inside the review threshold are applied and
+            logged, larger moves stay for manual review, and nothing can go below its cost floor.
           </p>
         </div>
 
@@ -232,6 +311,67 @@ export default function ShippingMarketAdminPage() {
         </section>
 
         <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-lg font-medium mb-1">Automation</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            When enabled, the daily capture applies the market median only while the move stays
+            inside the review threshold. Anything larger waits for you, and no update may land
+            below the cost floor set for that country.
+          </p>
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={snapshot.settings.autoApplyEnabled}
+                onChange={(e) =>
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    settings: { ...prev.settings, autoApplyEnabled: e.target.checked },
+                  }))
+                }
+              />
+              Auto-apply within threshold
+            </label>
+            <label className="text-sm">
+              <span className="block text-xs text-gray-500 mb-1">Quiet up to (%)</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={snapshot.settings.quietPct}
+                onChange={(e) =>
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    settings: { ...prev.settings, quietPct: Number(e.target.value) },
+                  }))
+                }
+                className="w-20 bg-background border border-border rounded px-2 py-1"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block text-xs text-gray-500 mb-1">Review above (%)</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={snapshot.settings.reviewPct}
+                onChange={(e) =>
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    settings: { ...prev.settings, reviewPct: Number(e.target.value) },
+                  }))
+                }
+                className="w-20 bg-background border border-border rounded px-2 py-1"
+              />
+            </label>
+            <button
+              onClick={saveSettings}
+              disabled={savingSettings}
+              className="px-4 py-2 bg-gold text-background rounded text-sm font-medium disabled:opacity-50"
+            >
+              {savingSettings ? 'Saving...' : 'Save automation'}
+            </button>
+          </div>
+        </section>
+
+        <section className="bg-surface border border-border rounded-lg p-5">
           <h2 className="text-lg font-medium mb-1">Rates vs market</h2>
           <p className="text-xs text-gray-500 mb-4">
             Market range is the last 24 hours across successful sources. A median below your
@@ -244,53 +384,90 @@ export default function ShippingMarketAdminPage() {
                   <th className="text-left py-2">Country</th>
                   <th className="text-left py-2">Your USD/kg</th>
                   <th className="text-left py-2"></th>
+                  <th className="text-left py-2">Cost floor</th>
+                  <th className="text-left py-2"></th>
                   <th className="text-left py-2">Market (24h)</th>
+                  <th className="text-left py-2">Drift</th>
                   <th className="text-left py-2">Sources</th>
                   <th className="text-left py-2">Captured</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ countryCode, rate, market }) => (
-                  <tr key={countryCode} className="border-t border-border">
-                    <td className="py-2 pr-3">
-                      {countryCode}
-                      <span className="text-gray-500"> {rate?.countryName || ''}</span>
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={inputs[countryCode] ?? ''}
-                        onChange={(e) =>
-                          setInputs((prev) => ({ ...prev, [countryCode]: e.target.value }))
-                        }
-                        className={`w-24 bg-background border rounded px-2 py-1 ${
-                          market && Number(inputs[countryCode]) > market.high * 1.5
-                            ? 'border-yellow-500/60'
-                            : 'border-border'
-                        }`}
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <button
-                        onClick={() => applyRate(countryCode)}
-                        disabled={savingRate === countryCode}
-                        className="px-3 py-1 bg-gold text-background rounded text-xs font-medium disabled:opacity-50"
-                      >
-                        {savingRate === countryCode ? 'Saving...' : 'Apply'}
-                      </button>
-                    </td>
-                    <td className="py-2 pr-3 text-gray-300">
-                      {market
-                        ? `$${market.low.toFixed(2)} – $${market.high.toFixed(2)} (median $${market.median.toFixed(2)})`
-                        : '-'}
-                    </td>
-                    <td className="py-2 pr-3 text-gray-500">{market ? market.count : '-'}</td>
-                    <td className="py-2 text-gray-500">
-                      {market ? new Date(market.capturedAt).toLocaleString() : '-'}
-                    </td>
-                  </tr>
-                ))}
+                {rows.map(({ countryCode, rate, market }) => {
+                  const drift =
+                    market && rate && rate.perKgUsd > 0
+                      ? ((market.median - rate.perKgUsd) / rate.perKgUsd) * 100
+                      : null;
+                  const needsReview =
+                    drift !== null && Math.abs(drift) > snapshot.settings.reviewPct;
+                  return (
+                    <tr key={countryCode} className="border-t border-border">
+                      <td className="py-2 pr-3">
+                        {countryCode}
+                        <span className="text-gray-500"> {rate?.countryName || ''}</span>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={inputs[countryCode] ?? ''}
+                          onChange={(e) =>
+                            setInputs((prev) => ({ ...prev, [countryCode]: e.target.value }))
+                          }
+                          className={`w-24 bg-background border rounded px-2 py-1 ${
+                            market && Number(inputs[countryCode]) > market.high * 1.5
+                              ? 'border-yellow-500/60'
+                              : 'border-border'
+                          }`}
+                        />
+                      </td>
+                      <td className="py-2 pr-3">
+                        <button
+                          onClick={() => applyRate(countryCode)}
+                          disabled={savingRate === countryCode}
+                          className="px-3 py-1 bg-gold text-background rounded text-xs font-medium disabled:opacity-50"
+                        >
+                          {savingRate === countryCode ? 'Saving...' : 'Apply'}
+                        </button>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={floorInputs[countryCode] ?? ''}
+                          onChange={(e) =>
+                            setFloorInputs((prev) => ({ ...prev, [countryCode]: e.target.value }))
+                          }
+                          placeholder="none"
+                          className="w-20 bg-background border border-border rounded px-2 py-1"
+                        />
+                      </td>
+                      <td className="py-2 pr-3">
+                        <button
+                          onClick={() => saveFloor(countryCode)}
+                          disabled={savingFloor === countryCode}
+                          className="px-2 py-1 border border-border rounded text-xs text-gray-300 disabled:opacity-50"
+                        >
+                          {savingFloor === countryCode ? '...' : 'Set'}
+                        </button>
+                      </td>
+                      <td className="py-2 pr-3 text-gray-300">
+                        {market
+                          ? `$${market.low.toFixed(2)} – $${market.high.toFixed(2)} (median $${market.median.toFixed(2)})`
+                          : '-'}
+                      </td>
+                      <td className={`py-2 pr-3 ${needsReview ? 'text-red-400' : 'text-gray-400'}`}>
+                        {drift === null
+                          ? '-'
+                          : `${drift > 0 ? '+' : ''}${drift.toFixed(1)}%${needsReview ? ' review' : ''}`}
+                      </td>
+                      <td className="py-2 pr-3 text-gray-500">{market ? market.count : '-'}</td>
+                      <td className="py-2 text-gray-500">
+                        {market ? new Date(market.capturedAt).toLocaleString() : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
