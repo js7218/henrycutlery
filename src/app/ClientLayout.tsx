@@ -19,7 +19,6 @@ const AmbientLight = dynamic(() => import('@/components/animation/AmbientLight')
 
 // Canvas-based effects (enhancement layer, desktop-first)
 const PageTransition = dynamic(() => import('@/components/animation/PageTransition'), { ssr: false });
-const CustomCursor = dynamic(() => import('@/components/animation/CustomCursor'), { ssr: false });
 const TouchTrail = dynamic(() => import('@/components/animation/TouchTrail'), { ssr: false });
 const RippleEffect = dynamic(() => import('@/components/animation/RippleEffect'), { ssr: false });
 const ParticleNetwork = dynamic(() => import('@/components/animation/ParticleNetwork'), { ssr: false });
@@ -40,7 +39,6 @@ export default function ClientLayout({
 
       {/* Canvas enhancements: gracefully degrade on unsupported browsers */}
       <PageTransition />
-      <CustomCursor />
       <TouchTrail />
       <RippleEffect />
       <ParticleNetwork count={50} maxDistance={140} />
