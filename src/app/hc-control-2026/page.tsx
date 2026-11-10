@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BarChart3, Database, Inbox, Loader2, MessageSquare, Package, Scale, Search, ShieldX, Sparkles, TrendingUp, Truck, Users } from 'lucide-react';
+import { BarChart3, Database, FlaskConical, Inbox, Loader2, MessageSquare, Package, ReceiptText, Scale, Search, ShieldX, Sparkles, TrendingUp, Truck, Users } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatDate, formatPrice, cn } from '@/lib/utils';
 import SeoReviewPanel from '@/components/admin/SeoReviewPanel';
@@ -437,6 +437,20 @@ export default function AdminPage() {
           >
             <TrendingUp className="w-5 h-5" />
             Rate Monitor
+          </Link>
+          <Link
+            href="/hc-control-2026/samples"
+            className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors whitespace-nowrap bg-surface border border-border text-gray-400 hover:text-foreground"
+          >
+            <FlaskConical className="w-5 h-5" />
+            Samples
+          </Link>
+          <Link
+            href="/hc-control-2026/reconciliation"
+            className="flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors whitespace-nowrap bg-surface border border-border text-gray-400 hover:text-foreground"
+          >
+            <ReceiptText className="w-5 h-5" />
+            Reconciliation
           </Link>
         </div>
 

@@ -356,6 +356,27 @@ async function runSchemaMigration(): Promise<void> {
         ON sample_requests (created_at DESC);
       `);
 
+      // Money actually received for an order. Reconciliation compares this with
+      // the order total and with the forwarder bills, so a short payment or an
+      // under-quoted freight shows up instead of being lost in a spreadsheet.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS order_payments (
+          id TEXT PRIMARY KEY,
+          order_id TEXT NOT NULL,
+          amount_usd NUMERIC(12, 2) NOT NULL,
+          fee_usd NUMERIC(12, 2) NOT NULL DEFAULT 0,
+          method TEXT NOT NULL DEFAULT '',
+          reference TEXT NOT NULL DEFAULT '',
+          received_at DATE,
+          note TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS order_payments_order_idx
+        ON order_payments (order_id, created_at DESC);
+      `);
+
       // Destination-country import guidance for bladed items. These are
       // advisory only: the customer confirms the rule before checkout and the
       // import responsibility stays with the importer. The owner can edit
