@@ -56,7 +56,9 @@ export async function getComplianceRule(countryCode: string): Promise<Compliance
 export async function listComplianceRules(): Promise<ComplianceRule[]> {
   await ensureDatabaseSchema();
   const result = await getPool().query(
-    'SELECT * FROM knife_compliance_rules ORDER BY risk_level DESC, country_name ASC'
+    `SELECT * FROM knife_compliance_rules
+     ORDER BY CASE risk_level WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+              country_name ASC`
   );
   return result.rows.map(mapRow);
 }
