@@ -492,13 +492,10 @@ export default function ProductDetailPage() {
             </ThreeDButton>
             <button
               onClick={() => setActiveTab('reviews')}
-              className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-left text-gray-200 hover:border-gold hover:text-gold transition-colors"
+              className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-left text-gray-200"
             >
-              <span className="flex items-center gap-2">
-                <Star className="w-5 h-5" />
-                Customer Reviews / Write a Review
-              </span>
-              <ChevronRight className="w-5 h-5" />
+              <span>Customer Reviews / Write a Review</span>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
             </button>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <ThreeDButton
