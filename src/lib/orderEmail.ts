@@ -30,6 +30,13 @@ type OrderEmailPayload = {
   shippingFee?: number;
   /** True when shipping is quoted manually (no SKU weights / destination rate). */
   shippingQuoted?: boolean;
+  /** Destination import guidance shown at checkout, if any applied. */
+  compliance?: {
+    countryCode: string;
+    riskLevel: string;
+    confirmed: boolean;
+    confirmedAt: string;
+  } | null;
 };
 
 function getOrderReceiverEmail() {
@@ -156,6 +163,13 @@ function buildOrderEmail(order: OrderEmailPayload) {
     '',
     'Items:',
     ...order.items.map((item, index) => `${index + 1}. ${item.productName.toUpperCase()} | Qty: ${item.quantity} | Unit: ${formatPrice(item.price)} | Total: ${formatPrice(item.price * item.quantity)}`),
+    ...(order.compliance && order.compliance.riskLevel !== 'none'
+      ? [
+          '',
+          `Import notice: ${order.compliance.countryCode} (${order.compliance.riskLevel} risk).`,
+          'The customer confirmed that local import rules allow this order.',
+        ]
+      : []),
   ].join('\n');
 
   const html = `
@@ -186,6 +200,16 @@ function buildOrderEmail(order: OrderEmailPayload) {
         </thead>
         <tbody>${itemRows}</tbody>
       </table>
+
+      ${
+        order.compliance && order.compliance.riskLevel !== 'none'
+          ? `<div style="margin-top:20px;padding:12px;border:1px solid #e0b400;background:#fff8e1;border-radius:6px;font-size:13px;">
+               <strong>Import notice:</strong> ${escapeHtml(order.compliance.countryCode)}
+               (${escapeHtml(order.compliance.riskLevel)} risk). The customer confirmed that local
+               import rules allow this order.
+             </div>`
+          : ''
+      }
     </div>
   `;
 

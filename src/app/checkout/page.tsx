@@ -18,6 +18,16 @@ import NegotiationChat from '@/components/NegotiationChat';
 
 type CheckoutStep = 'confirm' | 'payment' | 'complete';
 
+type ComplianceRule = {
+  countryCode: string;
+  countryName: string;
+  riskLevel: 'medium' | 'high';
+  restrictedTypes: string;
+  message: string;
+  sourceUrl: string;
+  disclaimer: string;
+};
+
 const COUNTRY_CODES = [
   { code: '+86', label: 'China +86' },
   { code: '+1', label: 'US/Canada +1' },
@@ -153,6 +163,10 @@ export default function CheckoutPage() {
   const [negotiatedShipping, setNegotiatedShipping] = useState<{ amountUsd: number; token: string } | null>(null);
   // Live stock from the database, used for the pre-flight quantity check.
   const [liveStock, setLiveStock] = useState<Record<string, number>>({});
+  // Destination-country import guidance for bladed items. Advisory only: the
+  // customer must tick the acknowledgement before an affected order proceeds.
+  const [complianceRule, setComplianceRule] = useState<ComplianceRule | null>(null);
+  const [complianceAck, setComplianceAck] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,6 +208,32 @@ export default function CheckoutPage() {
   const shippingFee = customerArrangesShipping || !shipping.complete ? 0 : shipping.fee;
   const effectiveShippingFee = negotiatedShipping ? negotiatedShipping.amountUsd : shippingFee;
   const totalAmount = cartTotal + effectiveShippingFee;
+  const shippingCountry = shipping.countryCode;
+
+  // Load the destination's import guidance whenever the shipping country
+  // changes. Failing to load it must never block checkout.
+  useEffect(() => {
+    setComplianceAck(false);
+    if (!shippingCountry) {
+      setComplianceRule(null);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/compliance/rule?country=${encodeURIComponent(shippingCountry)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setComplianceRule(data?.success && data.rule ? (data.rule as ComplianceRule) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setComplianceRule(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shippingCountry]);
 
   // A quote is only valid for the exact fee and shipping choice it was
   // negotiated against, so drop it whenever either changes.
@@ -278,6 +318,12 @@ export default function CheckoutPage() {
     const error = validateAddress(selectedAddress);
     if (error) {
       setAddressError(error);
+      return;
+    }
+    if (complianceRule && !complianceAck) {
+      setAddressError(
+        `Please confirm the import notice for ${complianceRule.countryName} before continuing.`
+      );
       return;
     }
     setAddressError('');
@@ -367,6 +413,7 @@ export default function CheckoutPage() {
           shippingSelfArranged: customerArrangesShipping,
           shippingCountryCode: shipToCountry || undefined,
           shippingQuoteToken: negotiatedShipping?.token || undefined,
+          complianceConfirmed: complianceRule ? complianceAck : undefined,
         }),
       });
 
@@ -800,6 +847,61 @@ export default function CheckoutPage() {
                   <p className="mt-1 text-xs text-gray-500">
                     Preselected from your phone number. Change it if the delivery country is different.
                   </p>
+                </div>
+              )}
+              {complianceRule && (
+                <div
+                  className={`mt-4 rounded-lg border p-4 ${
+                    complianceRule.riskLevel === 'high'
+                      ? 'border-red-500/40 bg-red-500/10'
+                      : 'border-yellow-500/40 bg-yellow-500/10'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertCircle
+                      className={`w-5 h-5 mt-0.5 shrink-0 ${
+                        complianceRule.riskLevel === 'high' ? 'text-red-400' : 'text-yellow-400'
+                      }`}
+                    />
+                    <div className="text-sm">
+                      <p
+                        className={`font-medium ${
+                          complianceRule.riskLevel === 'high' ? 'text-red-300' : 'text-yellow-300'
+                        }`}
+                      >
+                        Import notice for {complianceRule.countryName}
+                      </p>
+                      <p className="mt-1 text-gray-300">{complianceRule.message}</p>
+                      {complianceRule.restrictedTypes && (
+                        <p className="mt-1 text-gray-400">
+                          Restricted categories: {complianceRule.restrictedTypes}
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-500">{complianceRule.disclaimer}</p>
+                      {complianceRule.sourceUrl && (
+                        <a
+                          href={complianceRule.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 inline-block text-xs text-gold underline"
+                        >
+                          Official source
+                        </a>
+                      )}
+                      <label className="mt-3 flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={complianceAck}
+                          onChange={(e) => setComplianceAck(e.target.checked)}
+                          className="mt-0.5 accent-gold"
+                        />
+                        <span className="text-gray-300">
+                          I have checked my local import rules and confirm this order may be
+                          imported into {complianceRule.countryName}.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               )}
               {addressError && (

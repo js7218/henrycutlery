@@ -12,6 +12,7 @@ import { products } from '@/data/products';
 import { generateOrderNumber } from '@/lib/utils';
 import { findUnsafeUrl } from '@/lib/ssrfProtection';
 import { sendOrderNotificationEmail, sendCustomerOrderReceivedEmail } from '@/lib/orderEmail';
+import { getComplianceRule } from '@/lib/compliance';
 import { customerOrderNumberFields } from '@/lib/orderView';
 import { getAuthUser } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
@@ -485,6 +486,37 @@ export async function POST(request: NextRequest) {
       typeof body.shippingCountryCode === 'string'
         ? body.shippingCountryCode.trim().toUpperCase().slice(0, 2)
         : '';
+
+    // Destination import guidance is re-checked server-side. The client flag
+    // only says "the customer ticked the box"; the rule itself is never taken
+    // from the request body.
+    const complianceCountry = requestedCountryCode || countryOfPhone(address.phone)?.code || '';
+    let compliance: {
+      countryCode: string;
+      riskLevel: string;
+      confirmed: boolean;
+      confirmedAt: string;
+    } | null = null;
+    if (complianceCountry) {
+      const rule = await getComplianceRule(complianceCountry);
+      if (rule && body.complianceConfirmed !== true) {
+        return NextResponse.json(
+          {
+            error: `Please confirm the import notice for ${rule.countryName} before placing this order.`,
+            code: 'COMPLIANCE_NOT_CONFIRMED',
+            compliance: rule,
+          },
+          { status: 409 }
+        );
+      }
+      compliance = {
+        countryCode: complianceCountry,
+        riskLevel: rule?.riskLevel || 'none',
+        confirmed: Boolean(rule),
+        confirmedAt: rule ? new Date().toISOString() : '',
+      };
+    }
+
     let shippingFee = 0;
     let shippingWeightKg = 0;
     let shippingPerKg = 0;
@@ -576,6 +608,7 @@ export async function POST(request: NextRequest) {
         shippingQuoted,
         shippingNegotiated,
         shippingCountryCode,
+        compliance,
       },
       paymentMethod,
       createdAt: new Date().toISOString(),
@@ -780,6 +813,7 @@ export async function POST(request: NextRequest) {
           detail: address.detail,
         },
         createdAt: order.createdAt,
+        compliance,
       };
 
       // Notify both sides immediately. Failures here must never lose the order.

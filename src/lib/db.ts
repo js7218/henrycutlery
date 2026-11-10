@@ -332,6 +332,119 @@ async function runSchemaMigration(): Promise<void> {
         ON inquiries (user_id, created_at DESC);
       `);
 
+      // Destination-country import guidance for bladed items. These are
+      // advisory only: the customer confirms the rule before checkout and the
+      // import responsibility stays with the importer. The owner can edit
+      // every row from the admin panel, so changes do not need a deploy.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS knife_compliance_rules (
+          country_code TEXT PRIMARY KEY,
+          country_name TEXT NOT NULL DEFAULT '',
+          risk_level TEXT NOT NULL DEFAULT 'none',
+          restricted_types TEXT NOT NULL DEFAULT '',
+          message TEXT NOT NULL DEFAULT '',
+          source_url TEXT NOT NULL DEFAULT '',
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        INSERT INTO knife_compliance_rules
+          (country_code, country_name, risk_level, restricted_types, message, source_url, enabled)
+        VALUES
+          ('GB', 'United Kingdom', 'high', 'Locking folding knives, flick knives, gravity knives, butterfly knives, push daggers',
+           'UK customs treat many locking and one-hand-opening folding knives as prohibited weapons. Kitchen and fixed-blade knives are usually allowed.',
+           'https://www.gov.uk/guidance/import-controls-on-offensive-weapons', TRUE),
+          ('IE', 'Ireland', 'high', 'Flick knives, gravity knives, butterfly knives, push daggers',
+           'Irish customs restrict several bladed-item categories. Please confirm the exact model with Irish customs before ordering.',
+           'https://www.revenue.ie/en/customs/', TRUE),
+          ('DE', 'Germany', 'high', 'Flick knives, butterfly knives, gravity knives, one-hand-opening locking folders',
+           'Germany restricts several folding-knife categories under the Weapons Act. Fixed-blade kitchen knives are normally allowed.',
+           'https://www.zoll.de/EN/Home/home_node.html', TRUE),
+          ('FR', 'France', 'medium', 'Concealed blades, automatic knives, butterfly knives',
+           'France classifies some automatic and concealed knives as prohibited weapons. Please confirm your model locally.',
+           'https://www.douane.gouv.fr/', TRUE),
+          ('NL', 'Netherlands', 'medium', 'Butterfly knives, stilettos, automatic knives',
+           'The Netherlands restricts several bladed-item categories. Please confirm with Dutch customs.',
+           'https://www.belastingdienst.nl/', TRUE),
+          ('AU', 'Australia', 'high', 'Automatic knives, butterfly knives, push daggers, some folding knives',
+           'Australian border rules are strict for flick, gravity and butterfly knives. Kitchen and fixed-blade knives are usually permitted.',
+           'https://www.abf.gov.au/importing-exporting-and-manufacturing/prohibited-goods', TRUE),
+          ('NZ', 'New Zealand', 'medium', 'Butterfly knives, automatic knives, push daggers',
+           'New Zealand restricts some bladed items. Please confirm with NZ Customs before ordering.',
+           'https://www.customs.govt.nz/', TRUE),
+          ('CA', 'Canada', 'high', 'Automatic knives, butterfly knives, push daggers, gravity knives',
+           'Canada prohibits several automatic and gravity knife categories. Kitchen knives are normally allowed.',
+           'https://www.cbsa-asfc.gc.ca/', TRUE),
+          ('US', 'United States', 'medium', 'Automatic knives (state-dependent), butterfly knives (state-dependent)',
+           'US federal rules are permissive for most kitchen knives, but several states restrict automatic and butterfly knives. Please check your state.',
+           'https://www.cbp.gov/', TRUE),
+          ('JP', 'Japan', 'medium', 'Blades over the legal length limit, automatic knives',
+           'Japan limits blade length for some knife types. Please confirm the model meets Japanese requirements.',
+           'https://www.customs.go.jp/english/', TRUE),
+          ('SG', 'Singapore', 'high', 'Automatic knives, butterfly knives, push daggers, flick knives',
+           'Singapore prohibits several bladed-item categories. Please confirm with Singapore Customs.',
+           'https://www.customs.gov.sg/', TRUE)
+        ON CONFLICT (country_code) DO NOTHING;
+      `);
+
+      // Daily market snapshots for shipping. The cron job records an FX rate
+      // and whatever public carrier/forwarder pages the owner configured, so
+      // rate changes can be reviewed instead of guessed.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS shipping_market_sources (
+          id TEXT PRIMARY KEY,
+          country_code TEXT NOT NULL,
+          label TEXT NOT NULL DEFAULT '',
+          url TEXT NOT NULL,
+          unit TEXT NOT NULL DEFAULT 'usd_per_kg',
+          regex TEXT NOT NULL DEFAULT '',
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          notes TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS shipping_market_observations (
+          id TEXT PRIMARY KEY,
+          country_code TEXT NOT NULL,
+          source_id TEXT NOT NULL DEFAULT '',
+          source_label TEXT NOT NULL DEFAULT '',
+          source_url TEXT NOT NULL DEFAULT '',
+          usd_per_kg NUMERIC(12, 4),
+          ok BOOLEAN NOT NULL DEFAULT TRUE,
+          error TEXT NOT NULL DEFAULT '',
+          captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS shipping_market_observations_country_idx
+        ON shipping_market_observations (country_code, captured_at DESC);
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS fx_rates (
+          pair TEXT PRIMARY KEY,
+          rate NUMERIC(18, 8) NOT NULL,
+          source TEXT NOT NULL DEFAULT '',
+          captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS shipping_rate_changes (
+          id TEXT PRIMARY KEY,
+          country_code TEXT NOT NULL,
+          before_usd NUMERIC(12, 4),
+          after_usd NUMERIC(12, 4) NOT NULL,
+          source TEXT NOT NULL DEFAULT '',
+          note TEXT NOT NULL DEFAULT '',
+          changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS shipping_rate_changes_country_idx
+        ON shipping_rate_changes (country_code, changed_at DESC);
+      `);
       // Password reset tokens. We never email plaintext passwords; the
       // customer clicks a one-time link bound to a hashed token.
       await db.query(`

@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/daily-orders",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/shipping-market",
+      "schedule": "30 1 * * *"
     }
   ]
 }
