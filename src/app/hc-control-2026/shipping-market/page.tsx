@@ -477,7 +477,9 @@ export default function ShippingMarketAdminPage() {
           <h2 className="text-lg font-medium mb-1">Rates vs market</h2>
           <p className="text-xs text-gray-500 mb-4">
             Market range is the last 24 hours across successful sources. A median below your
-            current rate usually means you are pricing above the market.
+            current rate usually means you are pricing above the market. Suggested is the top of
+            that range plus 15% for fuel and delivery; clicking it only fills the box, nothing is
+            saved until you press Apply.
           </p>
           <div className="overflow-auto">
             <table className="w-full text-sm">
@@ -489,6 +491,7 @@ export default function ShippingMarketAdminPage() {
                   <th className="text-left py-2">Cost floor</th>
                   <th className="text-left py-2"></th>
                   <th className="text-left py-2">Market (24h)</th>
+                  <th className="text-left py-2">Suggested</th>
                   <th className="text-left py-2">Drift</th>
                   <th className="text-left py-2">Actual cost/kg</th>
                   <th className="text-left py-2">Sources</th>
@@ -504,6 +507,11 @@ export default function ShippingMarketAdminPage() {
                       : null;
                   const needsReview =
                     drift !== null && Math.abs(drift) > snapshot.settings.reviewPct;
+                  // Sell above the market's upper edge so no quote undercuts us;
+                  // 15% covers fuel surcharges and residential delivery that
+                  // public quotes usually leave out. Clicking only fills the
+                  // input — nothing is saved until Apply is pressed.
+                  const suggested = market ? Math.round(market.high * 1.15 * 100) / 100 : null;
                   return (
                     <tr key={countryCode} className="border-t border-border">
                       <td className="py-2 pr-3">
@@ -559,6 +567,21 @@ export default function ShippingMarketAdminPage() {
                         {market
                           ? `$${market.low.toFixed(2)} – $${market.high.toFixed(2)} (median $${market.median.toFixed(2)})`
                           : '-'}
+                      </td>
+                      <td className="py-2 pr-3">
+                        {suggested === null ? (
+                          <span className="text-gray-500">-</span>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              setInputs((prev) => ({ ...prev, [countryCode]: String(suggested) }))
+                            }
+                            title="Fill the rate box with this suggestion. Press Apply to save it."
+                            className="px-2 py-1 border border-gold/40 text-gold rounded text-xs hover:bg-gold/10"
+                          >
+                            ${suggested.toFixed(2)}
+                          </button>
+                        )}
                       </td>
                       <td className={`py-2 pr-3 ${needsReview ? 'text-red-400' : 'text-gray-400'}`}>
                         {drift === null
