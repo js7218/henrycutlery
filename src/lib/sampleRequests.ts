@@ -78,6 +78,12 @@ export async function createSampleRequest(input: {
   return result.rowCount ? mapRow(result.rows[0]) : null;
 }
 
+export async function deleteSampleRequest(id: string): Promise<boolean> {
+  await ensureDatabaseSchema();
+  const result = await getPool().query('DELETE FROM sample_requests WHERE id = $1', [id]);
+  return Boolean(result.rowCount);
+}
+
 export async function listSampleRequests(limit = 100): Promise<SampleRequest[]> {
   await ensureDatabaseSchema();
   const result = await getPool().query(

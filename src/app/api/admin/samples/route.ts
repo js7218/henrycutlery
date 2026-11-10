@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/adminGuard';
-import { listSampleRequests, updateSampleRequestStatus } from '@/lib/sampleRequests';
+import {
+  deleteSampleRequest,
+  listSampleRequests,
+  updateSampleRequestStatus,
+} from '@/lib/sampleRequests';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,4 +32,20 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: false, error: 'Invalid status or request' }, { status: 400 });
   }
   return NextResponse.json({ success: true, sample });
+}
+
+export async function DELETE(request: Request) {
+  const adminResult = await requireAdmin();
+  if ('response' in adminResult) return adminResult.response;
+
+  const id = new URL(request.url).searchParams.get('id') || '';
+  if (!id) {
+    return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 });
+  }
+
+  const removed = await deleteSampleRequest(id);
+  if (!removed) {
+    return NextResponse.json({ success: false, error: 'Sample request not found' }, { status: 404 });
+  }
+  return NextResponse.json({ success: true });
 }

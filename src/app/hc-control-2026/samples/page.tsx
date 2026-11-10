@@ -56,6 +56,24 @@ export default function SamplesAdminPage() {
     }
   }
 
+  async function removeSample(id: string) {
+    setStatus('');
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/samples?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `Delete failed (HTTP ${res.status})`);
+      }
+      setSamples((prev) => prev.filter((item) => item.id !== id));
+      setStatus('Sample request deleted.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-8 py-12 text-foreground">
       <h1 className="text-2xl font-bold mb-2">Sample requests</h1>
@@ -83,18 +101,26 @@ export default function SamplesAdminPage() {
                     {new Date(sample.createdAt).toLocaleString()} · {sample.country}
                   </p>
                 </div>
-                <select
-                  value={sample.status}
-                  onChange={(e) => changeStatus(sample.id, e.target.value)}
-                  disabled={saving === sample.id}
-                  className="bg-background border border-border rounded px-2 py-1 text-sm"
-                >
-                  {STATUSES.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={sample.status}
+                    onChange={(e) => changeStatus(sample.id, e.target.value)}
+                    disabled={saving === sample.id}
+                    className="bg-background border border-border rounded px-2 py-1 text-sm"
+                  >
+                    {STATUSES.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => removeSample(sample.id)}
+                    className="text-xs text-gray-500 hover:text-red-400 border border-border rounded px-2 py-1"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
 
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-300">
