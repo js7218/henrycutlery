@@ -144,21 +144,33 @@ export default function ComplianceAdminPage() {
                 model cites a dated source.
               </p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => runScan('official')}
-                disabled={scanning}
-                className="rounded-md bg-gold px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
-              >
-                {scanning ? 'Working…' : 'Scan now'}
-              </button>
-              <button
-                onClick={() => runScan('knowledge')}
-                disabled={scanning}
-                className="rounded-md border border-border px-4 py-2 text-sm font-medium disabled:opacity-50"
-              >
-                Verify 8 (AI)
-              </button>
+            <div className="flex flex-wrap gap-4">
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => runScan('official')}
+                  disabled={scanning}
+                  className="rounded-md bg-gold px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+                >
+                  {scanning ? 'Working…' : 'Scan now'}
+                </button>
+                <span className="max-w-[220px] text-xs leading-snug text-gray-400">
+                  Re-reads the fixed government pages listed below. Use it when you think an
+                  official page just changed.
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => runScan('knowledge')}
+                  disabled={scanning}
+                  className="rounded-md border border-border px-4 py-2 text-sm font-medium disabled:opacity-50"
+                >
+                  Verify 8 (AI)
+                </button>
+                <span className="max-w-[240px] text-xs leading-snug text-gray-400">
+                  The AI searches the live web for the next 8 countries due for a check and only
+                  changes a rule when it can cite an official government source.
+                </span>
+              </div>
             </div>
           </div>
 

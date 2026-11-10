@@ -107,3 +107,43 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+/**
+ * Soft-deletes a customer account.
+ *
+ * Orders are kept deliberately: they are financial records. The account stops
+ * appearing in search and can no longer sign in, but the order history stays
+ * intact for reconciliation.
+ */
+export async function DELETE(request: NextRequest) {
+  const guard = await requireAdmin();
+  if ('response' in guard) return guard.response;
+
+  try {
+    await ensureDatabaseSchema();
+    const id = (new URL(request.url).searchParams.get('id') || '').trim();
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Customer id is required.' }, { status: 400 });
+    }
+
+    const target = await getPool().query('SELECT id, role FROM users WHERE id = $1', [id]);
+    if (target.rowCount === 0) {
+      return NextResponse.json({ success: false, error: 'Customer not found.' }, { status: 404 });
+    }
+    if (target.rows[0].role === 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Admin accounts cannot be deleted here.' },
+        { status: 403 }
+      );
+    }
+
+    await getPool().query('UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1', [id]);
+
+    const response = NextResponse.json({ success: true });
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
+  } catch (err) {
+    console.error('[admin/customers] delete failed', err instanceof Error ? err.message : 'Unknown error');
+    return NextResponse.json({ success: false, error: 'Delete failed.' }, { status: 500 });
+  }
+}

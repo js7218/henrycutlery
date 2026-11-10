@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BarChart3, BookOpen, Database, FlaskConical, Inbox, Loader2, MessageSquare, Package, ReceiptText, Scale, Search, ShieldX, Sparkles, TrendingUp, Truck, Users } from 'lucide-react';
+import { BarChart3, BookOpen, Database, FlaskConical, Inbox, Loader2, MessageSquare, Package, ReceiptText, Scale, Search, ShieldX, Sparkles, Trash2, TrendingUp, Truck, Users } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatDate, formatPrice, cn } from '@/lib/utils';
 import SeoReviewPanel from '@/components/admin/SeoReviewPanel';
@@ -180,6 +180,28 @@ export default function AdminPage() {
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load customer detail.');
+    }
+  };
+
+  const removeCustomer = async (customer: Customer) => {
+    const confirmed = window.confirm(
+      `Delete ${customer.email}?\n\nThe account can no longer sign in and disappears from search. Existing orders stay in the records for accounting.`
+    );
+    if (!confirmed) return;
+
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/customers?id=${encodeURIComponent(customer.id)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Delete failed.');
+      }
+      setCustomers((prev) => prev.filter((item) => item.id !== customer.id));
+      setSelected((prev) => (prev && prev.customer.id === customer.id ? null : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed.');
     }
   };
 
@@ -519,20 +541,32 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-surface border border-border rounded-xl overflow-hidden">
                 {customers.map((customer) => (
-                  <button
+                  <div
                     key={customer.id}
-                    onClick={() => loadCustomerDetail(customer.id)}
-                    className="w-full text-left p-4 border-b border-border hover:bg-surfaceLight transition-colors"
+                    className="flex items-start gap-3 p-4 border-b border-border"
                   >
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-foreground font-medium">{customer.email}</p>
-                        <p className="text-sm text-gray-400">{customer.name} · {customer.phone || 'No phone'}</p>
+                    <button
+                      onClick={() => loadCustomerDetail(customer.id)}
+                      className="flex-1 text-left hover:text-gold transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-foreground font-medium">{customer.email}</p>
+                          <p className="text-sm text-gray-400">{customer.name} · {customer.phone || 'No phone'}</p>
+                        </div>
+                        <p className="text-xs text-gray-500">{formatDate(customer.createdAt)}</p>
                       </div>
-                      <p className="text-xs text-gray-500">{formatDate(customer.createdAt)}</p>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">Addresses: {customer.addressCount} · Orders: {customer.orderCount}</p>
-                  </button>
+                      <p className="text-xs text-gray-500 mt-2">Addresses: {customer.addressCount} · Orders: {customer.orderCount}</p>
+                    </button>
+                    <button
+                      onClick={() => removeCustomer(customer)}
+                      title="Delete this customer account"
+                      aria-label={`Delete ${customer.email}`}
+                      className="shrink-0 rounded-lg border border-border px-2.5 py-2 text-gray-400 hover:text-red-400 hover:border-red-400 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 ))}
                 {customers.length === 0 && <p className="p-6 text-gray-400">No customers found.</p>}
               </div>

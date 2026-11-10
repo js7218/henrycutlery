@@ -16,8 +16,7 @@ import {
   Check,
   Minus,
   Plus,
-  ArrowLeft,
-  Star
+  ArrowLeft
 } from 'lucide-react';
 import { getProductById, products } from '@/data/products';
 import { getPublishedSeo, resolveProductId } from '@/lib/seo/content';
@@ -70,7 +69,7 @@ export default function ProductDetailPage() {
     if (liveStock === null) return;
     setQuantity((current) => Math.min(current, Math.max(liveStock, product?.moq || 1)));
   }, [liveStock, product?.moq]);
-  const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('reviews');
+  const [reviewsOpen, setReviewsOpen] = useState(false);
   const [shareMessage, setShareMessage] = useState('');
   const [reviews, setReviews] = useState<Array<{ id: string; author: string; rating: number; content: string; createdAt: string }>>([]);
   const [reviewRating, setReviewRating] = useState(5);
@@ -78,6 +77,9 @@ export default function ProductDetailPage() {
   const [reviewMessage, setReviewMessage] = useState('');
   const [reviewError, setReviewError] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
+  const averageRating = reviews.length
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+    : 0;
   
   // Use ref to access product inside useCallback without adding to deps (rebuild trigger)
   const productRef = useRef(product);
@@ -329,8 +331,42 @@ export default function ProductDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
         {/* Image Gallery */}
         <ScrollReveal direction="left">
-          <div>
+          <div className="space-y-6">
             <ProductImageGallery images={product.images} productName={product.name} alts={seo?.altTexts} />
+
+            <div className="rounded-lg border border-border bg-surface p-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Product Details</h2>
+              <p className="text-gray-300 leading-relaxed mb-6 whitespace-pre-line">
+                {seo?.longDescription || product.longDescription}
+              </p>
+              <ul className="space-y-2">
+                {product.tags.map((tag, index) => (
+                  <li key={index} className="flex items-center gap-2 text-gray-300">
+                    <Check className="w-4 h-4 text-gold shrink-0" />
+                    {tag}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-lg border border-border bg-surface p-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Specifications</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Object.entries(product.specs).map(([key, value]) => (
+                  <div key={key} className="flex justify-between gap-3 p-3 bg-surfaceLight rounded-lg">
+                    <span className="text-sm text-gray-400">
+                      {key === 'bladeLength' && 'Blade Length'}
+                      {key === 'totalLength' && 'Overall Length'}
+                      {key === 'bladeMaterial' && 'Blade Material'}
+                      {key === 'handleMaterial' && 'Handle Material'}
+                      {key === 'weight' && 'Weight'}
+                      {key === 'hardness' && 'Hardness'}
+                    </span>
+                    <span className="text-sm text-foreground font-medium text-right">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </ScrollReveal>
 
@@ -491,12 +527,79 @@ export default function ProductDetailPage() {
               Request a Sample
             </ThreeDButton>
             <button
-              onClick={() => setActiveTab('reviews')}
+              onClick={() => setReviewsOpen((open) => !open)}
               className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-left text-gray-200"
             >
-              <span>Customer Reviews / Write a Review</span>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
+              <span>
+                Customer Reviews
+                <span className="ml-2 text-sm text-gray-400">
+                  {averageRating > 0 ? `${averageRating.toFixed(1)} / 5` : 'No ratings yet'}
+                  {reviews.length > 0 ? ` · ${reviews.length} review${reviews.length === 1 ? '' : 's'}` : ''}
+                </span>
+              </span>
+              <ChevronRight className={cn('w-5 h-5 text-gray-400 transition-transform', reviewsOpen && 'rotate-90')} />
             </button>
+
+            {reviewsOpen && (
+              <div className="space-y-6 rounded-lg border border-border bg-surface p-5">
+                <div className="space-y-3">
+                  {reviews.map((review) => (
+                    <div key={review.id} className="rounded-lg border border-border bg-background/60 p-4">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <p className="font-medium text-foreground">{review.author}</p>
+                        <span className="text-sm font-medium text-gold">{review.rating} / 5</span>
+                      </div>
+                      <p className="text-sm text-gray-300 whitespace-pre-wrap">{review.content}</p>
+                    </div>
+                  ))}
+                  {reviews.length === 0 && (
+                    <p className="text-sm text-gray-400">No approved reviews yet. Be the first to review this product.</p>
+                  )}
+                </div>
+
+                <form onSubmit={handleSubmitReview} className="border-t border-border pt-5">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">Write a Review</h3>
+                  {!state.user && (
+                    <p className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-300">
+                      Please sign in before submitting a review.
+                    </p>
+                  )}
+                  {reviewError && <p className="mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">{reviewError}</p>}
+                  {reviewMessage && <p className="mb-4 rounded-lg bg-green-500/10 p-3 text-sm text-green-400">{reviewMessage}</p>}
+                  <label className="mb-2 block text-sm text-gray-400">Rating (1-5)</label>
+                  <select
+                    value={reviewRating}
+                    onChange={(event) => setReviewRating(Number(event.target.value))}
+                    className="mb-4 w-full rounded-lg border border-border bg-surfaceLight px-3 py-2 text-foreground focus:border-gold focus:outline-none"
+                  >
+                    {[5, 4, 3, 2, 1].map((rating) => (
+                      <option key={rating} value={rating}>{rating}</option>
+                    ))}
+                  </select>
+                  <label className="mb-2 block text-sm text-gray-400">Review</label>
+                  <textarea
+                    value={reviewContent}
+                    onChange={(event) => setReviewContent(event.target.value)}
+                    rows={4}
+                    maxLength={2000}
+                    placeholder="Share your experience with this product..."
+                    className="mb-4 w-full rounded-lg border border-border bg-surfaceLight px-3 py-2 text-foreground placeholder:text-gray-500 focus:border-gold focus:outline-none"
+                  />
+                  <ThreeDButton
+                    disabled={reviewLoading || !state.user}
+                    variant="primary"
+                    size="md"
+                    className="w-full"
+                    type="submit"
+                  >
+                    {reviewLoading ? 'Submitting...' : 'Submit Review'}
+                  </ThreeDButton>
+                  <p className="mt-3 text-xs text-gray-500">
+                    Reviews with spam, links, attacks, abuse, or suspicious content may be held for admin review or rejected.
+                  </p>
+                </form>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <ThreeDButton
                 href={buildMailtoLink('contact')}
@@ -538,140 +641,6 @@ export default function ProductDetailPage() {
         </ScrollReveal>
       </div>
 
-      {/* Product Details Tabs */}
-      <div className="mb-16">
-        <div className="flex border-b border-border">
-          {[
-            { id: 'description', label: 'Product Details' },
-            { id: 'specs', label: 'Specifications' },
-            { id: 'reviews', label: `Reviews / Write a Review${reviews.length ? ` (${reviews.length})` : ''}` },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={cn(
-                'px-8 py-4 text-sm font-medium transition-colors relative',
-                activeTab === tab.id 
-                  ? 'text-gold' 
-                  : 'text-gray-400 hover:text-foreground'
-              )}
-            >
-              {tab.label}
-              {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="py-8">
-          {activeTab === 'description' && (
-            <div className="prose prose-invert max-w-none">
-              <h3 className="text-xl font-semibold text-foreground mb-4">Product Description</h3>
-              <p className="text-gray-300 leading-relaxed mb-8 whitespace-pre-line">{seo?.longDescription || product.longDescription}</p>
-              
-              <h3 className="text-xl font-semibold text-foreground mb-4">Product Features</h3>
-              <ul className="space-y-3">
-                {product.tags.map((tag, index) => (
-                  <li key={index} className="flex items-center gap-2 text-gray-300">
-                    <Check className="w-4 h-4 text-gold" />
-                    {tag}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {activeTab === 'specs' && (
-            <div>
-              <h3 className="text-xl font-semibold text-foreground mb-6">Detailed Specifications</h3>
-              <ScrollReveal direction="up" stagger={0.1} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(product.specs).map(([key, value]) => (
-                  <div key={key} className="flex justify-between p-4 bg-surfaceLight rounded-lg">
-                    <span className="text-gray-400">
-                      {key === 'bladeLength' && 'Blade Length'}
-                      {key === 'totalLength' && 'Overall Length'}
-                      {key === 'bladeMaterial' && 'Blade Material'}
-                      {key === 'handleMaterial' && 'Handle Material'}
-                      {key === 'weight' && 'Weight'}
-                      {key === 'hardness' && 'Hardness'}
-                    </span>
-                    <span className="text-foreground font-medium">{value}</span>
-                  </div>
-                ))}
-              </ScrollReveal>
-            </div>
-          )}
-          {activeTab === 'reviews' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-xl font-semibold text-foreground mb-4">Customer Reviews</h3>
-                <div className="space-y-4">
-                  {reviews.map((review) => (
-                    <div key={review.id} className="rounded-lg border border-border bg-surface p-4">
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <p className="font-medium text-foreground">{review.author}</p>
-                        <div className="flex text-gold">
-                          {Array.from({ length: 5 }).map((_, index) => (
-                            <Star key={index} className={cn('h-4 w-4', index < review.rating && 'fill-gold')} />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-300 whitespace-pre-wrap">{review.content}</p>
-                    </div>
-                  ))}
-                  {reviews.length === 0 && (
-                    <div className="rounded-lg border border-border bg-surface p-6 text-center">
-                      <p className="text-gray-400">No approved reviews yet</p>
-                      <p className="text-sm text-gray-500 mt-2">Be the first to review this product</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <form onSubmit={handleSubmitReview} className="rounded-lg border border-border bg-surface p-6">
-                <h3 className="text-xl font-semibold text-foreground mb-4">Write a Review</h3>
-                {!state.user && (
-                  <p className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-300">
-                    Please sign in before submitting a review.
-                  </p>
-                )}
-                {reviewError && <p className="mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">{reviewError}</p>}
-                {reviewMessage && <p className="mb-4 rounded-lg bg-green-500/10 p-3 text-sm text-green-400">{reviewMessage}</p>}
-                <label className="mb-2 block text-sm text-gray-400">Rating</label>
-                <select
-                  value={reviewRating}
-                  onChange={(event) => setReviewRating(Number(event.target.value))}
-                  className="mb-4 w-full rounded-lg border border-border bg-surfaceLight px-3 py-2 text-foreground focus:border-gold focus:outline-none"
-                >
-                  {[5, 4, 3, 2, 1].map((rating) => (
-                    <option key={rating} value={rating}>{rating} Star</option>
-                  ))}
-                </select>
-                <label className="mb-2 block text-sm text-gray-400">Review</label>
-                <textarea
-                  value={reviewContent}
-                  onChange={(event) => setReviewContent(event.target.value)}
-                  rows={5}
-                  maxLength={2000}
-                  placeholder="Share your experience with this product..."
-                  className="mb-4 w-full rounded-lg border border-border bg-surfaceLight px-3 py-2 text-foreground placeholder:text-gray-500 focus:border-gold focus:outline-none"
-                />
-                <ThreeDButton
-                  disabled={reviewLoading || !state.user}
-                  variant="primary"
-                  size="md"
-                  className="w-full"
-                  type="submit"
-                >
-                  {reviewLoading ? 'Submitting...' : 'Submit Review'}
-                </ThreeDButton>
-                <p className="mt-3 text-xs text-gray-500">
-                  Reviews with spam, links, attacks, abuse, or suspicious content may be held for admin review or rejected.
-                </p>
-              </form>
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* Related Products */}
       {relatedProducts.length > 0 && (
