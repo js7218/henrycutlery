@@ -380,6 +380,50 @@ function parseVerdict(content: string): KnowledgeVerdict | null {
 }
 
 /**
+ * A citation is only acceptable when it comes from a government or customs
+ * authority. Pointing a customer at a blog or an aggregator as "official
+ * guidance" is worse than showing no notice at all.
+ */
+const OFFICIAL_EXTRA_HOSTS = new Set([
+  'revenue.ie',
+  'belastingdienst.nl',
+  'tullverket.se',
+  'zoll.de',
+  'cbp.gov',
+  'trade.gov',
+  'abf.gov.au',
+  'cbsa-asfc.gc.ca',
+  'customs.govt.nz',
+  'customs.go.jp',
+  'police.gov.sg',
+  'gov.uk',
+  'europa.eu',
+  'admin.ch',
+]);
+
+function isOfficialSource(url: string): boolean {
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return false;
+  }
+
+  if (OFFICIAL_EXTRA_HOSTS.has(host)) return true;
+  return (
+    /(^|\.)gov(\.[a-z]{2,3})?$/.test(host) ||
+    /\.gov\./.test(host) ||
+    /\.gouv\./.test(host) ||
+    /\.govt\./.test(host) ||
+    /\.gob\./.test(host) ||
+    host.endsWith('.gc.ca') ||
+    host.endsWith('.europa.eu') ||
+    host.endsWith('.admin.ch') ||
+    host.endsWith('.go.jp')
+  );
+}
+
+/**
  * Verifies one country against fresh search results. The model must cite the
  * result it relied on; without a citation the answer is treated as unverified.
  */
@@ -411,6 +455,8 @@ async function judgeWithSources(
             `You verify knife-import rules for ${rule.countryName} (${rule.countryCode}) for ${year}.`,
             'Use ONLY the numbered search results below. Never rely on memory.',
             'A result counts as current only if it states a rule that is in force now (or a dated change).',
+            `The source must be ${rule.countryName}'s own government or customs authority; a guide published by another country, a blog, a forum or a commercial summary site does not count.`,
+            'A page about firearms, ammunition, or general weapons licensing that does not name knives or blades does not count.',
             'riskLevel definitions:',
             '"high" only when common folding/locking knives that an ordinary customer might buy are prohibited or need a permit.',
             '"medium" when only specialty categories (switchblades, automatics, butterfly/flick knives, push daggers, ballistic knives) are restricted and ordinary kitchen or fixed-blade knives are fine.',
@@ -502,7 +548,7 @@ export async function runKnowledgeScan(batchSize = 8): Promise<KnowledgeScanResu
       }
 
       const cited = results[Math.min(verdict.citedIndex, results.length) - 1];
-      if (!cited || !isSafePublicUrl(cited.url)) {
+      if (!cited || !isSafePublicUrl(cited.url) || !isOfficialSource(cited.url)) {
         await markAttempt(rule.countryCode);
         result.skipped += 1;
         continue;
