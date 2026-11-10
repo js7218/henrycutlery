@@ -18,6 +18,7 @@ import {
 } from '@/lib/compliance';
 import { webSearch } from '@/lib/companyLookup';
 import { isSafePublicUrl } from '@/lib/shippingMarket';
+import { OFFICIAL_DOMAINS } from '@/lib/complianceOfficialDomains';
 
 export interface ScanSource {
   id: string;
@@ -423,6 +424,20 @@ function isOfficialSource(url: string): boolean {
   );
 }
 
+/** True when the URL sits on the destination country's own customs domain. */
+function isOfficialForCountry(url: string, countryCode: string): boolean {
+  const domain = OFFICIAL_DOMAINS[countryCode];
+  if (domain) {
+    try {
+      const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+      if (host === domain || host.endsWith(`.${domain}`)) return true;
+    } catch {
+      return false;
+    }
+  }
+  return isOfficialSource(url);
+}
+
 /**
  * Verifies one country against fresh search results. The model must cite the
  * result it relied on; without a citation the answer is treated as unverified.
@@ -531,9 +546,13 @@ export async function runKnowledgeScan(batchSize = 8): Promise<KnowledgeScanResu
   for (const rule of queue) {
     try {
       const year = new Date().getUTCFullYear();
-      const results = await webSearch(
-        `${rule.countryName} knife import restriction prohibited ${year} customs`
-      );
+      const officialDomain = OFFICIAL_DOMAINS[rule.countryCode];
+      // Anchoring the search to the destination's own customs site keeps blogs
+      // and forwarders out of the candidate list in the first place.
+      const query = officialDomain
+        ? `${rule.countryName} knife blade import restriction prohibited site:${officialDomain}`
+        : `${rule.countryName} knife import restriction prohibited ${year} customs`;
+      const results = await webSearch(query);
       if (results.length === 0) {
         await markAttempt(rule.countryCode);
         result.skipped += 1;
@@ -548,7 +567,7 @@ export async function runKnowledgeScan(batchSize = 8): Promise<KnowledgeScanResu
       }
 
       const cited = results[Math.min(verdict.citedIndex, results.length) - 1];
-      if (!cited || !isSafePublicUrl(cited.url) || !isOfficialSource(cited.url)) {
+      if (!cited || !isSafePublicUrl(cited.url) || !isOfficialForCountry(cited.url, rule.countryCode)) {
         await markAttempt(rule.countryCode);
         result.skipped += 1;
         continue;
