@@ -945,9 +945,10 @@ const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HE
 // ============================================================================
 const CSRF_PROTECTED_PATHS = [
   '/api/auth/session',
-  '/api/order/create',
+  '/api/order/',
   '/api/user/profile',
   '/api/user/addresses',
+  '/api/user/favorites',
   '/api/user/data',
   '/api/reviews',
   '/api/admin/',
