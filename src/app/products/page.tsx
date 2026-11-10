@@ -593,7 +593,7 @@ function ProductsContent() {
         <div className="flex-1">
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20">
-              <Filter className="w-16 h-16 text-gray-600 mb-4" />
+              <Filter className="w-16 h-16 text-gold/40 mb-4" />
               <h3 className="text-xl font-medium text-gray-400 mb-2">No products found</h3>
               <p className="text-sm text-gray-500 mb-6">Try adjusting your filters</p>
               <button onClick={clearFilters} className="btn-secondary">

@@ -175,7 +175,7 @@ export default function CartItem({ item }: { item: { product: any; quantity: num
 export function EmptyCart() {
   return (
     <div className="flex flex-col items-center justify-center py-20">
-      <ShoppingBag className="w-16 h-16 text-gray-600 mb-4" />
+      <ShoppingBag className="w-16 h-16 text-gold/40 mb-4" />
       <h3 className="text-xl font-medium text-gray-400 mb-2">Your cart is empty</h3>
       <p className="text-sm text-gray-500 mb-6">Browse our premium knife collection</p>
       <ThreeDButton href="/products" variant="primary">

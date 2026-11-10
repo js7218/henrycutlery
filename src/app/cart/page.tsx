@@ -20,7 +20,7 @@ export default function CartPage() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-20">
         <CheckoutSteps currentStep={1} />
         <div className="flex flex-col items-center justify-center py-20">
-          <ShoppingBag className="w-20 h-20 text-gray-600 mb-6" />
+          <ShoppingBag className="w-20 h-20 text-gold/40 mb-6" />
           <h2 className="text-2xl font-bold text-gray-400 mb-4">Your Shopping Cart is Empty</h2>
           <p className="text-gray-500 mb-8">Go pick your favorite knives</p>
           <ThreeDButton href="/products" variant="primary">

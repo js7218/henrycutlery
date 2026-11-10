@@ -365,7 +365,7 @@ function ProfileContent() {
               
               {state.orders.length === 0 ? (
                 <div className="bg-surface border border-border rounded-lg p-12 text-center">
-                  <ShoppingBag className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                  <ShoppingBag className="w-16 h-16 text-gold/40 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-400 mb-2">No Orders Yet</h3>
                   <p className="text-sm text-gray-500 mb-6">Go shop for your favorite knives</p>
                   <ThreeDButton href="/products" variant="primary">
@@ -517,7 +517,7 @@ function ProfileContent() {
               
               {favoriteProducts.length === 0 ? (
                 <div className="bg-surface border border-border rounded-lg p-12 text-center">
-                  <Heart className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                  <Heart className="w-16 h-16 text-gold/40 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-400 mb-2">No Favorites</h3>
                   <p className="text-sm text-gray-500 mb-6">Click the heart icon on product pages to add favorites</p>
                   <ThreeDButton href="/products" variant="primary">
@@ -643,7 +643,7 @@ function ProfileContent() {
 
               {state.user.addresses.length === 0 && !showAddressForm ? (
                 <div className="bg-surface border border-border rounded-lg p-12 text-center">
-                  <MapPin className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                  <MapPin className="w-16 h-16 text-gold/40 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-400 mb-2">No Addresses</h3>
                   <p className="text-sm text-gray-500 mb-6">Add a shipping address so checkout takes one step.</p>
                   <ThreeDButton variant="primary" onClick={() => setShowAddressForm(true)}>
