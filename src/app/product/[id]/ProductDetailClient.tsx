@@ -463,15 +463,17 @@ export default function ProductDetailPage() {
                 onClick={() => toggleFavorite(product.id)}
                 disabled={!state.user}
                 title={state.user ? (isFavorite ? 'Remove from favorites' : 'Add to favorites') : 'Sign in to favorite'}
-                className="p-4 border border-border rounded-lg text-gray-400 hover:text-red-400 hover:border-red-400 transition-colors disabled:opacity-60"
+                className="flex items-center gap-2 px-4 py-4 border border-border rounded-lg text-sm text-gray-300 hover:text-red-400 hover:border-red-400 transition-colors disabled:opacity-60"
               >
                 <Heart className={cn("w-5 h-5", isFavorite && "fill-red-400 text-red-400")} />
+                <span>{isFavorite ? 'Saved' : 'Save'}</span>
               </button>
               <button
                 onClick={handleShare}
-                className="p-4 border border-border rounded-lg text-gray-400 hover:text-gold hover:border-gold transition-colors"
+                className="flex items-center gap-2 px-4 py-4 border border-border rounded-lg text-sm text-gray-300 hover:text-gold hover:border-gold transition-colors"
               >
                 <Share2 className="w-5 h-5" />
+                <span>Share</span>
               </button>
             </div>
             {shareMessage && (
@@ -490,9 +492,13 @@ export default function ProductDetailPage() {
             </ThreeDButton>
             <button
               onClick={() => setActiveTab('reviews')}
-              className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-left text-gray-300 hover:border-gold hover:text-gold transition-colors"
+              className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-left text-gray-200 hover:border-gold hover:text-gold transition-colors"
             >
-              Customer Reviews / Write a Review
+              <span className="flex items-center gap-2">
+                <Star className="w-5 h-5" />
+                Customer Reviews / Write a Review
+              </span>
+              <ChevronRight className="w-5 h-5" />
             </button>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <ThreeDButton

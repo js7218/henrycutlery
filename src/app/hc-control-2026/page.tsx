@@ -397,7 +397,9 @@ export default function AdminPage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
+        {/* Wraps onto extra rows on narrow screens instead of hiding tabs
+            behind a horizontal scroll. */}
+        <div className="flex flex-wrap gap-2 mb-8">
           {tabs.map((tab) => (
             <button
               key={tab.id}

@@ -645,7 +645,10 @@ function ProfileContent() {
                 <div className="bg-surface border border-border rounded-lg p-12 text-center">
                   <MapPin className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-400 mb-2">No Addresses</h3>
-                  <p className="text-sm text-gray-500">Click the button above to add a shipping address</p>
+                  <p className="text-sm text-gray-500 mb-6">Add a shipping address so checkout takes one step.</p>
+                  <ThreeDButton variant="primary" onClick={() => setShowAddressForm(true)}>
+                    Add Address
+                  </ThreeDButton>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
