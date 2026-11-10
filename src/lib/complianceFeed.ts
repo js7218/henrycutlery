@@ -435,6 +435,24 @@ async function judgeWithSources(
 }
 
 /**
+ * Marks a country as looked-at even when no confident source was found.
+ * The queue is ordered by checked_at, so without this the same few failing
+ * countries would be retried on every run and the rest never reached.
+ */
+async function markAttempt(countryCode: string): Promise<void> {
+  try {
+    await getPool().query(
+      `INSERT INTO compliance_verifications (country_code, risk_level, source_url, snippet, checked_at)
+       VALUES ($1, 'none', '', '', NOW())
+       ON CONFLICT (country_code) DO UPDATE SET checked_at = NOW()`,
+      [countryCode]
+    );
+  } catch {
+    // Rotation order is a convenience; never fail the batch over it.
+  }
+}
+
+/**
  * Weekly rotation over every country: searches the live web, demands a dated
  * citation, then applies the verdict. Countries verified least recently go
  * first, so the whole list is covered in a few days.
@@ -471,18 +489,21 @@ export async function runKnowledgeScan(batchSize = 8): Promise<KnowledgeScanResu
         `${rule.countryName} knife import restriction prohibited ${year} customs`
       );
       if (results.length === 0) {
+        await markAttempt(rule.countryCode);
         result.skipped += 1;
         continue;
       }
 
       const verdict = await judgeWithSources(rule, results);
       if (!verdict || !verdict.confident || verdict.citedIndex < 1) {
+        await markAttempt(rule.countryCode);
         result.skipped += 1;
         continue;
       }
 
       const cited = results[Math.min(verdict.citedIndex, results.length) - 1];
       if (!cited || !isSafePublicUrl(cited.url)) {
+        await markAttempt(rule.countryCode);
         result.skipped += 1;
         continue;
       }
