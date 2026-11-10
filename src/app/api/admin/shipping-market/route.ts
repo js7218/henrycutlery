@@ -85,6 +85,16 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => null);
 
+    // Same removal as DELETE, offered over POST because some proxies drop the
+    // DELETE verb before it reaches the app.
+    if (body?.action === 'delete_bill' && typeof body.id === 'string') {
+      const removedBill = await deleteShippingBill(body.id);
+      if (!removedBill) {
+        return NextResponse.json({ success: false, error: 'Bill not found' }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, ...(await loadSnapshot()) });
+    }
+
     // A real forwarder bill, used as ground truth for calibration.
     if (body?.action === 'bill') {
       const bill = await addShippingBill(body);

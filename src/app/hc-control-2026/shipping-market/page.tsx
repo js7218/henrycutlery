@@ -303,15 +303,26 @@ export default function ShippingMarketAdminPage() {
   }
 
   async function removeBill(id: string) {
-    if (!window.confirm('Delete this bill?')) return;
     setStatus('');
     setError('');
     try {
-      const res = await fetch(`/api/admin/shipping-market?type=bill&id=${encodeURIComponent(id)}`, {
+      let res = await fetch(`/api/admin/shipping-market?type=bill&id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Delete failed');
+      let data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        // Fall back to POST: some proxies strip the DELETE verb and the request
+        // never reaches the route handler.
+        res = await fetch('/api/admin/shipping-market', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete_bill', id }),
+        });
+        data = await res.json().catch(() => null);
+      }
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `Delete failed (HTTP ${res.status})`);
+      }
       applySnapshot(data);
       setStatus('Bill deleted.');
     } catch (err) {
