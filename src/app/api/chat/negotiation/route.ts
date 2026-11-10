@@ -423,15 +423,25 @@ export async function POST(request: NextRequest) {
               units = asExtra;
             }
           }
+          const wantedUnits = units;
           // Never let a chat message push the cart past what can actually ship.
           units = await addUnitsToCart(units);
           if (units > 0) {
             addUnits = { productId: product.id, quantity: units, unitPrice: product.price };
             reply = `Nice, that covers ${units} more of ${product.name} — I've put ${units === 1 ? 'it' : 'them'} in your cart, and the shipping follows the new weight.`;
+            modelOffer = null;
+          } else if (wantedUnits > 0) {
+            reply = `Ah, I don't have any more of ${product.name} to add right now, sorry.`;
+            modelOffer = null;
           } else {
-            reply = `That extra $${extra.toFixed(2)} doesn't quite reach another ${product.name} ($${product.price.toFixed(2)} each). Another $${(product.price - extra).toFixed(2)} and I can add one.`;
+            // The surplus is smaller than one unit. Customers often just want
+            // to round the freight up, so take it as a voluntary top-up
+            // instead of pushing them to buy another knife.
+            modelOffer = named;
+            if (!reply.includes(modelOffer.toFixed(2)) && !reply.includes(String(modelOffer))) {
+              reply = acceptLine(modelOffer);
+            }
           }
-          modelOffer = null;
         } else {
           modelOffer = named;
         }
