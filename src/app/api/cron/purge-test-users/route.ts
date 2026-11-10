@@ -18,12 +18,9 @@ export async function GET(request: NextRequest) {
   await ensureDatabaseSchema();
   const pool = getPool();
 
-  const found = await pool.query(
-    `SELECT id, email FROM users WHERE email ~ '^(e2etest|e2e\\.test)[0-9]*@fldubai\\.com$'`
-  );
-  const deleted = await pool.query(
-    `DELETE FROM users WHERE email ~ '^(e2etest|e2e\\.test)[0-9]*@fldubai\\.com$' RETURNING email`
-  );
+  const pattern = '^e2e[._]?test[._]?[0-9]*@fldubai\\.com$';
+  const found = await pool.query(`SELECT id, email FROM users WHERE email ~ $1`, [pattern]);
+  const deleted = await pool.query(`DELETE FROM users WHERE email ~ $1 RETURNING email`, [pattern]);
 
   return NextResponse.json({
     success: true,
