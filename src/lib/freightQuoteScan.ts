@@ -32,6 +32,28 @@ const MAX_QUOTES_PER_COUNTRY = 3;
 // anything else is almost certainly a container rate or an order total.
 const MIN_USD_PER_KG = 0.5;
 const MAX_USD_PER_KG = 50;
+// Social posts and forums are not a quotable price, even when a number appears.
+const BLOCKED_HOSTS = [
+  'facebook.com',
+  'instagram.com',
+  'youtube.com',
+  'tiktok.com',
+  'x.com',
+  'twitter.com',
+  'reddit.com',
+  'quora.com',
+  'pinterest.com',
+  'linkedin.com',
+];
+
+function isBlockedSource(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    return BLOCKED_HOSTS.some((blocked) => host === blocked || host.endsWith(`.${blocked}`));
+  } catch {
+    return true;
+  }
+}
 
 function parseQuotes(content: string): Quote[] {
   const text = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
@@ -179,7 +201,7 @@ export async function runFreightQuoteScan(
 
       for (const quote of quotes) {
         const cited = results[Math.min(quote.citedIndex, results.length) - 1];
-        if (!cited || !isSafePublicUrl(cited.url)) continue;
+        if (!cited || !isSafePublicUrl(cited.url) || isBlockedSource(cited.url)) continue;
 
         // Keep the 24h range honest: the same page should not count twice.
         const seen = await pool.query(
