@@ -351,10 +351,10 @@ export async function POST(request: NextRequest) {
     const namedAmounts = parseAmounts(lastUserText).filter(
       (value) => value >= floor && value <= 1_000_000
     );
-    // "Make the shipping 110" / "freight at 95" pins the number to the freight
-    // even without a verb like "pay" or "let's".
+    // "Make the shipping 110" / "freight at 95" / "运费多加1200" pins the
+    // number to the freight even without a verb like "pay" or "let's".
     const amountNextToShipping =
-      /(?:shipping|freight|postage)[^.!?]{0,15}?\$?\d[\d.,]*|\$?\d[\d.,]*[^.!?]{0,12}?(?:shipping|freight|postage)/i.test(
+      /(?:shipping|freight|postage|运费|邮费|物流费|快递费)[^.!?]{0,15}?\$?\d[\d.,]*|\$?\d[\d.,]*[^.!?]{0,12}?(?:shipping|freight|postage|运费|邮费|物流费|快递费)|(?:多付|多给|多加|凑整|凑到|凑个整|加)\s*\$?\d[\d.,]*/i.test(
         lastUserText
       );
     const looksLikeOffer =
