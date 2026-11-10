@@ -1,17 +1,23 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/adminGuard';
 import { listComplianceRules, updateComplianceRule } from '@/lib/compliance';
+import { listScanChanges, listScanSources, runComplianceScan } from '@/lib/complianceFeed';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
-/** GET /api/admin/compliance — every rule, including disabled ones. */
+/** GET /api/admin/compliance — every rule plus the automatic scan state. */
 export async function GET() {
   const adminResult = await requireAdmin();
   if ('response' in adminResult) return adminResult.response;
 
   try {
-    const rules = await listComplianceRules();
-    return NextResponse.json({ success: true, rules });
+    const [rules, sources, changes] = await Promise.all([
+      listComplianceRules(),
+      listScanSources(),
+      listScanChanges(20),
+    ]);
+    return NextResponse.json({ success: true, rules, sources, changes });
   } catch (error) {
     console.error(
       '[admin-compliance] list failed:',
@@ -55,5 +61,22 @@ export async function PUT(request: Request) {
       error instanceof Error ? error.message : 'Unknown error'
     );
     return NextResponse.json({ success: false, error: 'Failed to save rule' }, { status: 500 });
+  }
+}
+
+/** POST /api/admin/compliance — runs the official-source scan right now. */
+export async function POST() {
+  const adminResult = await requireAdmin();
+  if ('response' in adminResult) return adminResult.response;
+
+  try {
+    const result = await runComplianceScan();
+    return NextResponse.json({ success: true, ...result });
+  } catch (error) {
+    console.error(
+      '[admin-compliance] scan failed:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+    return NextResponse.json({ success: false, error: 'Scan failed' }, { status: 500 });
   }
 }

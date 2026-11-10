@@ -16,8 +16,32 @@ interface Rule {
   updatedAt: string;
 }
 
+interface ScanSource {
+  id: string;
+  countryCode: string;
+  label: string;
+  url: string;
+  enabled: boolean;
+  lastCheckedAt: string;
+  lastStatus: string;
+}
+
+interface ScanChange {
+  id: string;
+  countryCode: string;
+  oldRisk: string;
+  newRisk: string;
+  summary: string;
+  sourceUrl: string;
+  applied: boolean;
+  createdAt: string;
+}
+
 export default function ComplianceAdminPage() {
   const [rules, setRules] = useState<Rule[]>([]);
+  const [sources, setSources] = useState<ScanSource[]>([]);
+  const [changes, setChanges] = useState<ScanChange[]>([]);
+  const [scanning, setScanning] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState('');
@@ -28,12 +52,38 @@ export default function ComplianceAdminPage() {
       .then((data) => {
         if (!data?.success) throw new Error(data?.error || 'Failed to load');
         setRules(Array.isArray(data.rules) ? data.rules : []);
+        setSources(Array.isArray(data.sources) ? data.sources : []);
+        setChanges(Array.isArray(data.changes) ? data.changes : []);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'));
   }, []);
 
-  function patch(code: string, changes: Partial<Rule>) {
-    setRules((prev) => prev.map((rule) => (rule.countryCode === code ? { ...rule, ...changes } : rule)));
+  async function runScan() {
+    setScanning(true);
+    setStatus('');
+    setError('');
+    try {
+      const res = await fetch('/api/admin/compliance', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Scan failed');
+      setStatus(
+        `Scan done: ${data.applied} applied, ${data.pending} awaiting review, ${data.skipped} unchanged.`
+      );
+      const fresh = await fetch('/api/admin/compliance').then((r) => r.json());
+      if (fresh?.success) {
+        setRules(Array.isArray(fresh.rules) ? fresh.rules : []);
+        setSources(Array.isArray(fresh.sources) ? fresh.sources : []);
+        setChanges(Array.isArray(fresh.changes) ? fresh.changes : []);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Scan failed');
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  function patch(code: string, updates: Partial<Rule>) {
+    setRules((prev) => prev.map((rule) => (rule.countryCode === code ? { ...rule, ...updates } : rule)));
   }
 
   async function save(rule: Rule) {
@@ -73,6 +123,68 @@ export default function ComplianceAdminPage() {
 
         {status && <p className="text-sm text-green-400">{status}</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
+
+        <section className="bg-surface border border-border rounded-lg p-5 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-medium">Automatic scan</h2>
+              <p className="text-xs text-gray-400 mt-1">
+                Official pages are read daily at 02:00 UTC. A stricter rule is applied
+                automatically; a looser one is listed here for your review.
+              </p>
+            </div>
+            <button
+              onClick={runScan}
+              disabled={scanning}
+              className="rounded-md bg-gold px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+            >
+              {scanning ? 'Scanning…' : 'Scan now'}
+            </button>
+          </div>
+
+          <div className="space-y-1 text-xs text-gray-400">
+            {sources.length === 0 && <p>No sources configured yet.</p>}
+            {sources.map((source) => (
+              <div key={source.id}>
+                <span className="text-gray-300">{source.countryCode}</span> · {source.label} —{' '}
+                {source.lastStatus || 'never checked'}
+                {source.lastCheckedAt
+                  ? ` (${source.lastCheckedAt.slice(0, 16).replace('T', ' ')} UTC)`
+                  : ''}
+              </div>
+            ))}
+          </div>
+
+          {changes.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Recent changes</p>
+              {changes.map((change) => (
+                <div key={change.id} className="text-xs border border-border rounded p-2 space-y-1">
+                  <div>
+                    <span className={change.applied ? 'text-green-400' : 'text-yellow-400'}>
+                      {change.applied ? 'applied' : 'needs review'}
+                    </span>
+                    {' · '}
+                    {change.countryCode}: {change.oldRisk} → {change.newRisk}
+                    {' · '}
+                    {change.createdAt.slice(0, 16).replace('T', ' ')} UTC
+                  </div>
+                  {change.summary && <div className="text-gray-400">{change.summary}</div>}
+                  {change.sourceUrl && (
+                    <a
+                      href={change.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gold underline"
+                    >
+                      source
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         <div className="space-y-4">
           {rules.map((rule) => (
