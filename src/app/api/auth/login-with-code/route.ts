@@ -22,7 +22,7 @@ function isValidInternationalPhone(phone: string) {
  */
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const type = body.type === 'phone' ? 'phone' : 'email';
     const identifier = typeof body.identifier === 'string' ? body.identifier.trim().toLowerCase() : '';
     const code = typeof body.code === 'string' ? body.code.trim() : '';

@@ -41,7 +41,7 @@ function parsePurpose(value: unknown): VerificationPurpose {
  */
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const type = body.type === 'phone' ? 'phone' : 'email';
     const identifier = typeof body.identifier === 'string' ? body.identifier.trim().toLowerCase() : '';
     const purpose = parsePurpose(body.purpose);

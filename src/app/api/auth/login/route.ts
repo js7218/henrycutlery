@@ -19,7 +19,8 @@ function failureReason(result: ReturnType<typeof recordAuthFailure>) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    // A malformed body should be a 400, not a 500.
+    const body = await request.json().catch(() => ({}));
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const password = typeof body.password === 'string' ? body.password : '';
     const rememberMe = body.remember === true;

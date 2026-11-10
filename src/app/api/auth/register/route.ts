@@ -21,7 +21,7 @@ function isValidInternationalPhone(phone: string) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const name = safeText(body.name, 100);
     const email = safeText(body.email, 254).toLowerCase();
     const phone = safeText(body.phone, 40);

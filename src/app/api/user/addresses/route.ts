@@ -61,7 +61,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const addressesInput: unknown[] = Array.isArray(body.addresses) ? body.addresses : [];
     const addresses = addressesInput
       .map(normalizeAddress)
