@@ -453,8 +453,31 @@ async function runSchemaMigration(): Promise<void> {
           auto_apply_enabled BOOLEAN NOT NULL DEFAULT FALSE,
           quiet_pct NUMERIC(6, 2) NOT NULL DEFAULT 5,
           review_pct NUMERIC(6, 2) NOT NULL DEFAULT 15,
+          margin_pct NUMERIC(6, 2) NOT NULL DEFAULT 20,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+      `);
+      await db.query(`
+        ALTER TABLE shipping_market_settings
+        ADD COLUMN IF NOT EXISTS margin_pct NUMERIC(6, 2) NOT NULL DEFAULT 20;
+      `);
+      // Actual forwarder bills. These are the ground truth used to calibrate
+      // the public market estimates.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS shipping_bills (
+          id TEXT PRIMARY KEY,
+          country_code TEXT NOT NULL,
+          weight_kg NUMERIC(12, 3) NOT NULL,
+          billed_usd NUMERIC(12, 2) NOT NULL,
+          channel TEXT NOT NULL DEFAULT '',
+          shipped_at DATE,
+          note TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS shipping_bills_country_idx
+        ON shipping_bills (country_code, created_at DESC);
       `);
       // Cost floor per country. Automated updates are never allowed to go
       // below it, so a bad capture cannot make shipping a loss-maker.

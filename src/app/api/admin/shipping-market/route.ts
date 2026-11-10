@@ -3,11 +3,15 @@ import { randomUUID } from 'crypto';
 import { requireAdmin } from '@/lib/adminGuard';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import {
+  addShippingBill,
   deleteMarketSource,
+  deleteShippingBill,
   getAutomationSettings,
+  getBillCalibration,
   getLatestFx,
   getMarketSummary,
   listMarketSources,
+  listShippingBills,
   runMarketCapture,
   saveAutomationSettings,
   upsertMarketSource,
@@ -20,20 +24,25 @@ async function loadSnapshot() {
   await ensureDatabaseSchema();
   const pool = getPool();
 
-  const [fx, summary, sources, settings, ratesResult, changesResult] = await Promise.all([
-    getLatestFx(),
-    getMarketSummary(),
-    listMarketSources(),
-    getAutomationSettings(),
-    pool.query('SELECT * FROM shipping_rates ORDER BY country_code ASC'),
-    pool.query('SELECT * FROM shipping_rate_changes ORDER BY changed_at DESC LIMIT 20'),
-  ]);
+  const [fx, summary, sources, settings, ratesResult, changesResult, bills, calibration] =
+    await Promise.all([
+      getLatestFx(),
+      getMarketSummary(),
+      listMarketSources(),
+      getAutomationSettings(),
+      pool.query('SELECT * FROM shipping_rates ORDER BY country_code ASC'),
+      pool.query('SELECT * FROM shipping_rate_changes ORDER BY changed_at DESC LIMIT 20'),
+      listShippingBills(50),
+      getBillCalibration(),
+    ]);
 
   return {
     fx,
     summary,
     sources,
     settings,
+    bills,
+    calibration,
     rates: ratesResult.rows.map((row) => ({
       countryCode: String(row.country_code),
       countryName: String(row.country_name || row.country_code),
@@ -75,6 +84,23 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json().catch(() => null);
+
+    // A real forwarder bill, used as ground truth for calibration.
+    if (body?.action === 'bill') {
+      const bill = await addShippingBill(body);
+      if (!bill) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Invalid bill: need a 2-letter country, weight 0.01-2000 kg and amount 0.5-100000 USD.',
+          },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json({ success: true, bill, ...(await loadSnapshot()) });
+    }
+
     if (!body || typeof body.url !== 'string' || typeof body.countryCode !== 'string') {
       return NextResponse.json(
         { success: false, error: 'countryCode and url are required' },
@@ -113,9 +139,19 @@ export async function DELETE(request: Request) {
   const adminResult = await requireAdmin();
   if ('response' in adminResult) return adminResult.response;
 
-  const id = new URL(request.url).searchParams.get('id') || '';
+  const url = new URL(request.url);
+  const id = url.searchParams.get('id') || '';
+  const type = url.searchParams.get('type') || 'source';
   if (!id) {
     return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 });
+  }
+
+  if (type === 'bill') {
+    const removedBill = await deleteShippingBill(id);
+    if (!removedBill) {
+      return NextResponse.json({ success: false, error: 'Bill not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, ...(await loadSnapshot()) });
   }
 
   const removed = await deleteMarketSource(id);

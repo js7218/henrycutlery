@@ -41,12 +41,34 @@ interface ChangeRow {
   changedAt: string;
 }
 
+interface BillRow {
+  id: string;
+  countryCode: string;
+  weightKg: number;
+  billedUsd: number;
+  channel: string;
+  shippedAt: string | null;
+  note: string;
+  createdAt: string;
+}
+
+interface CalibrationRow {
+  countryCode: string;
+  actualPerKgUsd: number;
+  weightKg: number;
+  billedUsd: number;
+  count: number;
+  lastShippedAt: string | null;
+}
+
 interface Snapshot {
   fx: { rate: number; source: string; capturedAt: string } | null;
   summary: MarketRow[];
   rates: RateRow[];
   sources: SourceRow[];
-  settings: { autoApplyEnabled: boolean; quietPct: number; reviewPct: number };
+  bills: BillRow[];
+  calibration: CalibrationRow[];
+  settings: { autoApplyEnabled: boolean; quietPct: number; reviewPct: number; marginPct: number };
   changes: ChangeRow[];
 }
 
@@ -71,7 +93,9 @@ export default function ShippingMarketAdminPage() {
     summary: [],
     rates: [],
     sources: [],
-    settings: { autoApplyEnabled: false, quietPct: 5, reviewPct: 15 },
+    bills: [],
+    calibration: [],
+    settings: { autoApplyEnabled: false, quietPct: 5, reviewPct: 15, marginPct: 20 },
     changes: [],
   });
   const [inputs, setInputs] = useState<Record<string, string>>({});
@@ -82,6 +106,15 @@ export default function ShippingMarketAdminPage() {
   const [savingRate, setSavingRate] = useState('');
   const [savingFloor, setSavingFloor] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
+  const [savingBill, setSavingBill] = useState(false);
+  const [billForm, setBillForm] = useState({
+    countryCode: '',
+    weightKg: '',
+    billedUsd: '',
+    channel: '',
+    shippedAt: '',
+    note: '',
+  });
   const [sourceForm, setSourceForm] = useState({ ...EMPTY_SOURCE });
   const [savingSource, setSavingSource] = useState(false);
 
@@ -91,7 +124,10 @@ export default function ShippingMarketAdminPage() {
       summary: data.summary || [],
       rates: data.rates || [],
       sources: data.sources || [],
-      settings: data.settings || { autoApplyEnabled: false, quietPct: 5, reviewPct: 15 },
+      bills: data.bills || [],
+      calibration: data.calibration || [],
+      settings:
+        data.settings || { autoApplyEnabled: false, quietPct: 5, reviewPct: 15, marginPct: 20 },
       changes: data.changes || [],
     });
     const next: Record<string, string> = {};
@@ -127,6 +163,11 @@ export default function ShippingMarketAdminPage() {
       .map(([countryCode, value]) => ({ countryCode, ...value }))
       .sort((a, b) => a.countryCode.localeCompare(b.countryCode));
   }, [snapshot]);
+
+  const calibrationByCountry = useMemo(
+    () => new Map(snapshot.calibration.map((row) => [row.countryCode, row])),
+    [snapshot.calibration]
+  );
 
   async function runCapture() {
     setRunning(true);
@@ -229,6 +270,52 @@ export default function ShippingMarketAdminPage() {
       setError(err instanceof Error ? err.message : 'Settings update failed');
     } finally {
       setSavingSettings(false);
+    }
+  }
+
+  async function addBill() {
+    setSavingBill(true);
+    setStatus('');
+    setError('');
+    try {
+      const res = await fetch('/api/admin/shipping-market', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'bill', ...billForm }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Bill save failed');
+      applySnapshot(data);
+      setBillForm({
+        countryCode: '',
+        weightKg: '',
+        billedUsd: '',
+        channel: '',
+        shippedAt: '',
+        note: '',
+      });
+      setStatus(`Bill recorded for ${data.bill.countryCode}. Calibration updated.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bill save failed');
+    } finally {
+      setSavingBill(false);
+    }
+  }
+
+  async function removeBill(id: string) {
+    if (!window.confirm('Delete this bill?')) return;
+    setStatus('');
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/shipping-market?type=bill&id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Delete failed');
+      applySnapshot(data);
+      setStatus('Bill deleted.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
     }
   }
 
@@ -361,6 +448,21 @@ export default function ShippingMarketAdminPage() {
                 className="w-20 bg-background border border-border rounded px-2 py-1"
               />
             </label>
+            <label className="text-sm">
+              <span className="block text-xs text-gray-500 mb-1">Bill margin (%)</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={snapshot.settings.marginPct}
+                onChange={(e) =>
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    settings: { ...prev.settings, marginPct: Number(e.target.value) },
+                  }))
+                }
+                className="w-20 bg-background border border-border rounded px-2 py-1"
+              />
+            </label>
             <button
               onClick={saveSettings}
               disabled={savingSettings}
@@ -388,12 +490,14 @@ export default function ShippingMarketAdminPage() {
                   <th className="text-left py-2"></th>
                   <th className="text-left py-2">Market (24h)</th>
                   <th className="text-left py-2">Drift</th>
+                  <th className="text-left py-2">Actual cost/kg</th>
                   <th className="text-left py-2">Sources</th>
                   <th className="text-left py-2">Captured</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map(({ countryCode, rate, market }) => {
+                  const calibration = calibrationByCountry.get(countryCode);
                   const drift =
                     market && rate && rate.perKgUsd > 0
                       ? ((market.median - rate.perKgUsd) / rate.perKgUsd) * 100
@@ -461,6 +565,11 @@ export default function ShippingMarketAdminPage() {
                           ? '-'
                           : `${drift > 0 ? '+' : ''}${drift.toFixed(1)}%${needsReview ? ' review' : ''}`}
                       </td>
+                      <td className="py-2 pr-3 text-gray-300">
+                        {calibration
+                          ? `$${calibration.actualPerKgUsd.toFixed(2)} (${calibration.count})`
+                          : '-'}
+                      </td>
                       <td className="py-2 pr-3 text-gray-500">{market ? market.count : '-'}</td>
                       <td className="py-2 text-gray-500">
                         {market ? new Date(market.capturedAt).toLocaleString() : '-'}
@@ -468,6 +577,103 @@ export default function ShippingMarketAdminPage() {
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <h2 className="text-lg font-medium mb-1">Forwarder bills (calibration)</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Record what the forwarder actually charged for a shipment. Real bills take priority
+            over public estimates: the suggested rate becomes actual cost per kg plus the bill
+            margin, and auto-apply uses it instead of the market median.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 mb-4">
+            <input
+              value={billForm.countryCode}
+              onChange={(e) => setBillForm((prev) => ({ ...prev, countryCode: e.target.value }))}
+              placeholder="US"
+              className="bg-background border border-border rounded px-2 py-1 text-sm"
+            />
+            <input
+              value={billForm.weightKg}
+              onChange={(e) => setBillForm((prev) => ({ ...prev, weightKg: e.target.value }))}
+              placeholder="Weight kg"
+              inputMode="decimal"
+              className="bg-background border border-border rounded px-2 py-1 text-sm"
+            />
+            <input
+              value={billForm.billedUsd}
+              onChange={(e) => setBillForm((prev) => ({ ...prev, billedUsd: e.target.value }))}
+              placeholder="Billed USD"
+              inputMode="decimal"
+              className="bg-background border border-border rounded px-2 py-1 text-sm"
+            />
+            <input
+              value={billForm.channel}
+              onChange={(e) => setBillForm((prev) => ({ ...prev, channel: e.target.value }))}
+              placeholder="Channel"
+              className="bg-background border border-border rounded px-2 py-1 text-sm"
+            />
+            <input
+              type="date"
+              value={billForm.shippedAt}
+              onChange={(e) => setBillForm((prev) => ({ ...prev, shippedAt: e.target.value }))}
+              className="bg-background border border-border rounded px-2 py-1 text-sm"
+            />
+            <button
+              onClick={addBill}
+              disabled={savingBill}
+              className="px-4 py-2 bg-gold text-background rounded text-sm font-medium disabled:opacity-50"
+            >
+              {savingBill ? 'Saving...' : 'Add bill'}
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-gray-500">
+                <tr>
+                  <th className="text-left py-2">Country</th>
+                  <th className="text-left py-2">Weight</th>
+                  <th className="text-left py-2">Billed</th>
+                  <th className="text-left py-2">USD/kg</th>
+                  <th className="text-left py-2">Channel</th>
+                  <th className="text-left py-2">Shipped</th>
+                  <th className="text-left py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {snapshot.bills.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-4 text-gray-500">
+                      No bills yet. Add the first one after a test shipment.
+                    </td>
+                  </tr>
+                ) : (
+                  snapshot.bills.map((bill) => (
+                    <tr key={bill.id} className="border-t border-border">
+                      <td className="py-2 pr-3">{bill.countryCode}</td>
+                      <td className="py-2 pr-3 text-gray-300">{bill.weightKg.toFixed(3)} kg</td>
+                      <td className="py-2 pr-3 text-gray-300">${bill.billedUsd.toFixed(2)}</td>
+                      <td className="py-2 pr-3 text-gray-300">
+                        ${bill.weightKg > 0 ? (bill.billedUsd / bill.weightKg).toFixed(2) : '-'}
+                      </td>
+                      <td className="py-2 pr-3 text-gray-400">{bill.channel || '-'}</td>
+                      <td className="py-2 pr-3 text-gray-400">{bill.shippedAt || '-'}</td>
+                      <td className="py-2">
+                        <button
+                          onClick={() => removeBill(bill.id)}
+                          className="px-2 py-1 border border-border rounded text-xs text-gray-300"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

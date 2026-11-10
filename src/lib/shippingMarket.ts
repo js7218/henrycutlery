@@ -25,6 +25,7 @@ export interface MarketAutomationSettings {
   autoApplyEnabled: boolean;
   quietPct: number;
   reviewPct: number;
+  marginPct: number;
 }
 
 export interface AutoApplyOutcome {
@@ -425,6 +426,7 @@ export async function getAutomationSettings(): Promise<MarketAutomationSettings>
     autoApplyEnabled: Boolean(row.auto_apply_enabled),
     quietPct: Number(row.quiet_pct ?? 5),
     reviewPct: Number(row.review_pct ?? 15),
+    marginPct: Number(row.margin_pct ?? 20),
   };
 }
 
@@ -432,24 +434,28 @@ export async function saveAutomationSettings(input: {
   autoApplyEnabled?: unknown;
   quietPct?: unknown;
   reviewPct?: unknown;
+  marginPct?: unknown;
 }): Promise<MarketAutomationSettings | null> {
   const current = await getAutomationSettings();
   const quietPct = input.quietPct === undefined ? current.quietPct : Number(input.quietPct);
   const reviewPct = input.reviewPct === undefined ? current.reviewPct : Number(input.reviewPct);
+  const marginPct = input.marginPct === undefined ? current.marginPct : Number(input.marginPct);
   const autoApplyEnabled =
     input.autoApplyEnabled === undefined ? current.autoApplyEnabled : Boolean(input.autoApplyEnabled);
 
   if (!Number.isFinite(quietPct) || quietPct < 0 || quietPct > 50) return null;
   if (!Number.isFinite(reviewPct) || reviewPct < quietPct || reviewPct > 100) return null;
+  if (!Number.isFinite(marginPct) || marginPct < 0 || marginPct > 200) return null;
 
   await ensureDatabaseSchema();
   await getPool().query(
     `UPDATE shipping_market_settings
-        SET auto_apply_enabled = $2, quiet_pct = $3, review_pct = $4, updated_at = NOW()
+        SET auto_apply_enabled = $2, quiet_pct = $3, review_pct = $4, margin_pct = $5,
+            updated_at = NOW()
       WHERE id = $1`,
-    [SETTINGS_ID, autoApplyEnabled, quietPct, reviewPct]
+    [SETTINGS_ID, autoApplyEnabled, quietPct, reviewPct, marginPct]
   );
-  return { autoApplyEnabled, quietPct, reviewPct };
+  return { autoApplyEnabled, quietPct, reviewPct, marginPct };
 }
 
 /**
@@ -463,8 +469,15 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
   if (!settings.autoApplyEnabled) return outcome;
 
   const pool = getPool();
-  const summary = await getMarketSummary();
-  if (!summary.length) return outcome;
+  const [summary, calibration] = await Promise.all([getMarketSummary(), getBillCalibration()]);
+  const calibrationByCountry = new Map(calibration.map((row) => [row.countryCode, row]));
+  const targets = Array.from(
+    new Set([
+      ...summary.map((item) => item.countryCode),
+      ...calibration.map((row) => row.countryCode),
+    ])
+  );
+  if (!targets.length) return outcome;
 
   const ratesResult = await pool.query(
     'SELECT country_code, per_kg_usd, floor_usd_per_kg FROM shipping_rates'
@@ -477,13 +490,22 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
     });
   }
 
-  for (const item of summary) {
-    const rate = rates.get(item.countryCode);
-    const suggested = Math.round(item.median * 10000) / 10000;
+  for (const countryCode of targets) {
+    const item = summary.find((entry) => entry.countryCode === countryCode);
+    const calibrationRow = calibrationByCountry.get(countryCode);
+    const rate = rates.get(countryCode);
+    // Real bills beat public estimates: when we have a bill for this country,
+    // the suggestion is the actual cost per kg plus the configured margin.
+    const rawSuggested = calibrationRow
+      ? calibrationRow.actualPerKgUsd * (1 + settings.marginPct / 100)
+      : item
+        ? item.median
+        : 0;
+    const suggested = Math.round(rawSuggested * 10000) / 10000;
 
     if (!rate || !Number.isFinite(rate.current) || rate.current <= 0) {
       outcome.skipped.push({
-        countryCode: item.countryCode,
+        countryCode,
         suggestion: suggested,
         current: null,
         pct: null,
@@ -493,7 +515,7 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
     }
     if (!Number.isFinite(suggested) || suggested < 0.5 || suggested > 1000) {
       outcome.skipped.push({
-        countryCode: item.countryCode,
+        countryCode,
         suggestion: suggested,
         current: rate.current,
         pct: null,
@@ -503,7 +525,7 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
     }
     if (rate.floor !== null && suggested < rate.floor) {
       outcome.skipped.push({
-        countryCode: item.countryCode,
+        countryCode,
         suggestion: suggested,
         current: rate.current,
         pct: null,
@@ -516,7 +538,7 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
     if (pct === 0) continue;
     if (pct > settings.reviewPct) {
       outcome.skipped.push({
-        countryCode: item.countryCode,
+        countryCode,
         suggestion: suggested,
         current: rate.current,
         pct,
@@ -526,7 +548,7 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
     }
     if (outcome.applied.length >= 5) {
       outcome.skipped.push({
-        countryCode: item.countryCode,
+        countryCode,
         suggestion: suggested,
         current: rate.current,
         pct,
@@ -540,7 +562,7 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
       await client.query('BEGIN');
       await client.query(
         'UPDATE shipping_rates SET per_kg_usd = $2, updated_at = NOW() WHERE country_code = $1',
-        [item.countryCode, suggested]
+        [countryCode, suggested]
       );
       await client.query(
         `INSERT INTO shipping_rate_changes
@@ -548,18 +570,20 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           `c${randomUUID()}`,
-          item.countryCode,
+          countryCode,
           rate.current,
           suggested,
-          'auto market median',
-          `median of ${item.count} source(s), ${pct}% change`,
+          calibrationRow ? 'auto bill calibration' : 'auto market median',
+          calibrationRow
+            ? `actual $${calibrationRow.actualPerKgUsd.toFixed(2)}/kg from ${calibrationRow.count} bill(s) + ${settings.marginPct}% margin, ${pct}% change`
+            : `median of ${item?.count ?? 0} source(s), ${pct}% change`,
         ]
       );
       await client.query('COMMIT');
     } catch {
       await client.query('ROLLBACK').catch(() => {});
       outcome.skipped.push({
-        countryCode: item.countryCode,
+        countryCode,
         suggestion: suggested,
         current: rate.current,
         pct,
@@ -571,7 +595,7 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
     }
 
     outcome.applied.push({
-      countryCode: item.countryCode,
+      countryCode,
       before: rate.current,
       after: suggested,
       pct,
@@ -580,4 +604,127 @@ export async function autoApplyMarketRates(): Promise<AutoApplyOutcome> {
   }
 
   return outcome;
+}
+
+export interface ShippingBill {
+  id: string;
+  countryCode: string;
+  weightKg: number;
+  billedUsd: number;
+  channel: string;
+  shippedAt: string | null;
+  note: string;
+  createdAt: string;
+}
+
+function mapBill(row: Record<string, unknown>): ShippingBill {
+  return {
+    id: String(row.id),
+    countryCode: String(row.country_code),
+    weightKg: Number(row.weight_kg),
+    billedUsd: Number(row.billed_usd),
+    channel: String(row.channel || ''),
+    shippedAt: row.shipped_at
+      ? new Date(String(row.shipped_at)).toISOString().slice(0, 10)
+      : null,
+    note: String(row.note || ''),
+    createdAt: new Date(String(row.created_at)).toISOString(),
+  };
+}
+
+export async function addShippingBill(input: {
+  countryCode?: unknown;
+  weightKg?: unknown;
+  billedUsd?: unknown;
+  channel?: unknown;
+  shippedAt?: unknown;
+  note?: unknown;
+}): Promise<ShippingBill | null> {
+  const countryCode = String(input.countryCode || '').trim().toUpperCase().slice(0, 2);
+  if (!/^[A-Z]{2}$/.test(countryCode)) return null;
+
+  const weightKg = Number(input.weightKg);
+  const billedUsd = Number(input.billedUsd);
+  if (!Number.isFinite(weightKg) || weightKg < 0.01 || weightKg > 2000) return null;
+  if (!Number.isFinite(billedUsd) || billedUsd < 0.5 || billedUsd > 100000) return null;
+
+  const shippedAt =
+    typeof input.shippedAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.shippedAt)
+      ? input.shippedAt
+      : null;
+
+  await ensureDatabaseSchema();
+  const result = await getPool().query(
+    `INSERT INTO shipping_bills
+       (id, country_code, weight_kg, billed_usd, channel, shipped_at, note)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING *`,
+    [
+      `b${randomUUID()}`,
+      countryCode,
+      Math.round(weightKg * 1000) / 1000,
+      Math.round(billedUsd * 100) / 100,
+      String(input.channel || '').slice(0, 100),
+      shippedAt,
+      String(input.note || '').slice(0, 300),
+    ]
+  );
+  return result.rowCount ? mapBill(result.rows[0]) : null;
+}
+
+export async function listShippingBills(limit = 50): Promise<ShippingBill[]> {
+  await ensureDatabaseSchema();
+  const result = await getPool().query(
+    'SELECT * FROM shipping_bills ORDER BY created_at DESC LIMIT $1',
+    [Math.min(Math.max(limit, 1), 200)]
+  );
+  return result.rows.map(mapBill);
+}
+
+export async function deleteShippingBill(id: string): Promise<boolean> {
+  await ensureDatabaseSchema();
+  const result = await getPool().query('DELETE FROM shipping_bills WHERE id = $1', [id]);
+  return Boolean(result.rowCount);
+}
+
+/** Actual cost per kg per country, from bills in the last 12 months. */
+export async function getBillCalibration(): Promise<
+  Array<{
+    countryCode: string;
+    actualPerKgUsd: number;
+    weightKg: number;
+    billedUsd: number;
+    count: number;
+    lastShippedAt: string | null;
+  }>
+> {
+  await ensureDatabaseSchema();
+  const result = await getPool().query(
+    `SELECT country_code,
+            SUM(weight_kg) AS weight_kg,
+            SUM(billed_usd) AS billed_usd,
+            COUNT(*)::int AS count,
+            MAX(COALESCE(shipped_at, created_at::date)) AS last_shipped_at
+       FROM shipping_bills
+      WHERE weight_kg > 0 AND created_at > NOW() - INTERVAL '365 days'
+      GROUP BY country_code
+      ORDER BY country_code ASC`
+  );
+  return result.rows
+    .map((row) => {
+      const weightKg = Number(row.weight_kg);
+      const billedUsd = Number(row.billed_usd);
+      return {
+        countryCode: String(row.country_code),
+        actualPerKgUsd:
+          weightKg > 0 ? Math.round((billedUsd / weightKg) * 10000) / 10000 : 0,
+        weightKg,
+        billedUsd,
+        count: Number(row.count),
+        lastShippedAt: row.last_shipped_at
+          ? new Date(String(row.last_shipped_at)).toISOString().slice(0, 10)
+          : null,
+      };
+    })
+    .filter((row) => row.actualPerKgUsd > 0);
 }
