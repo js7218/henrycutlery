@@ -831,6 +831,9 @@ export default function LoginPage() {
                     className="w-full pl-12 pr-4 py-3 bg-surfaceLight border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
                   />
                 </div>
+                <p className="mt-2 text-sm text-gray-400">
+                  Use any email you signed up with — QQ Mail, 163, Gmail, Outlook.
+                </p>
               </div>
 
               {/* Password */}

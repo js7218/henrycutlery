@@ -670,6 +670,9 @@ export default function RegisterPage() {
                 className="w-full pl-12 pr-4 py-3 bg-surfaceLight border border-border rounded-lg text-foreground placeholder:text-gray-500 focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
               />
             </div>
+            <p className="mt-2 text-sm text-gray-400">
+              Any email works — QQ Mail, 163, Gmail, Outlook. For example 123456@qq.com.
+            </p>
           </div>
 
           {/* Email Verification Code */}
