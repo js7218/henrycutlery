@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Heart, Mail, Phone, MapPin, Instagram, Facebook, Twitter } from 'lucide-react';
+import { Heart, Mail, Phone, MapPin, Instagram } from 'lucide-react';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -27,24 +27,6 @@ export default function Footer() {
                 className="w-10 h-10 bg-surfaceLight rounded-full flex items-center justify-center text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"
               >
                 <Instagram className="w-4 h-4" />
-              </a>
-              <a
-                href="https://facebook.com/adamcutlery"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Adam Cutlery on Facebook"
-                className="w-10 h-10 bg-surfaceLight rounded-full flex items-center justify-center text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"
-              >
-                <Facebook className="w-4 h-4" />
-              </a>
-              <a
-                href="https://twitter.com/adamcutlery"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Adam Cutlery on Twitter"
-                className="w-10 h-10 bg-surfaceLight rounded-full flex items-center justify-center text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"
-              >
-                <Twitter className="w-4 h-4" />
               </a>
             </div>
           </div>

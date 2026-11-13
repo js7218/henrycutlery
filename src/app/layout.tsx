@@ -87,8 +87,6 @@ const structuredData = {
   logo: "https://adamcutlery.com/logo.png",
   description: "A professional e-commerce platform specializing in premium knives, featuring works from world-class master smiths.",
   sameAs: [
-    "https://twitter.com/adamcutlery",
-    "https://facebook.com/adamcutlery",
     "https://instagram.com/adamcutlery",
   ],
   contactPoint: {
