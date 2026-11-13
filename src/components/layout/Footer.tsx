@@ -20,7 +20,7 @@ export default function Footer() {
             </p>
             <div className="flex space-x-4">
               <a
-                href="https://instagram.com/adamcutlery"
+                href="https://www.instagram.com/zoven_lin/"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Adam Cutlery on Instagram"
