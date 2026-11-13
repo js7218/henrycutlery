@@ -85,19 +85,17 @@ export default function CartPage() {
               </div>
 
               <ThreeDButton
-                href={state.user ? '/checkout' : '/login?next=/checkout'}
+                href="/checkout"
                 variant="cta"
                 size="lg"
                 className="w-full"
                 showArrow
               >
-                {state.user ? 'Checkout' : 'Sign In to Checkout'}
+                Checkout
               </ThreeDButton>
-              {!state.user && (
-                <p className="mt-3 text-xs text-center text-gray-500">
-                  Please log in or register before placing an order.
-                </p>
-              )}
+              <p className="mt-3 text-xs text-center text-gray-400">
+                No account needed — you can check out as a guest.
+              </p>
             </div>
 
             {/* Guarantees */}

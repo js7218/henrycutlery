@@ -10,6 +10,7 @@ import UrlPathHider from '@/components/security/UrlPathHider';
 import HumanVerificationGate from '@/components/security/HumanVerificationGate';
 import WafBrowserCheck from '@/components/security/WafBrowserCheck';
 import ChatWidget from '@/components/support/ChatWidget';
+import MarketingConsentBanner from '@/components/marketing/MarketingConsentBanner';
 import ScrollProgress from '@/components/animation/ScrollProgress';
 
 // CSS-only effects (always reliable, all browsers)
@@ -19,7 +20,6 @@ const AmbientLight = dynamic(() => import('@/components/animation/AmbientLight')
 
 // Canvas-based effects (enhancement layer, desktop-first)
 const PageTransition = dynamic(() => import('@/components/animation/PageTransition'), { ssr: false });
-const TouchTrail = dynamic(() => import('@/components/animation/TouchTrail'), { ssr: false });
 const RippleEffect = dynamic(() => import('@/components/animation/RippleEffect'), { ssr: false });
 const ParticleNetwork = dynamic(() => import('@/components/animation/ParticleNetwork'), { ssr: false });
 const ScanLine = dynamic(() => import('@/components/animation/ScanLine'), { ssr: false });
@@ -39,7 +39,6 @@ export default function ClientLayout({
 
       {/* Canvas enhancements: gracefully degrade on unsupported browsers */}
       <PageTransition />
-      <TouchTrail />
       <RippleEffect />
       <ParticleNetwork count={50} maxDistance={140} />
       <ScanLine color="rgba(201, 169, 98, 0.06)" duration={6} height={2} />
@@ -57,6 +56,7 @@ export default function ClientLayout({
             </main>
             <Footer />
             <ChatWidget />
+            <MarketingConsentBanner />
           </AgeVerification>
         </WafBrowserCheck>
       </Suspense>

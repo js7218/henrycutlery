@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { CheckCircle, ArrowLeft, Copy, MapPin, CreditCard, AlertCircle, ShieldCheck, Globe, Package } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatPrice } from '@/lib/utils';
@@ -94,8 +93,7 @@ async function validateAddressGeocoding(address: Address): Promise<{ valid: bool
 }
 
 export default function CheckoutPage() {
-  const { state, dispatch, cartTotal } = useApp();
-  const router = useRouter();
+  const { state, dispatch, cartTotal, isSessionReady } = useApp();
 
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('confirm');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wechat');
@@ -260,34 +258,12 @@ export default function CheckoutPage() {
   }, [state.user, selectedAddress]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (!state.user && currentStep !== 'complete') {
-        router.replace('/login?next=/checkout');
-      }
-    }, 150);
-
-    return () => window.clearTimeout(timer);
-  }, [state.user, currentStep, router]);
-
-  if (!state.user && currentStep !== 'complete') {
-    return (
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-20">
-        <CheckoutSteps currentStep={2} />
-        <div className="text-center py-20">
-          <h2 className="text-2xl font-bold text-gray-400 mb-4">Please Sign In to Checkout</h2>
-          <p className="text-gray-500 mb-8">You need to log in or register before placing an order.</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <ThreeDButton href="/login?next=/checkout" variant="primary">
-              Sign In
-            </ThreeDButton>
-            <ThreeDButton href="/register?next=/checkout" variant="outline">
-              Register
-            </ThreeDButton>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    // Guests can check out without an account, so the address form is opened
+    // for them once the session has been checked.
+    if (isSessionReady && !state.user) {
+      setShowNewAddressForm(true);
+    }
+  }, [isSessionReady, state.user]);
 
   // SECURITY: Filter out products that have been removed from catalog
   const validProductIds = new Set(currentProducts.map(p => p.id));
@@ -335,6 +311,10 @@ export default function CheckoutPage() {
       setAddressError(
         `Please confirm the import notice for ${complianceRule.countryName} before continuing.`
       );
+      return;
+    }
+    if (!state.user && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(contactEmail.trim())) {
+      setAddressError('Please enter a valid email address — we need it to send your order confirmation.');
       return;
     }
     setAddressError('');
@@ -398,6 +378,11 @@ export default function CheckoutPage() {
       setPaymentError('Please select a shipping address before paying.');
       return;
     }
+    if (!state.user && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(contactEmail.trim())) {
+      setPaymentError('Please enter a valid email address before paying.');
+      setCurrentStep('confirm');
+      return;
+    }
     setIsProcessing(true);
     setPaymentError('');
 
@@ -439,7 +424,7 @@ export default function CheckoutPage() {
 
       if (!response.ok || !result.success) {
         if (response.status === 401 || result.code === 'LOGIN_REQUIRED') {
-          router.replace('/login?next=/checkout');
+          setPaymentError('Your session expired. Please reload the page and try again.');
           setIsProcessing(false);
           return;
         }
@@ -584,6 +569,7 @@ export default function CheckoutPage() {
           })),
           contactName: selectedAddress?.name || state.user?.name || '',
           contactPhone: inquiryForm.phone || selectedAddress?.phone || '',
+          contactEmail: contactEmail.trim() || state.user?.email || '',
           company: inquiryForm.company,
           startDate,
           expectedDelivery: deliveryDate,
@@ -654,6 +640,20 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Addresses & Items */}
           <div className="lg:col-span-2 space-y-6">
+            {!state.user && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gold/40 bg-gold/10 p-4">
+                <p className="text-sm text-gray-200">
+                  You are checking out as a guest — no account needed. Your order updates go to the
+                  email you enter below.
+                </p>
+                <Link
+                  href="/login?next=/checkout"
+                  className="text-sm font-semibold text-gold underline"
+                >
+                  Sign in instead
+                </Link>
+              </div>
+            )}
             {/* Shipping Address */}
             <div className="bg-surface border border-border rounded-lg p-6">
               <div className="flex items-center justify-between mb-4">
@@ -1310,7 +1310,7 @@ export default function CheckoutPage() {
                 <h2 className="text-lg font-semibold text-foreground mb-2">Inquiry received</h2>
                 <p className="text-sm text-gray-400 mb-6">
                   Thank you. Our team will review your bulk order request and contact you at{' '}
-                  <span className="text-foreground">{state.user?.email}</span> shortly.
+                  <span className="text-foreground">{contactEmail.trim() || state.user?.email}</span> shortly.
                 </p>
                 <button
                   onClick={() => {

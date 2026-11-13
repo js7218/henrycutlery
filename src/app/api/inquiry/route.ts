@@ -28,9 +28,6 @@ function getProductById(productId: string) {
 export async function POST(request: Request) {
   try {
     const authUser = await getAuthUser();
-    if (!authUser) {
-      return NextResponse.json({ success: false, error: 'Please log in to submit an inquiry.' }, { status: 401 });
-    }
 
     const body = await request.json().catch(() => ({}));
     const rawItems = body?.items;
@@ -39,9 +36,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Please provide the products you are interested in.' }, { status: 400 });
     }
 
+    // Guests can send an inquiry too; the contact email identifies them.
+    const requestedInquiryEmail =
+      typeof body?.contactEmail === 'string' ? body.contactEmail.trim().slice(0, 200) : '';
+    const hasValidInquiryEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(requestedInquiryEmail);
+    if (!authUser && !hasValidInquiryEmail) {
+      return NextResponse.json(
+        { success: false, error: 'Please provide a valid email address so we can reply.' },
+        { status: 400 }
+      );
+    }
+    const inquiryEmail = hasValidInquiryEmail ? requestedInquiryEmail : (authUser?.email || '');
+
     await ensureDatabaseSchema();
 
-    const rate = await consumeRateLimit(`inquiry:${authUser.id}`, 5, 60 * 60 * 1000);
+    const rateKey = authUser
+      ? `inquiry:${authUser.id}`
+      : `inquiry:ip:${(request.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim()}`;
+    const rate = await consumeRateLimit(rateKey, 5, 60 * 60 * 1000);
     if (!rate.allowed) {
       return NextResponse.json(
         { success: false, error: 'Too many inquiries. Please try again later.' },
@@ -77,7 +89,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const contactName = cleanText(body?.contactName, 100) || authUser.name || '';
+    const contactName = cleanText(body?.contactName, 100) || authUser?.name || '';
     const contactPhone = cleanText(body?.contactPhone, 40);
     const company = cleanText(body?.company, 200);
     const startDate = cleanText(body?.startDate, 20);
@@ -148,9 +160,9 @@ export async function POST(request: Request) {
       `,
       [
         id,
-        authUser.id,
+        authUser?.id || null,
         contactName,
-        authUser.email,
+        inquiryEmail,
         contactPhone,
         company,
         JSON.stringify(items),
@@ -180,7 +192,7 @@ export async function POST(request: Request) {
         await sendInquiryNotificationEmail({
           id,
           contactName,
-          contactEmail: authUser.email,
+          contactEmail: inquiryEmail,
           contactPhone,
           company,
           items,

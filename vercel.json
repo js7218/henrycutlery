@@ -19,6 +19,10 @@
     {
       "path": "/api/cron/freight-quotes",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/new-product-campaign",
+      "schedule": "0 4 * * *"
     }
   ]
 }

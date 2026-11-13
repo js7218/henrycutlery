@@ -16,6 +16,7 @@ import { getComplianceRule } from '@/lib/compliance';
 import { customerOrderNumberFields } from '@/lib/orderView';
 import { getAuthUser } from '@/lib/auth';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
+import { consumeRateLimit } from '@/lib/rateLimit';
 import { getStockMap } from '@/lib/inventory';
 import { DEFAULT_PER_KG_USD, countryOfPhone, totalWeightKg } from '@/lib/shipping';
 import { floorPriceUsd, getNegotiationSettings, verifyShippingQuote } from '@/lib/negotiation';
@@ -295,13 +296,9 @@ function validateAddressField(value: unknown): { valid: boolean; address: Valida
 // POST /api/order/create - Create order with server-side price verification
 export async function POST(request: NextRequest) {
   try {
+    // Orders can be placed without an account. Logged-in customers get their
+    // account email; guests must provide a contact email below.
     const authUser = await getAuthUser();
-    if (!authUser) {
-      return NextResponse.json(
-        { error: 'Please log in before placing an order', code: 'LOGIN_REQUIRED' },
-        { status: 401 }
-      );
-    }
 
     const body = await request.json().catch(() => ({}));
     const unsafeUrl = findUnsafeUrl(body);
@@ -336,6 +333,50 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid payment method', code: 'INVALID_PAYMENT' },
         { status: 400 }
       );
+    }
+
+    // Buyer contact email for the order. Account holders fall back to their
+    // account email; guests must supply one because it is the only way to send
+    // the payment instructions and order updates.
+    const requestedContactEmail =
+      typeof body.contactEmail === 'string' ? body.contactEmail.trim().slice(0, 200) : '';
+    const hasValidContactEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(requestedContactEmail);
+    if (!authUser && !hasValidContactEmail) {
+      return NextResponse.json(
+        {
+          error: 'Please enter a valid email address so we can send your order confirmation.',
+          code: 'EMAIL_REQUIRED',
+          field: 'contactEmail',
+        },
+        { status: 400 }
+      );
+    }
+    const contactEmail = hasValidContactEmail ? requestedContactEmail : (authUser?.email || '');
+
+    // Guests have no account to throttle, so limit orders per IP address to
+    // keep a script from creating thousands of orders.
+    if (!authUser) {
+      try {
+        await ensureDatabaseSchema();
+        const forwarded = request.headers.get('x-forwarded-for') || '';
+        const ip = forwarded.split(',')[0].trim() || 'unknown';
+        const limit = await consumeRateLimit(`order:guest:${ip}`, 10, 60 * 60 * 1000);
+        if (!limit.allowed) {
+          return NextResponse.json(
+            {
+              error: 'Too many orders from this connection. Please try again later or contact us.',
+              code: 'RATE_LIMITED',
+              retryAfter: limit.retryAfterSeconds,
+            },
+            { status: 429 }
+          );
+        }
+      } catch (err) {
+        console.error(
+          '[order/create] guest rate limit failed:',
+          err instanceof Error ? err.message : 'Unknown error'
+        );
+      }
     }
 
     // Live stock is the authoritative quantity. If the lookup fails we fall
@@ -447,7 +488,7 @@ export async function POST(request: NextRequest) {
             suggestedContact: {
               name: address.name,
               phone: address.phone,
-              email: authUser.email,
+              email: contactEmail,
             },
           },
         },
@@ -459,8 +500,9 @@ export async function POST(request: NextRequest) {
     // SECURITY: Generate order fingerprint to prevent duplicate submissions
     const productIds = items.map((item: { productId: string }) => item.productId).sort().join(',');
     const minuteTimestamp = Math.floor(Date.now() / 60000);
+    const buyerKey = authUser ? `user:${authUser.id}` : `guest:${contactEmail.toLowerCase()}`;
     const orderFingerprint = createHash('sha256')
-      .update(`${authUser.id}:${productIds}:${minuteTimestamp}`)
+      .update(`${buyerKey}:${productIds}:${minuteTimestamp}`)
       .digest('hex');
 
     // Canonical signature of what is being ordered (product + quantity). Used
@@ -476,14 +518,6 @@ export async function POST(request: NextRequest) {
     const clientKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';
     const idempotencyKey = clientKey.length >= 8 ? clientKey.slice(0, 128) : randomUUID();
     const force = body.force === true;
-
-    // Buyer contact email for the order. Falls back to the account email, so a
-    // blank or malformed value never blocks checkout.
-    const requestedContactEmail =
-      typeof body.contactEmail === 'string' ? body.contactEmail.trim().slice(0, 200) : '';
-    const contactEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(requestedContactEmail)
-      ? requestedContactEmail
-      : authUser.email;
 
     // Estimated shipping = total weight x destination country's per-kg rate.
     // Customers who arrange their own carrier pay no shipping here.
@@ -621,8 +655,8 @@ export async function POST(request: NextRequest) {
       paymentMethod,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      userId: authUser.id,
-      customerEmail: authUser.email,
+      userId: authUser?.id || null,
+      customerEmail: contactEmail,
       // SECURITY: Server verification metadata
       verified: true,
       verifiedAt: new Date().toISOString(),
@@ -635,14 +669,15 @@ export async function POST(request: NextRequest) {
       const db = getPool();
 
       // 1) Idempotent retry: the same key always returns the original order.
+      // The key index is global, so this also covers guest checkouts.
       if (clientKey.length >= 8) {
         const existing = await db.query(
           `SELECT id, order_number, items, total_amount, status, shipping_address, payment_method,
                   tracking_number, created_at, updated_at
            FROM orders
-           WHERE user_id = $1 AND idempotency_key = $2
+           WHERE idempotency_key = $1
            LIMIT 1`,
-          [authUser.id, idempotencyKey]
+          [idempotencyKey]
         );
         if (existing.rowCount) {
           const existingOrder = mapOrderRow(existing.rows[0]);
@@ -662,13 +697,14 @@ export async function POST(request: NextRequest) {
       // 2) Duplicate guard: an identical order within the last 60 seconds
       // requires an explicit second confirmation (force=true) to go through.
       if (!force) {
+        const buyerFilter = authUser ? 'user_id = $1' : 'LOWER(contact_email) = LOWER($1)';
         const recent = await db.query(
           `SELECT id, order_number, items, total_amount, status, created_at
            FROM orders
-           WHERE user_id = $1 AND created_at > NOW() - INTERVAL '60 seconds'
+           WHERE ${buyerFilter} AND created_at > NOW() - INTERVAL '60 seconds'
            ORDER BY created_at DESC
            LIMIT 20`,
-          [authUser.id]
+          [authUser ? authUser.id : contactEmail]
         );
         const duplicate = recent.rows.find((row) => itemsSignatureOf(row.items) === itemsSignature);
         if (duplicate) {
@@ -733,7 +769,7 @@ export async function POST(request: NextRequest) {
           `,
           [
             order.id,
-            authUser.id,
+            order.userId,
             order.orderNumber,
             JSON.stringify(order.items),
             order.totalAmount,
@@ -778,9 +814,9 @@ export async function POST(request: NextRequest) {
           `SELECT id, order_number, items, total_amount, status, shipping_address, payment_method,
                   tracking_number, created_at, updated_at
            FROM orders
-           WHERE user_id = $1 AND idempotency_key = $2
+           WHERE idempotency_key = $1
            LIMIT 1`,
-          [authUser.id, idempotencyKey]
+          [idempotencyKey]
         );
         if (existing.rowCount) {
           const existingOrder = mapOrderRow(existing.rows[0]);
@@ -798,7 +834,10 @@ export async function POST(request: NextRequest) {
         throw new Error('Order insert did not return a row');
       }
 
-      await saveAddressForUser(authUser.id, address);
+      // Only account holders get the address saved to their address book.
+      if (authUser) {
+        await saveAddressForUser(authUser.id, address);
+      }
 
       // Send the customer their payment instructions and alert the owner as
       // soon as the order exists. Failures here must never lose the order.

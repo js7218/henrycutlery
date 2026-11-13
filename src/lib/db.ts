@@ -110,6 +110,19 @@ async function runSchemaMigration(): Promise<void> {
         WHERE deleted_at IS NULL AND email IS NOT NULL;
       `);
 
+      // Social sign-in: an account created through an OAuth provider has no
+      // password, so the column must allow NULL. (provider, subject) is the
+      // stable identity returned by each provider.
+      await db.query(`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_provider TEXT;`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_subject TEXT;`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;`);
+      await db.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS users_oauth_identity_idx
+        ON users (oauth_provider, oauth_subject)
+        WHERE oauth_provider IS NOT NULL AND oauth_subject IS NOT NULL;
+      `);
+
       await db.query(`
         CREATE TABLE IF NOT EXISTS addresses (
           id TEXT PRIMARY KEY,
@@ -255,7 +268,7 @@ async function runSchemaMigration(): Promise<void> {
       await db.query(`
         CREATE TABLE IF NOT EXISTS orders (
           id TEXT PRIMARY KEY,
-          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
           order_number TEXT NOT NULL UNIQUE,
           items JSONB NOT NULL DEFAULT '[]'::jsonb,
           total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
@@ -300,12 +313,20 @@ async function runSchemaMigration(): Promise<void> {
         ON orders (user_id, created_at DESC);
       `);
 
+      // Guest checkout: a customer may place an order without an account, so
+      // user_id is optional. The contact email on the order is the identity.
+      await db.query(`ALTER TABLE orders ALTER COLUMN user_id DROP NOT NULL;`);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS orders_contact_email_created_idx
+        ON orders (LOWER(contact_email), created_at DESC);
+      `);
+
       // Bulk orders (high value / high quantity / beyond stock) do not create
       // an order. They are captured as inquiries for manual quoting.
       await db.query(`
         CREATE TABLE IF NOT EXISTS inquiries (
           id TEXT PRIMARY KEY,
-          user_id TEXT NOT NULL,
+          user_id TEXT,
           contact_name TEXT NOT NULL,
           contact_email TEXT NOT NULL,
           contact_phone TEXT NOT NULL DEFAULT '',
@@ -335,6 +356,8 @@ async function runSchemaMigration(): Promise<void> {
         CREATE INDEX IF NOT EXISTS inquiries_user_created_idx
         ON inquiries (user_id, created_at DESC);
       `);
+      // Inquiries may come from guests who are not signed in.
+      await db.query(`ALTER TABLE inquiries ALTER COLUMN user_id DROP NOT NULL;`);
 
       // Sample requests. B2B knife buyers almost always want to see a physical
       // sample before placing a bulk order, so this is a separate funnel entry.
@@ -783,6 +806,52 @@ async function runSchemaMigration(): Promise<void> {
           granted BOOLEAN NOT NULL DEFAULT FALSE,
           messages JSONB,
           reply TEXT NOT NULL DEFAULT ''
+        );
+      `);
+
+      // Marketing consent. The visitor opts in from the first-visit banner and
+      // can leave at any time through the unsubscribe link in every email.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS marketing_subscribers (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL,
+          consent BOOLEAN NOT NULL DEFAULT FALSE,
+          source TEXT NOT NULL DEFAULT '',
+          ip TEXT NOT NULL DEFAULT '',
+          user_agent TEXT NOT NULL DEFAULT '',
+          unsubscribe_token TEXT NOT NULL UNIQUE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          unsubscribed_at TIMESTAMPTZ
+        );
+      `);
+      await db.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS marketing_subscribers_email_idx
+        ON marketing_subscribers (LOWER(email));
+      `);
+
+      // One row per product campaign. The product_id unique constraint is what
+      // guarantees a new product is announced exactly once, no matter how many
+      // times the daily cron runs.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS marketing_campaigns (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL UNIQUE,
+          subject TEXT NOT NULL DEFAULT '',
+          recipients INT NOT NULL DEFAULT 0,
+          sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      // One row per recipient per product. The unique pair makes the daily job
+      // resumable: an address that already received a product's email is never
+      // emailed about it again, even if a run was interrupted.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS marketing_sends (
+          product_id TEXT NOT NULL,
+          email TEXT NOT NULL,
+          sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (product_id, email)
         );
       `);
 }
