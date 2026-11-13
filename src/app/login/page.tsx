@@ -1010,14 +1010,16 @@ export default function LoginPage() {
           {providers.length > 0 && (
             <div className="mt-8 pt-6 border-t border-border">
               <p className="text-center text-sm text-gray-400 mb-4">Or continue with</p>
-              <div className="grid grid-cols-1 gap-3">
+              <div className="flex flex-col gap-3">
                 {providers.map((provider) => (
                   <a
                     key={provider.id}
                     href={`/api/auth/oauth/${provider.id}/start?next=${encodeURIComponent(nextPath)}`}
-                    className="flex items-center justify-center gap-3 min-h-[44px] px-4 py-2.5 bg-surfaceLight border border-border rounded-lg text-sm font-medium text-gray-200 hover:border-gold hover:bg-gold/10 transition-colors"
+                    className="group flex h-14 w-full items-center justify-center gap-3 rounded-xl border border-border bg-surfaceLight px-5 text-base font-medium text-foreground transition-colors hover:border-gold hover:bg-gold/10"
                   >
-                    <ProviderIcon id={provider.id} />
+                    <span className="flex h-6 w-6 items-center justify-center">
+                      <ProviderIcon id={provider.id} />
+                    </span>
                     <span>Continue with {provider.label}</span>
                   </a>
                 ))}
