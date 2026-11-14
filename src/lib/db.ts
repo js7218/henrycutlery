@@ -669,9 +669,6 @@ async function runSchemaMigration(): Promise<void> {
           ('CN','China',0,13), ('RU','Russia',0,20)
         ON CONFLICT (country_code) DO NOTHING;
       `);
-      // Official tariff feeds (US HTS, UK Trade Tariff) are scanned weekly.
-      // Detected changes are queued here and only applied after the owner
-      // confirms, because tariff data drives what customers are told.
       await db.query(`
         CREATE TABLE IF NOT EXISTS tariff_scan_changes (
           id TEXT PRIMARY KEY,
@@ -688,6 +685,12 @@ async function runSchemaMigration(): Promise<void> {
       await db.query(`
         CREATE INDEX IF NOT EXISTS tariff_scan_changes_status_idx
         ON tariff_scan_changes (status, created_at DESC);
+      `);
+      // Last time the duty rate itself was checked against an official source.
+      // Kept separate from updated_at, which also moves when VAT is edited.
+      await db.query(`
+        ALTER TABLE country_tax_rates
+        ADD COLUMN IF NOT EXISTS duty_checked_at TIMESTAMPTZ;
       `);
       await db.query(`
         CREATE TABLE IF NOT EXISTS password_resets (

@@ -1,5 +1,9 @@
 import { randomUUID } from 'crypto';
 import { ensureDatabaseSchema, getPool } from '@/lib/db';
+import { listComplianceRules } from '@/lib/compliance';
+import { OFFICIAL_DOMAINS } from '@/lib/complianceOfficialDomains';
+import { isOfficialForCountry } from '@/lib/complianceFeed';
+import { webSearch } from '@/lib/companyLookup';
 
 /**
  * Weekly scan of official tariff sources for the knife HS codes we sell
@@ -106,12 +110,188 @@ export interface TariffScanResult {
   queued: number;
   unchanged: number;
   failed: string[];
+  knowledgeChecked: number;
+  knowledgeQueued: number;
+  knowledgeSkipped: number;
+}
+
+interface DutyVerdict {
+  dutyPct: number | null;
+  citedIndex: number;
+  confident: boolean;
+  note: string;
+}
+
+/**
+ * Most countries have no machine-readable tariff feed. For those we search the
+ * live web but still require a citation on the destination's own customs site,
+ * and the result only becomes a queued suggestion — never a live price.
+ */
+async function judgeDuty(
+  countryName: string,
+  countryCode: string,
+  results: Array<{ title: string; snippet: string; url: string }>
+): Promise<DutyVerdict | null> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error('DEEPSEEK_API_KEY is not configured');
+
+  const baseUrl = (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, '');
+  const list = results
+    .slice(0, 6)
+    .map((item, index) => `${index + 1}. ${item.title}\n   ${item.snippet}\n   ${item.url}`)
+    .join('\n');
+
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: [
+            `You extract the import duty rate that ${countryName} (${countryCode}) charges on knives classified under HS 8211.92 or 8211.93.`,
+            'Use ONLY the numbered search results below. Never rely on memory.',
+            'dutyPct must be the ad valorem (percentage) customs duty for goods originating outside any free-trade bloc — the standard/MFN rate. Do NOT include VAT, GST, sales tax, excise or anti-dumping amounts.',
+            'If the official rate is compound (for example "8% + 1.2 cents each") return the percentage part and repeat the full wording in note.',
+            'If the rate is specific only (cents per knife, no percentage) set dutyPct to null and put the exact wording in note.',
+            'citedIndex = the 1-based number of the result you used, or 0 if no result states a rate.',
+            'confident = true only when the cited page is an official customs/government page that shows an actual rate.',
+            'note: one short sentence quoting the official wording, or "".',
+            'Return strict JSON: {"dutyPct":number|null,"citedIndex":number,"confident":boolean,"note":string}',
+          ].join('\n'),
+        },
+        { role: 'user', content: list || '(no results)' },
+      ],
+    }),
+  });
+
+  if (!res.ok) throw new Error(`DeepSeek ${res.status}`);
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) return null;
+  try {
+    const parsed = JSON.parse(content) as DutyVerdict;
+    return {
+      dutyPct: typeof parsed.dutyPct === 'number' && Number.isFinite(parsed.dutyPct) ? parsed.dutyPct : null,
+      citedIndex: Number(parsed.citedIndex) || 0,
+      confident: Boolean(parsed.confident),
+      note: typeof parsed.note === 'string' ? parsed.note : '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Rotates through the countries that the official feeds do not cover.
+ * Runs a handful per week so every country is revisited without hammering the
+ * search API. Suggestions always land in the approval queue.
+ */
+async function runTariffKnowledgeScan(batchSize: number, result: TariffScanResult): Promise<void> {
+  if (!process.env.SERPER_API_KEY && !process.env.TAVILY_API_KEY) {
+    result.failed.push('knowledge: SERPER_API_KEY / TAVILY_API_KEY not configured');
+    return;
+  }
+
+  const pool = getPool();
+  const rows = await pool.query(
+    `SELECT country_code, duty_pct
+     FROM country_tax_rates
+     WHERE country_code NOT IN ('US', 'GB')
+     ORDER BY duty_checked_at NULLS FIRST, updated_at ASC
+     LIMIT $1`,
+    [Math.min(Math.max(batchSize, 1), 12)]
+  );
+
+  const names = new Map((await listComplianceRules()).map((rule) => [rule.countryCode, rule.countryName]));
+
+  for (const row of rows.rows) {
+    const code = String(row.country_code);
+    const name = names.get(code) || code;
+    const domain = OFFICIAL_DOMAINS[code];
+    const query = domain
+      ? `${name} customs import duty 8211.92 knife site:${domain}`
+      : `${name} customs tariff 8211.92 knife import duty`;
+
+    try {
+      const results = await webSearch(query);
+      if (results.length === 0) {
+        result.knowledgeSkipped += 1;
+        await markDutyChecked(code);
+        continue;
+      }
+
+      const verdict = await judgeDuty(name, code, results);
+      if (!verdict || !verdict.confident || verdict.citedIndex < 1 || verdict.dutyPct === null) {
+        result.knowledgeSkipped += 1;
+        await markDutyChecked(code);
+        continue;
+      }
+
+      const cited = results[Math.min(verdict.citedIndex, results.length) - 1];
+      if (!cited || !isOfficialForCountry(cited.url, code)) {
+        result.knowledgeSkipped += 1;
+        await markDutyChecked(code);
+        continue;
+      }
+
+      result.knowledgeChecked += 1;
+      const currentDuty = Number(row.duty_pct ?? 0);
+      const changed = Math.abs(currentDuty - verdict.dutyPct) >= 0.1;
+      const pending = await pool.query(
+        `SELECT 1 FROM tariff_scan_changes WHERE status = 'pending' AND country_code = $1`,
+        [code]
+      );
+
+      if (changed && pending.rows.length === 0) {
+        await pool.query(
+          `INSERT INTO tariff_scan_changes
+             (id, country_code, current_duty_pct, proposed_duty_pct, source_url, note)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            randomUUID(),
+            code,
+            currentDuty,
+            verdict.dutyPct,
+            cited.url,
+            `AI-extracted from an official page — check the link before applying. ${verdict.note}`.slice(0, 1000),
+          ]
+        );
+        result.knowledgeQueued += 1;
+      } else {
+        result.unchanged += 1;
+      }
+      await markDutyChecked(code);
+    } catch (error) {
+      result.knowledgeSkipped += 1;
+      result.failed.push(`${code}: ${error instanceof Error ? error.message : 'scan failed'}`);
+      await markDutyChecked(code);
+    }
+  }
+}
+
+async function markDutyChecked(countryCode: string): Promise<void> {
+  await getPool().query(
+    `UPDATE country_tax_rates SET duty_checked_at = NOW() WHERE country_code = $1`,
+    [countryCode]
+  );
 }
 
 export async function runTariffScan(): Promise<TariffScanResult> {
   await ensureDatabaseSchema();
   const pool = getPool();
-  const result: TariffScanResult = { checked: 0, queued: 0, unchanged: 0, failed: [] };
+  const result: TariffScanResult = {
+    checked: 0,
+    queued: 0,
+    unchanged: 0,
+    failed: [],
+    knowledgeChecked: 0,
+    knowledgeQueued: 0,
+    knowledgeSkipped: 0,
+  };
 
   const sources: Array<{ code: string; load: () => Promise<{ duty: number; note: string; source: string } | null> }> = [
     { code: 'US', load: scanUs },
@@ -155,6 +335,10 @@ export async function runTariffScan(): Promise<TariffScanResult> {
     );
     result.queued += 1;
   }
+
+  // The other 50 destinations have no public rate feed; rotate through a few
+  // each run with citation checks, still queuing anything they turn up.
+  await runTariffKnowledgeScan(6, result);
 
   return result;
 }

@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       const row = change.rows[0];
       await pool.query(
         `UPDATE country_tax_rates
-         SET duty_pct = $2, updated_at = NOW()
+         SET duty_pct = $2, updated_at = NOW(), duty_checked_at = NOW()
          WHERE country_code = $1`,
         [row.country_code, Number(row.proposed_duty_pct)]
       );

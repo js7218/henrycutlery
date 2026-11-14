@@ -425,7 +425,7 @@ function isOfficialSource(url: string): boolean {
 }
 
 /** True when the URL sits on the destination country's own customs domain. */
-function isOfficialForCountry(url: string, countryCode: string): boolean {
+export function isOfficialForCountry(url: string, countryCode: string): boolean {
   const domain = OFFICIAL_DOMAINS[countryCode];
   if (domain) {
     try {
