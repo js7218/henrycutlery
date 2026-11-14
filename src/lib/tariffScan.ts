@@ -5,6 +5,9 @@ import { OFFICIAL_DOMAINS } from '@/lib/complianceOfficialDomains';
 import { isOfficialForCountry } from '@/lib/complianceFeed';
 import { webSearch } from '@/lib/companyLookup';
 
+/** Official-feed moves up to this many percentage points apply themselves. */
+const OFFICIAL_AUTO_APPLY_MAX_PCT = 3;
+
 /**
  * Weekly scan of official tariff sources for the knife HS codes we sell
  * (8211.92 fixed-blade knives, 8211.93 folding knives).
@@ -108,6 +111,7 @@ async function scanUk(): Promise<{ duty: number; note: string; source: string } 
 export interface TariffScanResult {
   checked: number;
   queued: number;
+  autoApplied: number;
   unchanged: number;
   failed: string[];
   knowledgeChecked: number;
@@ -286,6 +290,7 @@ export async function runTariffScan(): Promise<TariffScanResult> {
   const result: TariffScanResult = {
     checked: 0,
     queued: 0,
+    autoApplied: 0,
     unchanged: 0,
     failed: [],
     knowledgeChecked: 0,
@@ -324,6 +329,33 @@ export async function runTariffScan(): Promise<TariffScanResult> {
 
     if (!changed || pendingCount > 0) {
       result.unchanged += 1;
+      continue;
+    }
+
+    // Official feeds are authoritative, so a small move (three points or less)
+    // is applied without asking — the same tolerance used for freight. Larger
+    // moves still wait for the owner because they usually mean a policy change.
+    if (Math.abs(currentDuty - found.duty) <= OFFICIAL_AUTO_APPLY_MAX_PCT) {
+      await pool.query(
+        `UPDATE country_tax_rates
+         SET duty_pct = $2, updated_at = NOW(), duty_checked_at = NOW()
+         WHERE country_code = $1`,
+        [source.code, found.duty]
+      );
+      await pool.query(
+        `INSERT INTO tariff_scan_changes
+           (id, country_code, current_duty_pct, proposed_duty_pct, source_url, note, status, resolved_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'applied', NOW())`,
+        [
+          randomUUID(),
+          source.code,
+          currentDuty,
+          found.duty,
+          found.source,
+          `Auto-applied: official source moved ${Math.abs(currentDuty - found.duty).toFixed(1)} points. ${found.note}`.slice(0, 1000),
+        ]
+      );
+      result.autoApplied += 1;
       continue;
     }
 
