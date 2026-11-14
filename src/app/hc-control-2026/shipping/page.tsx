@@ -14,6 +14,7 @@ interface Rate {
   dutyPct: string;
   vatPct: string;
   taxIncluded: boolean;
+  taxUpdatedAt?: string;
   updatedAt?: string;
 }
 
@@ -58,6 +59,16 @@ export default function ShippingAdminPage() {
     () => products.filter((product) => !weights[product.id]).length,
     [weights]
   );
+
+  // Tariffs and de-minimis thresholds move with trade policy. Nudge the owner
+  // when a country's tax row has not been reviewed for a quarter.
+  const staleTaxCount = useMemo(() => {
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    return rates.filter((rate) => {
+      if (!rate.taxUpdatedAt) return true;
+      return new Date(rate.taxUpdatedAt).getTime() < cutoff;
+    }).length;
+  }, [rates]);
 
   useEffect(() => {
     fetch('/api/shipping/rates')
@@ -272,6 +283,14 @@ export default function ShippingAdminPage() {
           <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-300">
             {missingWeightCount} product{missingWeightCount === 1 ? '' : 's'} still use the default 0.4 kg.
             Shipping is calculated anyway; enter the real weight below for accurate freight.
+          </div>
+        )}
+
+        {staleTaxCount > 0 && (
+          <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4 text-sm text-orange-300">
+            {staleTaxCount} countr{staleTaxCount === 1 ? 'y has' : 'ies have'} import tax rates older than 90 days.
+            Tariffs and de-minimis thresholds change with trade policy — review the duty/VAT columns and press
+            &quot;Save tax rates&quot; to mark them as checked.
           </div>
         )}
 
