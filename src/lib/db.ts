@@ -666,7 +666,11 @@ async function runSchemaMigration(): Promise<void> {
           ('KR','South Korea',0,10), ('IN','India',0,18), ('HK','Hong Kong',0,0),
           ('TW','Taiwan',0,5), ('MY','Malaysia',0,6), ('TH','Thailand',0,7),
           ('VN','Vietnam',0,10), ('ID','Indonesia',0,11), ('PH','Philippines',0,12),
-          ('CN','China',0,13), ('RU','Russia',0,20)
+          ('CN','China',0,13), ('RU','Russia',0,20),
+          ('PK','Pakistan',0,18), ('BD','Bangladesh',0,15), ('LK','Sri Lanka',0,18),
+          ('AR','Argentina',0,21), ('CL','Chile',0,19), ('CO','Colombia',0,19),
+          ('PE','Peru',0,18), ('EG','Egypt',0,14), ('NG','Nigeria',0,7.5),
+          ('KE','Kenya',0,16), ('MO','Macau',0,0)
         ON CONFLICT (country_code) DO NOTHING;
       `);
       await db.query(`

@@ -9,6 +9,51 @@ import { webSearch } from '@/lib/companyLookup';
 const OFFICIAL_AUTO_APPLY_MAX_PCT = 3;
 
 /**
+ * Customs sites often publish rates only in the local language, so the search
+ * is phrased the way a local broker would phrase it. English is used where the
+ * authority publishes in English anyway (IN, SG, PH, ZA, NG, KE, PK, BD, LK).
+ */
+const LOCAL_DUTY_QUERY: Record<string, string> = {
+  DE: 'Zolltarif Messer Einfuhrzoll 8211',
+  AT: 'Zolltarif Messer Einfuhrzoll 8211',
+  CH: 'Zolltarif Messer Einfuhrzoll 8211',
+  FR: 'droits de douane couteaux 8211',
+  BE: 'droits de douane couteaux 8211',
+  IT: 'dazio doganale coltelli 8211',
+  ES: 'arancel aduanero cuchillos 8211',
+  MX: 'arancel importación cuchillos 8211',
+  AR: 'derechos de importación cuchillos 8211',
+  CL: 'arancel aduanero cuchillos 8211',
+  CO: 'arancel importación cuchillos 8211',
+  PE: 'arancel importación cuchillos 8211',
+  NL: 'douanerechten messen 8211',
+  PL: 'stawka celna noże 8211',
+  SE: 'tullavgift knivar 8211',
+  NO: 'tolltariff kniver 8211',
+  DK: 'told knive 8211',
+  FI: 'tulli veitset 8211',
+  PT: 'direitos aduaneiros facas 8211',
+  BR: 'imposto de importação facas 8211',
+  GR: 'δασμός μαχαίρια 8211',
+  TR: 'gümrük vergisi bıçak 8211',
+  RU: 'таможенная пошлина ножи 8211',
+  JP: '関税率 ナイフ 8211',
+  KR: '관세율 칼 8211',
+  TW: '關稅 刀具 8211',
+  HK: '關稅 刀具 8211',
+  MO: '關稅 刀具 8211',
+  CN: '关税 刀具 8211',
+  TH: 'ภาษีศุลกากร มีด 8211',
+  VN: 'thuế hải quan dao 8211',
+  ID: 'bea masuk pisau 8211',
+  MY: 'duti kastam pisau 8211',
+  SA: 'الرسوم الجمركية سكاكين 8211',
+  AE: 'الرسوم الجمركية سكاكين 8211',
+  EG: 'الجمارك سكاكين 8211',
+  IL: 'מכס סכינים 8211',
+};
+
+/**
  * Weekly scan of official tariff sources for the knife HS codes we sell
  * (8211.92 fixed-blade knives, 8211.93 folding knives).
  *
@@ -216,9 +261,9 @@ async function runTariffKnowledgeScan(batchSize: number, result: TariffScanResul
     const code = String(row.country_code);
     const name = names.get(code) || code;
     const domain = OFFICIAL_DOMAINS[code];
-    const query = domain
-      ? `${name} customs import duty 8211.92 knife site:${domain}`
-      : `${name} customs tariff 8211.92 knife import duty`;
+    const hint = LOCAL_DUTY_QUERY[code]
+      || `${name} customs import duty 8211.92 knife`;
+    const query = domain ? `${hint} site:${domain}` : hint;
 
     try {
       const results = await webSearch(query);
