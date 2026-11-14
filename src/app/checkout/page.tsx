@@ -1030,7 +1030,9 @@ export default function CheckoutPage() {
                     </p>
                   ) : (
                     <p className="mt-1 text-xs leading-relaxed text-gray-400">
-                      EU responsible person details are included with your order confirmation.
+                      EU responsible person: provided by our EU fulfilment partner. Their full
+                      name, address and contact email are shown on your order confirmation
+                      before the parcel is dispatched.
                     </p>
                   )}
                 </div>
