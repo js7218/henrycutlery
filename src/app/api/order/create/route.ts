@@ -19,6 +19,7 @@ import { ensureDatabaseSchema, getPool } from '@/lib/db';
 import { consumeRateLimit } from '@/lib/rateLimit';
 import { getStockMap } from '@/lib/inventory';
 import { DEFAULT_PER_KG_USD, countryOfPhone, totalWeightKg } from '@/lib/shipping';
+import { EU_COUNTRY_CODES } from '@/lib/euCountries';
 import { floorPriceUsd, getNegotiationSettings, verifyShippingQuote } from '@/lib/negotiation';
 
 const MAX_ORDER_ITEMS = 50;
@@ -533,6 +534,23 @@ export async function POST(request: NextRequest) {
     // only says "the customer ticked the box"; the rule itself is never taken
     // from the request body.
     const complianceCountry = requestedCountryCode || countryOfPhone(address.phone)?.code || '';
+
+    // EU deliveries can be switched off from the admin panel (GPSR details not
+    // in place yet). Enforced here so a stale checkout page cannot slip through.
+    if (complianceCountry && EU_COUNTRY_CODES.has(complianceCountry)) {
+      const policy = await getPool().query(
+        `SELECT eu_paused FROM shipping_policy WHERE id = 'default'`
+      );
+      if (policy.rows[0]?.eu_paused) {
+        return NextResponse.json(
+          {
+            error: 'We are not able to ship to EU countries at the moment. Please contact us for a manual arrangement.',
+            code: 'EU_DELIVERY_PAUSED',
+          },
+          { status: 409 }
+        );
+      }
+    }
     let compliance: {
       countryCode: string;
       riskLevel: string;

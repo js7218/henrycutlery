@@ -14,16 +14,9 @@ import CheckoutSteps from '@/components/checkout/CheckoutSteps';
 import PaymentSelector from '@/components/checkout/PaymentSelector';
 import ThreeDButton from '@/components/animation/ThreeDButton';
 import NegotiationChat from '@/components/NegotiationChat';
+import { isEuCountry } from '@/lib/euCountries';
 
 type CheckoutStep = 'confirm' | 'payment' | 'complete';
-
-// EU member states as of 2026. GPSR product-safety information is mandatory for
-// every one of them, so the checkout shows the responsible-person block here.
-const EU_COUNTRY_CODES = new Set([
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR',
-  'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK',
-  'SI', 'ES', 'SE',
-]);
 
 type ComplianceRule = {
   countryCode: string;
@@ -166,9 +159,10 @@ export default function CheckoutPage() {
   });
 
   // Shipping = total weight x per-kg rate of the destination country.
-  const [shippingConfig, setShippingConfig] = useState<{ rates: ShippingRate[]; weights: Record<string, number> }>({
+  const [shippingConfig, setShippingConfig] = useState<{ rates: ShippingRate[]; weights: Record<string, number>; euPaused?: boolean }>({
     rates: [],
     weights: {},
+    euPaused: false,
   });
   // Destination country used for the shipping estimate. Empty means "derive
   // it from the phone number", which is the default. Customers can override it
@@ -238,6 +232,7 @@ export default function CheckoutPage() {
         setShippingConfig({
           rates: data.rates || [],
           weights: data.weights || {},
+          euPaused: Boolean(data.euPaused),
         });
       })
       .catch(() => {});
@@ -265,7 +260,10 @@ export default function CheckoutPage() {
   const dutyPct = destinationTax?.dutyPct ?? 0;
   const vatPct = destinationTax?.vatPct ?? 0;
   const taxIncluded = Boolean(destinationTax?.taxIncluded);
-  const isEuDestination = EU_COUNTRY_CODES.has((shipToCountry || shippingCountry || '').toUpperCase());
+  const isEuDestination = isEuCountry(shipToCountry || shippingCountry || '');
+  // Deliveries to the EU can be paused from the admin panel while GPSR
+  // responsible-person details are still missing.
+  const euDeliveryPaused = isEuDestination && Boolean(shippingConfig.euPaused);
   // Customs normally applies duty to goods + shipping, then VAT on top of the
   // duty-inclusive amount, so the estimate mirrors that order instead of
   // adding the two percentages together.
@@ -566,6 +564,10 @@ export default function CheckoutPage() {
     }
     if (!ageConfirmed) {
       setPaymentError('Please confirm that you are 18 or older before paying.');
+      return;
+    }
+    if (euDeliveryPaused) {
+      setPaymentError('We are not able to ship to EU countries at the moment. Please contact us for a manual arrangement.');
       return;
     }
     if (isProcessing) return;
@@ -1014,6 +1016,16 @@ export default function CheckoutPage() {
                       </label>
                     </div>
                   </div>
+                </div>
+              )}
+              {euDeliveryPaused && (
+                <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-4">
+                  <p className="text-sm font-medium text-red-300">EU deliveries temporarily paused</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-300">
+                    We are finalising EU product-safety details, so orders to EU countries
+                    cannot be placed right now. Contact support if you need a manual
+                    arrangement.
+                  </p>
                 </div>
               )}
               {isEuDestination && (

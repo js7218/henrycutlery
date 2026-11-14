@@ -66,6 +66,10 @@ export default function ShippingAdminPage() {
   const [negotiationError, setNegotiationError] = useState('');
   const [tariffChanges, setTariffChanges] = useState<TariffChange[]>([]);
   const [resolvingTariffId, setResolvingTariffId] = useState('');
+  // EU shipping switch, used while GPSR responsible-person details are missing.
+  const [euPaused, setEuPaused] = useState(false);
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [policyStatus, setPolicyStatus] = useState('');
 
   const missingWeightCount = useMemo(
     () => products.filter((product) => !weights[product.id]).length,
@@ -103,6 +107,37 @@ export default function ShippingAdminPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'));
   }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/shipping/policy')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success) setEuPaused(Boolean(data.euPaused));
+      })
+      .catch(() => {
+        // The switch is optional; a failed load must not block the page.
+      });
+  }, []);
+
+  async function saveEuPaused(next: boolean) {
+    setSavingPolicy(true);
+    setPolicyStatus('');
+    try {
+      const res = await fetch('/api/admin/shipping/policy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ euPaused: next }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Save failed');
+      setEuPaused(Boolean(data.euPaused));
+      setPolicyStatus(next ? 'EU deliveries are now paused.' : 'EU deliveries are open again.');
+    } catch (err) {
+      setPolicyStatus(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSavingPolicy(false);
+    }
+  }
 
   useEffect(() => {
     fetch('/api/admin/shipping/tariff-changes')
@@ -397,6 +432,34 @@ export default function ShippingAdminPage() {
             </div>
           </section>
         )}
+
+        <section className="bg-surface border border-border rounded-lg p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-medium mb-1">EU delivery switch</h2>
+              <p className="text-xs text-gray-500 max-w-xl">
+                When paused, customers shipping to any EU country see a notice and cannot place an order.
+                Rates and tax rows are kept, so you can open EU again with one click.
+              </p>
+              {policyStatus && <p className="mt-2 text-xs text-gold">{policyStatus}</p>}
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={euPaused}
+              aria-label="Pause EU deliveries"
+              onClick={() => saveEuPaused(!euPaused)}
+              disabled={savingPolicy}
+              className={`shrink-0 px-4 py-2 rounded-lg border text-sm font-medium disabled:opacity-50 ${
+                euPaused
+                  ? 'bg-red-500/15 border-red-500/40 text-red-300'
+                  : 'bg-green-500/15 border-green-500/40 text-green-300'
+              }`}
+            >
+              {savingPolicy ? 'Saving...' : euPaused ? 'Paused — click to open' : 'Open — click to pause'}
+            </button>
+          </div>
+        </section>
 
         <section className="bg-surface border border-border rounded-lg p-5">
           <div className="flex items-start justify-between gap-4 mb-4">

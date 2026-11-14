@@ -841,6 +841,19 @@ async function runSchemaMigration(): Promise<void> {
           applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
+      // Store-wide shipping switches. Currently only the EU pause, used while
+      // GPSR responsible-person details are still being arranged.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS shipping_policy (
+          id TEXT PRIMARY KEY DEFAULT 'default',
+          eu_paused BOOLEAN NOT NULL DEFAULT FALSE,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        INSERT INTO shipping_policy (id) VALUES ('default')
+        ON CONFLICT (id) DO NOTHING;
+      `);
       // One-off: the owner lowered the negotiation ceiling from 30% to 5%.
       // Guarded by a migration row so a later manual change is never reverted.
       const migration = await db.query(

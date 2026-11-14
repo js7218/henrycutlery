@@ -9,7 +9,7 @@ export async function GET() {
   try {
     await ensureDatabaseSchema();
     const pool = getPool();
-    const [rates, weights, taxes] = await Promise.all([
+    const [rates, weights, taxes, policy] = await Promise.all([
       pool.query(
         `SELECT country_code, country_name, per_kg_usd, updated_at
          FROM shipping_rates ORDER BY country_name ASC`
@@ -19,6 +19,7 @@ export async function GET() {
         `SELECT country_code, duty_pct, vat_pct, tax_included, updated_at
          FROM country_tax_rates`
       ),
+      pool.query(`SELECT eu_paused FROM shipping_policy WHERE id = 'default'`),
     ]);
 
     const weightMap: Record<string, number> = {};
@@ -39,6 +40,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: true,
+        euPaused: Boolean(policy.rows[0]?.eu_paused),
         defaultItemWeightKg: null,
         packagingKg: null,
         settingsUpdatedAt: null,
