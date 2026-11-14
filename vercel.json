@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/new-product-campaign",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/tariff-scan",
+      "schedule": "0 5 * * 1"
     }
   ]
 }

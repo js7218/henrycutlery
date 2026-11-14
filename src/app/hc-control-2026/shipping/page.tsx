@@ -35,6 +35,16 @@ interface NegotiationLog {
   reply: string;
 }
 
+interface TariffChange {
+  id: string;
+  countryCode: string;
+  currentDutyPct: number;
+  proposedDutyPct: number;
+  sourceUrl: string;
+  note: string;
+  createdAt: string;
+}
+
 export default function ShippingAdminPage() {
   const [rates, setRates] = useState<Rate[]>([]);
   const [weights, setWeights] = useState<Record<string, string>>({});
@@ -54,6 +64,8 @@ export default function ShippingAdminPage() {
   const [savingNegotiation, setSavingNegotiation] = useState(false);
   const [negotiationStatus, setNegotiationStatus] = useState('');
   const [negotiationError, setNegotiationError] = useState('');
+  const [tariffChanges, setTariffChanges] = useState<TariffChange[]>([]);
+  const [resolvingTariffId, setResolvingTariffId] = useState('');
 
   const missingWeightCount = useMemo(
     () => products.filter((product) => !weights[product.id]).length,
@@ -90,6 +102,17 @@ export default function ShippingAdminPage() {
         setWeights(map);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/shipping/tariff-changes')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success) setTariffChanges(Array.isArray(data.changes) ? data.changes : []);
+      })
+      .catch(() => {
+        // The reminder is optional; a failed load must not block the page.
+      });
   }, []);
 
   useEffect(() => {
@@ -184,6 +207,38 @@ export default function ShippingAdminPage() {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSavingTaxes(false);
+    }
+  }
+
+  async function resolveTariff(change: TariffChange, action: 'apply' | 'dismiss') {
+    setResolvingTariffId(change.id);
+    setError('');
+    setStatus('');
+    try {
+      const res = await fetch('/api/admin/shipping/tariff-changes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: change.id, action }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Update failed');
+      setTariffChanges((prev) => prev.filter((item) => item.id !== change.id));
+      if (action === 'apply') {
+        setRates((prev) =>
+          prev.map((rate) =>
+            rate.countryCode === change.countryCode
+              ? { ...rate, dutyPct: String(change.proposedDutyPct) }
+              : rate
+          )
+        );
+        setStatus(`Duty for ${change.countryCode} updated to ${change.proposedDutyPct}%.`);
+      } else {
+        setStatus(`Change for ${change.countryCode} dismissed.`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setResolvingTariffId('');
     }
   }
 
@@ -292,6 +347,55 @@ export default function ShippingAdminPage() {
             Tariffs and de-minimis thresholds change with trade policy — review the duty/VAT columns and press
             &quot;Save tax rates&quot; to mark them as checked.
           </div>
+        )}
+
+        {tariffChanges.length > 0 && (
+          <section className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-5">
+            <h2 className="text-lg font-medium mb-1">Official tariff updates waiting for you</h2>
+            <p className="text-xs text-sky-200/80 mb-4">
+              These come from the US and UK government tariff feeds. Nothing changes for customers until you press Apply.
+            </p>
+            <div className="space-y-3">
+              {tariffChanges.map((change) => (
+                <div key={change.id} className="rounded-md bg-background/40 border border-border p-3">
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                    <span className="font-medium text-foreground">{change.countryCode}</span>
+                    <span className="text-gray-400">
+                      current {change.currentDutyPct}% → proposed{' '}
+                      <span className="text-gold font-medium">{change.proposedDutyPct}%</span>
+                    </span>
+                    <a
+                      href={change.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-gold underline"
+                    >
+                      Official source
+                    </a>
+                    <div className="ml-auto flex gap-2">
+                      <button
+                        onClick={() => resolveTariff(change, 'apply')}
+                        disabled={resolvingTariffId === change.id}
+                        className="px-3 py-1.5 bg-gold text-background rounded text-xs font-medium disabled:opacity-50"
+                      >
+                        {resolvingTariffId === change.id ? 'Working...' : 'Apply'}
+                      </button>
+                      <button
+                        onClick={() => resolveTariff(change, 'dismiss')}
+                        disabled={resolvingTariffId === change.id}
+                        className="px-3 py-1.5 border border-border rounded text-xs disabled:opacity-50"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                  {change.note && (
+                    <p className="mt-2 text-xs leading-relaxed text-gray-400">{change.note}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
         )}
 
         <section className="bg-surface border border-border rounded-lg p-5">

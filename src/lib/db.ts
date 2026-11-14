@@ -669,8 +669,26 @@ async function runSchemaMigration(): Promise<void> {
           ('CN','China',0,13), ('RU','Russia',0,20)
         ON CONFLICT (country_code) DO NOTHING;
       `);
-      // Password reset tokens. We never email plaintext passwords; the
-      // customer clicks a one-time link bound to a hashed token.
+      // Official tariff feeds (US HTS, UK Trade Tariff) are scanned weekly.
+      // Detected changes are queued here and only applied after the owner
+      // confirms, because tariff data drives what customers are told.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS tariff_scan_changes (
+          id TEXT PRIMARY KEY,
+          country_code TEXT NOT NULL,
+          current_duty_pct NUMERIC(6, 2) NOT NULL DEFAULT 0,
+          proposed_duty_pct NUMERIC(6, 2) NOT NULL DEFAULT 0,
+          source_url TEXT NOT NULL DEFAULT '',
+          note TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'pending',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          resolved_at TIMESTAMPTZ
+        );
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS tariff_scan_changes_status_idx
+        ON tariff_scan_changes (status, created_at DESC);
+      `);
       await db.query(`
         CREATE TABLE IF NOT EXISTS password_resets (
           id TEXT PRIMARY KEY,
