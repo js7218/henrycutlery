@@ -84,31 +84,43 @@ export default function MarketingConsentBanner() {
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-[80] sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-[380px]">
-      <div className="rounded-xl border border-gold/40 bg-surface shadow-2xl p-5">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        aria-hidden="true"
+        onClick={dismiss}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="marketing-title"
+        className="relative w-full max-w-[440px] rounded-xl border border-gold/40 bg-surface p-6 shadow-2xl"
+      >
         <button
           type="button"
           onClick={dismiss}
           aria-label="Close"
           className="absolute right-3 top-3 rounded-md p-1.5 text-gray-400 hover:text-foreground"
         >
-          <X className="h-4 w-4" />
+          <X className="h-5 w-5" />
         </button>
 
         {status === 'done' ? (
           <div className="pr-6">
-            <h2 className="text-base font-semibold text-foreground">You are on the list</h2>
+            <h2 id="marketing-title" className="text-lg font-semibold text-foreground">
+              You are on the list
+            </h2>
             <p className="mt-2 text-sm text-gray-300">{message}</p>
           </div>
         ) : (
           <>
-            <h2 className="pr-6 text-base font-semibold text-foreground">
+            <h2 id="marketing-title" className="pr-6 text-lg font-semibold text-foreground">
               Want to hear about new knives?
             </h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-gray-300">
+            <p className="mt-2 text-sm leading-relaxed text-gray-300">
               We email when a new product lands — nothing else, never more than once per product.
             </p>
-            <label htmlFor="marketing-email" className="mt-3 block text-sm font-medium text-foreground">
+            <label htmlFor="marketing-email" className="mt-4 block text-sm font-medium text-foreground">
               Your email
             </label>
             <input
@@ -128,29 +140,29 @@ export default function MarketingConsentBanner() {
                 if (event.key === 'Enter') void subscribe();
               }}
               placeholder="you@company.com"
-              className="mt-1 w-full rounded-lg border border-border bg-surfaceLight px-3 py-2.5 text-base text-foreground placeholder:text-gray-500 focus:border-gold focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-border bg-surfaceLight px-3 py-3 text-base text-foreground placeholder:text-gray-500 focus:border-gold focus:outline-none"
             />
             {status === 'error' && message ? (
               <p className="mt-2 text-sm text-red-400">{message}</p>
             ) : null}
-            <div className="mt-3 flex gap-2">
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
                 onClick={() => void subscribe()}
                 disabled={status === 'sending'}
-                className="min-h-[44px] flex-1 rounded-lg bg-gold px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="min-h-[46px] flex-1 rounded-lg bg-gold px-4 text-base font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 {status === 'sending' ? 'Saving…' : 'Yes, email me'}
               </button>
               <button
                 type="button"
                 onClick={dismiss}
-                className="min-h-[44px] rounded-lg border border-border px-4 text-sm text-gray-300 hover:text-foreground"
+                className="min-h-[46px] rounded-lg border border-border px-4 text-base text-gray-300 hover:text-foreground"
               >
                 Not now
               </button>
             </div>
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="mt-3 text-xs text-gray-400">
               You can unsubscribe at any time from any email.
             </p>
           </>
