@@ -19,6 +19,8 @@ export interface ShippingRate {
   perKgUsd: number;
   /** Estimated import duty %, maintained in the admin panel. */
   dutyPct?: number;
+  /** Trade-policy surcharge % on top of duty (e.g. US Section 301). */
+  extraDutyPct?: number;
   /** Estimated VAT/GST %, maintained in the admin panel. */
   vatPct?: number;
   /** True when the price already includes destination taxes (DDP). */

@@ -17,6 +17,14 @@ import NegotiationChat from '@/components/NegotiationChat';
 
 type CheckoutStep = 'confirm' | 'payment' | 'complete';
 
+// EU member states as of 2026. GPSR product-safety information is mandatory for
+// every one of them, so the checkout shows the responsible-person block here.
+const EU_COUNTRY_CODES = new Set([
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR',
+  'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK',
+  'SI', 'ES', 'SE',
+]);
+
 type ComplianceRule = {
   countryCode: string;
   countryName: string;
@@ -176,6 +184,36 @@ export default function CheckoutPage() {
   // customer must tick the acknowledgement before an affected order proceeds.
   const [complianceRule, setComplianceRule] = useState<ComplianceRule | null>(null);
   const [complianceAck, setComplianceAck] = useState(false);
+  // Knife sales to minors are illegal in several destinations, so the buyer
+  // confirms their age before payment.
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  // EU GPSR: the responsible-person details shown to EU buyers come from
+  // configuration; when they are missing we say so rather than inventing one.
+  const [euResponsible, setEuResponsible] = useState<{
+    configured: boolean;
+    name: string;
+    address: string;
+    email: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/compliance/eu-responsible')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.success) return;
+        setEuResponsible({
+          configured: Boolean(data.configured),
+          name: String(data.name || ''),
+          address: String(data.address || ''),
+          email: String(data.email || ''),
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,13 +263,18 @@ export default function CheckoutPage() {
     (rate) => rate.countryCode === (shipToCountry || shippingCountry)
   );
   const dutyPct = destinationTax?.dutyPct ?? 0;
+  // Trade-policy surcharges (US Section 301 etc.) stored separately so the base
+  // duty stays readable; both are duty for estimation purposes.
+  const extraDutyPct = destinationTax?.extraDutyPct ?? 0;
+  const totalDutyPct = dutyPct + extraDutyPct;
   const vatPct = destinationTax?.vatPct ?? 0;
   const taxIncluded = Boolean(destinationTax?.taxIncluded);
+  const isEuDestination = EU_COUNTRY_CODES.has((shipToCountry || shippingCountry || '').toUpperCase());
   // Customs normally applies duty to goods + shipping, then VAT on top of the
   // duty-inclusive amount, so the estimate mirrors that order instead of
   // adding the two percentages together.
   const taxableGoods = cartTotal + effectiveShippingFee;
-  const estimatedDuty = taxableGoods * (dutyPct / 100);
+  const estimatedDuty = taxableGoods * (totalDutyPct / 100);
   const estimatedVat = (taxableGoods + estimatedDuty) * (vatPct / 100);
   const estimatedTax = estimatedDuty + estimatedVat;
 
@@ -523,6 +566,10 @@ export default function CheckoutPage() {
   const handlePayment = async () => {
     if (!selectedAddress) {
       setPaymentError('Please select a shipping address before paying.');
+      return;
+    }
+    if (!ageConfirmed) {
+      setPaymentError('Please confirm that you are 18 or older before paying.');
       return;
     }
     if (isProcessing) return;
@@ -973,6 +1020,25 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               )}
+              {isEuDestination && (
+                <div className="mt-4 rounded-lg border border-border bg-surfaceLight p-4">
+                  <p className="text-sm font-medium text-foreground">EU product safety (GPSR)</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-400">
+                    Manufacturer: Adam Cutlery. Intended use: kitchen and general cutlery use.
+                    Keep out of reach of children.
+                  </p>
+                  {euResponsible?.configured ? (
+                    <p className="mt-1 text-xs leading-relaxed text-gray-300">
+                      EU responsible person: {euResponsible.name}, {euResponsible.address}
+                      {euResponsible.email ? `, ${euResponsible.email}` : ''}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs leading-relaxed text-gray-400">
+                      EU responsible person details are included with your order confirmation.
+                    </p>
+                  )}
+                </div>
+              )}
               {addressError && (
                 <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
                   {addressError}
@@ -1045,7 +1111,7 @@ export default function CheckoutPage() {
                     {taxIncluded
                       ? `Destination taxes for ${shipping.countryName} are included in this order.`
                       : estimatedTax > 0
-                        ? `Customs may collect this at delivery (estimate: ${dutyPct}% duty + ${vatPct}% VAT). For reference only; the final amount is set by customs.`
+                        ? `Customs may collect this at delivery (estimate: ${dutyPct}% duty${extraDutyPct > 0 ? ` + ${extraDutyPct}% trade surcharge` : ''} + ${vatPct}% VAT). For reference only; the final amount is set by customs.`
                         : 'Import duties or VAT may be collected by customs on delivery. They are not included in this total.'}
                   </p>
                   {(shipToCountry || shippingCountry) === 'US' && (
@@ -1206,6 +1272,18 @@ export default function CheckoutPage() {
                   <span>{paymentError}</span>
                 </div>
               )}
+              <label className="mb-4 flex items-start gap-2 text-xs text-gray-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ageConfirmed}
+                  onChange={(e) => setAgeConfirmed(e.target.checked)}
+                  className="mt-0.5 accent-gold"
+                />
+                <span>
+                  I confirm I am 18 or older and that I may legally buy a knife in my
+                  destination country.
+                </span>
+              </label>
               <button
                 onClick={handlePayment}
                 disabled={isProcessing}

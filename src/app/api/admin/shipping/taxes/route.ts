@@ -27,22 +27,25 @@ export async function POST(request: Request) {
       const code = typeof tax.countryCode === 'string' ? tax.countryCode.trim().toUpperCase() : '';
       const name = typeof tax.countryName === 'string' ? tax.countryName.trim().slice(0, 100) : '';
       const duty = Number(tax.dutyPct);
+      const extraDuty = Number(tax.extraDutyPct ?? 0);
       const vat = Number(tax.vatPct);
       if (!/^[A-Z]{2}$/.test(code)) continue;
       if (!Number.isFinite(duty) || duty < 0 || duty > 100) continue;
+      if (!Number.isFinite(extraDuty) || extraDuty < 0 || extraDuty > 100) continue;
       if (!Number.isFinite(vat) || vat < 0 || vat > 100) continue;
 
       await pool.query(
         `INSERT INTO country_tax_rates
-           (country_code, country_name, duty_pct, vat_pct, tax_included, updated_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())
+           (country_code, country_name, duty_pct, extra_duty_pct, vat_pct, tax_included, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
          ON CONFLICT (country_code)
          DO UPDATE SET country_name = EXCLUDED.country_name,
                        duty_pct = EXCLUDED.duty_pct,
+                       extra_duty_pct = EXCLUDED.extra_duty_pct,
                        vat_pct = EXCLUDED.vat_pct,
                        tax_included = EXCLUDED.tax_included,
                        updated_at = NOW()`,
-        [code, name || code, duty, vat, Boolean(tax.taxIncluded)]
+        [code, name || code, duty, extraDuty, vat, Boolean(tax.taxIncluded)]
       );
     }
 
