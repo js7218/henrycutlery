@@ -226,9 +226,14 @@ export default function CheckoutPage() {
   );
   const dutyPct = destinationTax?.dutyPct ?? 0;
   const vatPct = destinationTax?.vatPct ?? 0;
-  const taxRatePct = dutyPct + vatPct;
   const taxIncluded = Boolean(destinationTax?.taxIncluded);
-  const estimatedTax = taxRatePct > 0 ? (cartTotal + effectiveShippingFee) * (taxRatePct / 100) : 0;
+  // Customs normally applies duty to goods + shipping, then VAT on top of the
+  // duty-inclusive amount, so the estimate mirrors that order instead of
+  // adding the two percentages together.
+  const taxableGoods = cartTotal + effectiveShippingFee;
+  const estimatedDuty = taxableGoods * (dutyPct / 100);
+  const estimatedVat = (taxableGoods + estimatedDuty) * (vatPct / 100);
+  const estimatedTax = estimatedDuty + estimatedVat;
 
   // Load the destination's import guidance whenever the shipping country
   // changes. Failing to load it must never block checkout.
