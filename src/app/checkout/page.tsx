@@ -1048,6 +1048,11 @@ export default function CheckoutPage() {
                         ? `Customs may collect this at delivery (estimate: ${dutyPct}% duty + ${vatPct}% VAT). For reference only; the final amount is set by customs.`
                         : 'Import duties or VAT may be collected by customs on delivery. They are not included in this total.'}
                   </p>
+                  {(shipToCountry || shippingCountry) === 'US' && (
+                    <p className="mt-1 text-xs leading-relaxed text-gray-400">
+                      US knife duties can also include a per-knife charge (for example 0.8¢ each), which this estimate does not include.
+                    </p>
+                  )}
                 </div>
                 {shippingFee > 0 && !customerArrangesShipping && !shippingQuoted && (
                   <NegotiationChat
