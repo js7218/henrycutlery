@@ -637,6 +637,38 @@ async function runSchemaMigration(): Promise<void> {
         ALTER TABLE shipping_rates
         ADD COLUMN IF NOT EXISTS floor_usd_per_kg NUMERIC(12, 4);
       `);
+      // Destination import taxes shown to the customer before paying. Values
+      // are estimates maintained by the owner; they are never charged by us
+      // unless tax_included is true (DDP).
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS country_tax_rates (
+          country_code TEXT PRIMARY KEY,
+          country_name TEXT NOT NULL DEFAULT '',
+          duty_pct NUMERIC(6, 2) NOT NULL DEFAULT 0,
+          vat_pct NUMERIC(6, 2) NOT NULL DEFAULT 0,
+          tax_included BOOLEAN NOT NULL DEFAULT FALSE,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        INSERT INTO country_tax_rates (country_code, country_name, duty_pct, vat_pct)
+        VALUES
+          ('US','United States',0,0), ('CA','Canada',0,5), ('GB','United Kingdom',0,20),
+          ('DE','Germany',0,19), ('FR','France',0,20), ('IT','Italy',0,22),
+          ('ES','Spain',0,21), ('NL','Netherlands',0,21), ('BE','Belgium',0,21),
+          ('AT','Austria',0,20), ('IE','Ireland',0,23), ('SE','Sweden',0,25),
+          ('DK','Denmark',0,25), ('FI','Finland',0,24), ('PL','Poland',0,23),
+          ('PT','Portugal',0,23), ('GR','Greece',0,24), ('CH','Switzerland',0,8.1),
+          ('NO','Norway',0,25), ('JP','Japan',0,10), ('AU','Australia',0,10),
+          ('NZ','New Zealand',0,15), ('SG','Singapore',0,9), ('AE','United Arab Emirates',5,5),
+          ('SA','Saudi Arabia',0,15), ('IL','Israel',0,17), ('TR','Turkey',0,20),
+          ('MX','Mexico',0,16), ('BR','Brazil',0,17), ('ZA','South Africa',0,15),
+          ('KR','South Korea',0,10), ('IN','India',0,18), ('HK','Hong Kong',0,0),
+          ('TW','Taiwan',0,5), ('MY','Malaysia',0,6), ('TH','Thailand',0,7),
+          ('VN','Vietnam',0,10), ('ID','Indonesia',0,11), ('PH','Philippines',0,12),
+          ('CN','China',0,13), ('RU','Russia',0,20)
+        ON CONFLICT (country_code) DO NOTHING;
+      `);
       // Password reset tokens. We never email plaintext passwords; the
       // customer clicks a one-time link bound to a hashed token.
       await db.query(`

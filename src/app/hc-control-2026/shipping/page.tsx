@@ -11,6 +11,9 @@ interface Rate {
   // Kept as a string while editing so typing "0.3" does not lose the dot or
   // jump to -1 via the number input's spinner.
   perKgUsd: string;
+  dutyPct: string;
+  vatPct: string;
+  taxIncluded: boolean;
   updatedAt?: string;
 }
 
@@ -38,6 +41,7 @@ export default function ShippingAdminPage() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [savingRates, setSavingRates] = useState(false);
+  const [savingTaxes, setSavingTaxes] = useState(false);
   const [savingWeights, setSavingWeights] = useState(false);
   const [negotiation, setNegotiation] = useState<NegotiationSettingsForm>({
     enabled: true,
@@ -63,6 +67,9 @@ export default function ShippingAdminPage() {
         const loaded: Rate[] = (data.rates || []).map((rate: Rate) => ({
           ...rate,
           perKgUsd: String(rate.perKgUsd),
+          dutyPct: String(rate.dutyPct ?? 0),
+          vatPct: String(rate.vatPct ?? 0),
+          taxIncluded: Boolean(rate.taxIncluded),
         }));
         setRates(loaded);
         const map: Record<string, string> = {};
@@ -126,6 +133,46 @@ export default function ShippingAdminPage() {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSavingRates(false);
+    }
+  }
+
+  async function saveTaxes() {
+    setSavingTaxes(true);
+    setError('');
+    setStatus('');
+    try {
+      const invalid = rates.find((rate) => {
+        const duty = Number(rate.dutyPct);
+        const vat = Number(rate.vatPct);
+        return (
+          !Number.isFinite(duty) || duty < 0 || duty > 100 ||
+          !Number.isFinite(vat) || vat < 0 || vat > 100
+        );
+      });
+      if (invalid) {
+        setError(`Enter duty/VAT percentages between 0 and 100 for ${invalid.countryName || invalid.countryCode}.`);
+        return;
+      }
+      const res = await fetch('/api/admin/shipping/taxes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taxes: rates.map((rate) => ({
+            countryCode: rate.countryCode,
+            countryName: rate.countryName,
+            dutyPct: Number(rate.dutyPct),
+            vatPct: Number(rate.vatPct),
+            taxIncluded: rate.taxIncluded,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Save failed');
+      setStatus('Import tax estimate saved. Checkout will show it immediately.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSavingTaxes(false);
     }
   }
 
@@ -231,19 +278,29 @@ export default function ShippingAdminPage() {
         <section className="bg-surface border border-border rounded-lg p-5">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <h2 className="text-lg font-medium mb-1">Per-kg rates (USD)</h2>
+              <h2 className="text-lg font-medium mb-1">Per-kg rates &amp; import tax (USD)</h2>
               <p className="text-xs text-gray-500">
                 Shipping is calculated from each item&apos;s own weight (default 0.4 kg when blank).
                 Type any decimal, e.g. 0.3, 1 or 0.25.
+                Duty/VAT are estimates shown at checkout; only tick &quot;Included&quot; if you pay the tax for that country (DDP).
               </p>
             </div>
-            <button
-              onClick={saveRates}
-              disabled={savingRates}
-              className="px-4 py-2 bg-gold text-background rounded text-sm font-medium disabled:opacity-50 whitespace-nowrap"
-            >
-              {savingRates ? 'Saving...' : 'Save rates'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={saveTaxes}
+                disabled={savingTaxes}
+                className="px-4 py-2 border border-gold text-gold rounded text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+              >
+                {savingTaxes ? 'Saving...' : 'Save tax rates'}
+              </button>
+              <button
+                onClick={saveRates}
+                disabled={savingRates}
+                className="px-4 py-2 bg-gold text-background rounded text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+              >
+                {savingRates ? 'Saving...' : 'Save rates'}
+              </button>
+            </div>
           </div>
           <div className="max-h-[420px] overflow-auto">
             <table className="w-full text-sm">
@@ -252,6 +309,9 @@ export default function ShippingAdminPage() {
                   <th className="text-left py-2">Country</th>
                   <th className="text-left py-2">Code</th>
                   <th className="text-left py-2">USD / kg</th>
+                  <th className="text-left py-2">Duty %</th>
+                  <th className="text-left py-2">VAT %</th>
+                  <th className="text-left py-2">Included</th>
                   <th className="text-left py-2">Updated</th>
                 </tr>
               </thead>
@@ -270,6 +330,42 @@ export default function ShippingAdminPage() {
                           setRates((prev) => prev.map((item, i) => i === index ? { ...item, perKgUsd: value } : item));
                         }}
                         className="w-24 bg-background border border-border rounded px-2 py-1"
+                      />
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={rate.dutyPct}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setRates((prev) => prev.map((item, i) => i === index ? { ...item, dutyPct: value } : item));
+                        }}
+                        className="w-16 bg-background border border-border rounded px-2 py-1"
+                      />
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={rate.vatPct}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setRates((prev) => prev.map((item, i) => i === index ? { ...item, vatPct: value } : item));
+                        }}
+                        className="w-16 bg-background border border-border rounded px-2 py-1"
+                      />
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={rate.taxIncluded}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setRates((prev) => prev.map((item, i) => i === index ? { ...item, taxIncluded: checked } : item));
+                        }}
+                        className="h-4 w-4 accent-[#c9a962]"
+                        aria-label={`Tax included for ${rate.countryName}`}
                       />
                     </td>
                     <td className="py-1.5 text-gray-500">

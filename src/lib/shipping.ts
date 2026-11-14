@@ -17,6 +17,12 @@ export interface ShippingRate {
   countryCode: string;
   countryName: string;
   perKgUsd: number;
+  /** Estimated import duty %, maintained in the admin panel. */
+  dutyPct?: number;
+  /** Estimated VAT/GST %, maintained in the admin panel. */
+  vatPct?: number;
+  /** True when the price already includes destination taxes (DDP). */
+  taxIncluded?: boolean;
 }
 
 // International dialing code -> ISO country code + display name.

@@ -9,17 +9,30 @@ export async function GET() {
   try {
     await ensureDatabaseSchema();
     const pool = getPool();
-    const [rates, weights] = await Promise.all([
+    const [rates, weights, taxes] = await Promise.all([
       pool.query(
         `SELECT country_code, country_name, per_kg_usd, updated_at
          FROM shipping_rates ORDER BY country_name ASC`
       ),
       pool.query(`SELECT product_id, weight_kg FROM product_weights`),
+      pool.query(
+        `SELECT country_code, duty_pct, vat_pct, tax_included
+         FROM country_tax_rates`
+      ),
     ]);
 
     const weightMap: Record<string, number> = {};
     for (const row of weights.rows) {
       weightMap[row.product_id] = Number(row.weight_kg);
+    }
+
+    const taxMap: Record<string, { dutyPct: number; vatPct: number; taxIncluded: boolean }> = {};
+    for (const row of taxes.rows) {
+      taxMap[row.country_code] = {
+        dutyPct: Number(row.duty_pct),
+        vatPct: Number(row.vat_pct),
+        taxIncluded: Boolean(row.tax_included),
+      };
     }
 
     return NextResponse.json(
@@ -33,6 +46,9 @@ export async function GET() {
           countryName: row.country_name,
           perKgUsd: Number(row.per_kg_usd),
           updatedAt: row.updated_at,
+          dutyPct: taxMap[row.country_code]?.dutyPct ?? 0,
+          vatPct: taxMap[row.country_code]?.vatPct ?? 0,
+          taxIncluded: taxMap[row.country_code]?.taxIncluded ?? false,
         })),
         weights: weightMap,
       },

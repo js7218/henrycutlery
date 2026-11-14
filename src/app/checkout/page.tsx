@@ -219,6 +219,17 @@ export default function CheckoutPage() {
   const totalAmount = cartTotal + effectiveShippingFee;
   const shippingCountry = shipping.countryCode;
 
+  // Estimated destination import taxes. Purely advisory: customs collects them
+  // on delivery (DDU), so they are never added to the total we charge.
+  const destinationTax = shippingConfig.rates.find(
+    (rate) => rate.countryCode === (shipToCountry || shippingCountry)
+  );
+  const dutyPct = destinationTax?.dutyPct ?? 0;
+  const vatPct = destinationTax?.vatPct ?? 0;
+  const taxRatePct = dutyPct + vatPct;
+  const taxIncluded = Boolean(destinationTax?.taxIncluded);
+  const estimatedTax = taxRatePct > 0 ? (cartTotal + effectiveShippingFee) * (taxRatePct / 100) : 0;
+
   // Load the destination's import guidance whenever the shipping country
   // changes. Failing to load it must never block checkout.
   useEffect(() => {
@@ -1018,6 +1029,21 @@ export default function CheckoutPage() {
                     : `${shipping.kg} kg at ${formatPrice(shipping.perKgUsd)}/kg to ${shipping.countryName}.`}
                   {customerArrangesShipping ? ' Shipping excluded — you arrange your own carrier.' : ' Final shipping is confirmed by email.'}
                 </p>
+                <div className="rounded-md border border-border bg-background/40 p-3">
+                  <div className="flex items-center justify-between text-sm text-gray-300">
+                    <span>Import duties &amp; VAT</span>
+                    <span className="text-gold">
+                      {taxIncluded ? 'Included' : estimatedTax > 0 ? `~ ${formatPrice(estimatedTax)}` : 'Not included'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-400">
+                    {taxIncluded
+                      ? `Destination taxes for ${shipping.countryName} are included in this order.`
+                      : estimatedTax > 0
+                        ? `Customs may collect this at delivery (estimate: ${dutyPct}% duty + ${vatPct}% VAT). For reference only; the final amount is set by customs.`
+                        : 'Import duties or VAT may be collected by customs on delivery. They are not included in this total.'}
+                  </p>
+                </div>
                 {shippingFee > 0 && !customerArrangesShipping && !shippingQuoted && (
                   <NegotiationChat
                     items={state.cart.map((item) => ({
