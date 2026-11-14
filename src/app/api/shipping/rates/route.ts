@@ -16,7 +16,7 @@ export async function GET() {
       ),
       pool.query(`SELECT product_id, weight_kg FROM product_weights`),
       pool.query(
-        `SELECT country_code, duty_pct, extra_duty_pct, vat_pct, tax_included, updated_at
+        `SELECT country_code, duty_pct, vat_pct, tax_included, updated_at
          FROM country_tax_rates`
       ),
     ]);
@@ -26,11 +26,10 @@ export async function GET() {
       weightMap[row.product_id] = Number(row.weight_kg);
     }
 
-    const taxMap: Record<string, { dutyPct: number; extraDutyPct: number; vatPct: number; taxIncluded: boolean; updatedAt: string }> = {};
+    const taxMap: Record<string, { dutyPct: number; vatPct: number; taxIncluded: boolean; updatedAt: string }> = {};
     for (const row of taxes.rows) {
       taxMap[row.country_code] = {
         dutyPct: Number(row.duty_pct),
-        extraDutyPct: Number(row.extra_duty_pct ?? 0),
         vatPct: Number(row.vat_pct),
         taxIncluded: Boolean(row.tax_included),
         updatedAt: row.updated_at,
@@ -49,7 +48,6 @@ export async function GET() {
           perKgUsd: Number(row.per_kg_usd),
           updatedAt: row.updated_at,
           dutyPct: taxMap[row.country_code]?.dutyPct ?? 0,
-          extraDutyPct: taxMap[row.country_code]?.extraDutyPct ?? 0,
           vatPct: taxMap[row.country_code]?.vatPct ?? 0,
           taxIncluded: taxMap[row.country_code]?.taxIncluded ?? false,
           taxUpdatedAt: taxMap[row.country_code]?.updatedAt ?? null,

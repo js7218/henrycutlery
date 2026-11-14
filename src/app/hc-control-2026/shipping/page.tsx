@@ -12,7 +12,6 @@ interface Rate {
   // jump to -1 via the number input's spinner.
   perKgUsd: string;
   dutyPct: string;
-  extraDutyPct: string;
   vatPct: string;
   taxIncluded: boolean;
   taxUpdatedAt?: string;
@@ -92,7 +91,6 @@ export default function ShippingAdminPage() {
           ...rate,
           perKgUsd: String(rate.perKgUsd),
           dutyPct: String(rate.dutyPct ?? 0),
-          extraDutyPct: String(rate.extraDutyPct ?? 0),
           vatPct: String(rate.vatPct ?? 0),
           taxIncluded: Boolean(rate.taxIncluded),
         }));
@@ -179,11 +177,9 @@ export default function ShippingAdminPage() {
     try {
       const invalid = rates.find((rate) => {
         const duty = Number(rate.dutyPct);
-        const extraDuty = Number(rate.extraDutyPct);
         const vat = Number(rate.vatPct);
         return (
           !Number.isFinite(duty) || duty < 0 || duty > 100 ||
-          !Number.isFinite(extraDuty) || extraDuty < 0 || extraDuty > 100 ||
           !Number.isFinite(vat) || vat < 0 || vat > 100
         );
       });
@@ -199,7 +195,6 @@ export default function ShippingAdminPage() {
             countryCode: rate.countryCode,
             countryName: rate.countryName,
             dutyPct: Number(rate.dutyPct),
-            extraDutyPct: Number(rate.extraDutyPct),
             vatPct: Number(rate.vatPct),
             taxIncluded: rate.taxIncluded,
           })),
@@ -438,7 +433,6 @@ export default function ShippingAdminPage() {
                   <th className="text-left py-2">Code</th>
                   <th className="text-left py-2">USD / kg</th>
                   <th className="text-left py-2">Duty %</th>
-                  <th className="text-left py-2">Extra %</th>
                   <th className="text-left py-2">VAT %</th>
                   <th className="text-left py-2">Included</th>
                   <th className="text-left py-2">Updated</th>
@@ -471,19 +465,6 @@ export default function ShippingAdminPage() {
                           setRates((prev) => prev.map((item, i) => i === index ? { ...item, dutyPct: value } : item));
                         }}
                         className="w-16 bg-background border border-border rounded px-2 py-1"
-                      />
-                    </td>
-                    <td className="py-1.5 pr-3">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={rate.extraDutyPct}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setRates((prev) => prev.map((item, i) => i === index ? { ...item, extraDutyPct: value } : item));
-                        }}
-                        className="w-16 bg-background border border-border rounded px-2 py-1"
-                        aria-label={`Extra duty percentage for ${rate.countryName}`}
                       />
                     </td>
                     <td className="py-1.5 pr-3">

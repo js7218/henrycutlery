@@ -263,10 +263,6 @@ export default function CheckoutPage() {
     (rate) => rate.countryCode === (shipToCountry || shippingCountry)
   );
   const dutyPct = destinationTax?.dutyPct ?? 0;
-  // Trade-policy surcharges (US Section 301 etc.) stored separately so the base
-  // duty stays readable; both are duty for estimation purposes.
-  const extraDutyPct = destinationTax?.extraDutyPct ?? 0;
-  const totalDutyPct = dutyPct + extraDutyPct;
   const vatPct = destinationTax?.vatPct ?? 0;
   const taxIncluded = Boolean(destinationTax?.taxIncluded);
   const isEuDestination = EU_COUNTRY_CODES.has((shipToCountry || shippingCountry || '').toUpperCase());
@@ -274,7 +270,7 @@ export default function CheckoutPage() {
   // duty-inclusive amount, so the estimate mirrors that order instead of
   // adding the two percentages together.
   const taxableGoods = cartTotal + effectiveShippingFee;
-  const estimatedDuty = taxableGoods * (totalDutyPct / 100);
+  const estimatedDuty = taxableGoods * (dutyPct / 100);
   const estimatedVat = (taxableGoods + estimatedDuty) * (vatPct / 100);
   const estimatedTax = estimatedDuty + estimatedVat;
 
@@ -1111,7 +1107,7 @@ export default function CheckoutPage() {
                     {taxIncluded
                       ? `Destination taxes for ${shipping.countryName} are included in this order.`
                       : estimatedTax > 0
-                        ? `Customs may collect this at delivery (estimate: ${dutyPct}% duty${extraDutyPct > 0 ? ` + ${extraDutyPct}% trade surcharge` : ''} + ${vatPct}% VAT). For reference only; the final amount is set by customs.`
+                        ? `Customs may collect this at delivery (estimate: ${dutyPct}% duty + ${vatPct}% VAT). For reference only; the final amount is set by customs.`
                         : 'Import duties or VAT may be collected by customs on delivery. They are not included in this total.'}
                   </p>
                   {(shipToCountry || shippingCountry) === 'US' && (

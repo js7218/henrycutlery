@@ -696,12 +696,6 @@ async function runSchemaMigration(): Promise<void> {
         ALTER TABLE country_tax_rates
         ADD COLUMN IF NOT EXISTS duty_checked_at TIMESTAMPTZ;
       `);
-      // Trade-policy surcharges (e.g. US Section 301) are kept separate from the
-      // base duty so the owner can zero one without losing the other.
-      await db.query(`
-        ALTER TABLE country_tax_rates
-        ADD COLUMN IF NOT EXISTS extra_duty_pct NUMERIC(6, 2) NOT NULL DEFAULT 0;
-      `);
       await db.query(`
         CREATE TABLE IF NOT EXISTS password_resets (
           id TEXT PRIMARY KEY,
