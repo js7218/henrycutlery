@@ -119,6 +119,27 @@ const SECTIONS: Section[] = [
     warn: '市场公开价通常不含你的头程、清关和人工，不要直接把所有国家套成市场价，会亏运费。',
   },
   {
+    id: 'tariff',
+    title: 'Tariff 关税与税费',
+    subtitle: '客户收货时可能被海关收的钱',
+    what: '客户付给你的是「货款 + 运费」，但货到他们国家时，海关可能再收一笔进口关税和增值税（VAT/GST）。这笔钱不进你的账户，是客户直接交给海关的。这里填的就是各国的税率，结账页会据此给客户一个估算，避免他觉得被坑。',
+    steps: [
+      '进 Shipping 页面，右侧三列：Duty % 是关税，VAT % 是增值税，Included 勾上表示你包税（客户不再付）。',
+      '改完点 Save tax rates，不要点上面那个 Save rates（那是存运费的）。',
+      '系统每天自动查美国、英国的官方税率，另外每天抽查 6 个国家（约 9 天轮完 52 国）。',
+      '查到不一样时，页面顶部会出现蓝色区块「Official tariff updates waiting for you」，点开官方链接核对后再点 Apply。',
+      '如果这条是错的、或者不适用于你的货，点 Dismiss 忽略，不会改任何数字。',
+      '某个国家超过 90 天没复核，会出现橙色提醒条，提醒你该重新看一眼。',
+    ],
+    tips: [
+      '只有美国和英国是直接读政府数据库，最准；其他国家是 AI 找官方页面后给你建议，必须你点 Apply 才生效。',
+      '美国刀具是复合税，官方写法类似「4.6% + 每把 0.8 美分」，网站只估算百分比部分，结账页已单独提示客户。',
+      '税费估算永远只是参考，最终金额由海关决定，所以页面上写的是「仅供参考」。',
+      '客户选了 Included 的国家，你收到的钱里没有这笔税，等于你自己承担，定价时要算进去。',
+    ],
+    warn: '别把 VAT 填进 Duty（关税）那一列。两列填反，客户看到的估算会差一倍，投诉会直接找上你。',
+  },
+  {
     id: 'samples',
     title: 'Samples 样品',
     subtitle: '客户申请样品',
@@ -183,8 +204,9 @@ const SECTIONS: Section[] = [
     what: '把上面所有模块串成一条固定的日常流程。',
     steps: [
       '每天早：Dashboard 看数字 → Inquiries 回新询价 → Customers 看新订单 → Samples 联系新申请。',
+      '每天早顺手看一眼 Shipping 顶部：有蓝色「关税待审」就点开链接核对，没有就跳过。',
       '每天晚：Reconciliation 录当天到账 → Inventory 核对缺货产品。',
-      '每周一：Rate Monitor 看漂移，确认要不要调价；Compliance 看 Recent changes 有没有待确认的放宽。',
+      '每周一：Rate Monitor 看漂移，确认要不要调价；Compliance 看 Recent changes 有没有待确认的放宽；Shipping 看橙色「90 天未复核」提醒。',
       '每月初：Reconciliation 导出上月汇总，核对银行流水总额。',
     ],
   },
